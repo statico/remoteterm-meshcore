@@ -1,7 +1,7 @@
 import type { HealthStatus } from '../../types';
 import { Separator } from '../ui/separator';
 
-const GITHUB_URL = 'https://github.com/jkingsman/Remote-Terminal-for-MeshCore';
+const GITHUB_URL = 'https://github.com/statico/remoteterm-meshcore';
 
 export function SettingsAboutSection({
   health,

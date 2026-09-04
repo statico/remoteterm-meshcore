@@ -1091,14 +1091,14 @@ function MqttHaConfigEditor({
             className="underline cursor-pointer hover:text-primary transition-colors"
             onClick={() =>
               window.open(
-                'https://github.com/jkingsman/Remote-Terminal-for-MeshCore/blob/main/README_HA.md',
+                'https://github.com/statico/remoteterm-meshcore/blob/main/README_HA.md',
                 '_blank'
               )
             }
             onKeyDown={(e) => {
               if (e.key === 'Enter')
                 window.open(
-                  'https://github.com/jkingsman/Remote-Terminal-for-MeshCore/blob/main/README_HA.md',
+                  'https://github.com/statico/remoteterm-meshcore/blob/main/README_HA.md',
                   '_blank'
                 );
             }}

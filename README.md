@@ -1,7 +1,15 @@
 # RemoteTerm for MeshCore
 
+[![All Quality](https://github.com/statico/remoteterm-meshcore/actions/workflows/all-quality.yml/badge.svg)](https://github.com/statico/remoteterm-meshcore/actions/workflows/all-quality.yml)
+[![Docker](https://github.com/statico/remoteterm-meshcore/actions/workflows/docker.yml/badge.svg)](https://github.com/statico/remoteterm-meshcore/actions/workflows/docker.yml)
+[![CodeQL](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml/badge.svg)](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/statico/remoteterm-meshcore?logo=github)](https://github.com/statico/remoteterm-meshcore/releases)
+[![Container](https://img.shields.io/badge/ghcr.io-statico%2Fremoteterm--meshcore-blue?logo=docker)](https://github.com/statico/remoteterm-meshcore/pkgs/container/remoteterm-meshcore)
+[![AUR](https://img.shields.io/aur/version/remoteterm-meshcore?logo=archlinux)](https://aur.archlinux.org/packages/remoteterm-meshcore)
+[![License](https://img.shields.io/github/license/statico/remoteterm-meshcore)](LICENSE.md)
+
 > [!NOTE]
-> I've forked the original https://github.com/jkingsman/Remote-Terminal-for-MeshCore to fix issues per the author's [development pause](https://github.com/jkingsman/Remote-Terminal-for-MeshCore/issues/343). Hopefully this fork will fold back into upstream at a later date.
+> This is a fork of [jkingsman/Remote-Terminal-for-MeshCore](https://github.com/jkingsman/Remote-Terminal-for-MeshCore), continued while the original author is on a [development pause](https://github.com/jkingsman/Remote-Terminal-for-MeshCore/issues/343). Hopefully this fork folds back into upstream later.
 
 Backend server + browser interface for MeshCore mesh radio networks, providing a rich, web-based power-user management and messaging system through a companion radio.
 
@@ -74,8 +82,8 @@ usbipd attach --wsl --busid 3-8
 **This approach is recommended over Docker due to intermittent serial communications issues I've seen on \*nix systems.**
 
 ```bash
-git clone https://github.com/jkingsman/Remote-Terminal-for-MeshCore.git
-cd Remote-Terminal-for-MeshCore
+git clone https://github.com/statico/remoteterm-meshcore.git
+cd remoteterm-meshcore
 
 uv sync
 cd frontend && npm install && npm run build && cd ..
@@ -144,10 +152,10 @@ sudo docker compose up -d
 
 > If you switched to a local build (`build: .` instead of `image:`), use `sudo docker compose up -d --build` instead — `pull` only fetches remote images.
 
-The example file and setup script default to the published Docker Hub image. To build locally from your checkout instead, replace:
+The example file and setup script default to the published GHCR image. To build locally from your checkout instead, replace:
 
 ```yaml
-image: docker.io/jkingsman/remoteterm-meshcore:latest
+image: ghcr.io/statico/remoteterm-meshcore:latest
 ```
 
 with:

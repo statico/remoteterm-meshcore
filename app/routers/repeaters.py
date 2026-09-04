@@ -116,7 +116,7 @@ async def repeater_status(public_key: str) -> RepeaterStatusResponse:
                 logger.debug("LPP sensor fetch failed for %s (non-fatal): %s", public_key[:12], e)
 
     if status is None:
-        raise HTTPException(status_code=408, detail="No status response from repeater")
+        raise HTTPException(status_code=422, detail="No status response from repeater")
 
     response = RepeaterStatusResponse(
         battery_volts=status.get("bat", 0) / 1000.0,
@@ -225,7 +225,7 @@ async def repeater_lpp_telemetry(public_key: str) -> RepeaterLppTelemetryRespons
         )
 
     if telemetry is None:
-        raise HTTPException(status_code=408, detail="No telemetry response from repeater")
+        raise HTTPException(status_code=422, detail="No telemetry response from repeater")
 
     sensors: list[LppSensor] = []
     for entry in telemetry:

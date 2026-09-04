@@ -465,7 +465,7 @@ async def request_trace(public_key: str) -> TraceResponse:
         )
 
     if event is None:
-        raise HTTPException(status_code=408, detail="No trace response heard")
+        raise HTTPException(status_code=422, detail="No trace response heard")
 
     trace = event.payload
     path = trace.get("path", [])
@@ -521,7 +521,7 @@ async def request_path_discovery(public_key: str) -> PathDiscoveryResponse:
                 await response_task
 
         if event is None:
-            raise HTTPException(status_code=408, detail="No path discovery response heard")
+            raise HTTPException(status_code=422, detail="No path discovery response heard")
 
         payload = event.payload
         forward_path = str(payload.get("out_path") or "")

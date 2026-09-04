@@ -47,6 +47,18 @@ import type {
 
 const API_BASE = './api';
 
+/** Error thrown by API calls, carrying the HTTP status so callers can tell
+ * retryable failures from ones the mesh already answered (e.g. 422 timeouts). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const hasBody = options?.body !== undefined;
   const res = await fetch(`${API_BASE}${url}`, {
@@ -68,7 +80,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     } catch {
       // Not JSON, use raw text
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, res.status);
   }
   return res.json();
 }

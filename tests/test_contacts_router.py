@@ -317,7 +317,7 @@ class TestPathDiscovery:
         mock_broadcast.assert_called_once_with("contact", updated.model_dump())
 
     @pytest.mark.asyncio
-    async def test_returns_408_when_no_response_is_heard(self, test_db, client):
+    async def test_returns_422_when_no_response_is_heard(self, test_db, client):
         await _insert_contact(KEY_A, "Alice", type=1)
         mc = MagicMock()
         mc.commands = MagicMock()
@@ -332,7 +332,7 @@ class TestPathDiscovery:
             mock_rm.radio_operation = _noop_radio_operation(mc)
             response = await client.post(f"/api/contacts/{KEY_A}/path-discovery")
 
-        assert response.status_code == 408
+        assert response.status_code == 422
         assert "No path discovery response heard" in response.json()["detail"]
 
 

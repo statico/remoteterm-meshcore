@@ -630,7 +630,7 @@ class TestTraceRoute:
         )
 
     @pytest.mark.asyncio
-    async def test_wait_timeout_returns_408(self, test_db):
+    async def test_wait_timeout_returns_422(self, test_db):
         mc = _mock_mc()
         await _insert_contact(KEY_A, name="Client", contact_type=1)
         mc.commands.send_trace = AsyncMock(return_value=_radio_result(EventType.OK))
@@ -644,7 +644,7 @@ class TestTraceRoute:
             with pytest.raises(HTTPException) as exc:
                 await request_trace(KEY_A)
 
-        assert exc.value.status_code == 408
+        assert exc.value.status_code == 422
         mc.commands.send_trace.assert_awaited_once_with(
             path=KEY_A[:8],
             tag=1234,
@@ -1021,7 +1021,7 @@ class TestRepeaterStatus:
         assert response.recv_errors == 42
 
     @pytest.mark.asyncio
-    async def test_408_on_timeout(self, test_db):
+    async def test_422_on_timeout(self, test_db):
         mc = _mock_mc()
         await _insert_contact(KEY_A, name="Repeater", contact_type=2)
         mc.commands.req_status_sync = AsyncMock(return_value=None)
@@ -1032,7 +1032,7 @@ class TestRepeaterStatus:
         ):
             with pytest.raises(HTTPException) as exc:
                 await repeater_status(KEY_A)
-        assert exc.value.status_code == 408
+        assert exc.value.status_code == 422
 
     @pytest.mark.asyncio
     async def test_400_not_repeater(self, test_db):
@@ -1095,7 +1095,7 @@ class TestRepeaterLppTelemetry:
         assert response.sensors == []
 
     @pytest.mark.asyncio
-    async def test_408_on_timeout(self, test_db):
+    async def test_422_on_timeout(self, test_db):
         mc = _mock_mc()
         await _insert_contact(KEY_A, name="Repeater", contact_type=2)
         mc.commands.req_telemetry_sync = AsyncMock(return_value=None)
@@ -1106,7 +1106,7 @@ class TestRepeaterLppTelemetry:
         ):
             with pytest.raises(HTTPException) as exc:
                 await repeater_lpp_telemetry(KEY_A)
-        assert exc.value.status_code == 408
+        assert exc.value.status_code == 422
 
     @pytest.mark.asyncio
     async def test_400_not_repeater(self, test_db):

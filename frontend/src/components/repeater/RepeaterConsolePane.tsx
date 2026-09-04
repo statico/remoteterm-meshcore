@@ -72,6 +72,11 @@ export function ConsolePane({
           ref={inputRef}
           type="text"
           autoComplete="off"
+          // Repeater CLI commands are case-sensitive, so mobile keyboards must
+          // not helpfully capitalise or correct them.
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           name="console-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}

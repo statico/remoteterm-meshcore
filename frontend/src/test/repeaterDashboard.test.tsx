@@ -586,6 +586,17 @@ describe('RepeaterDashboard', () => {
     expect(screen.getByText('Type a CLI command below...')).toBeInTheDocument();
   });
 
+  it('console input does not autocapitalise or autocorrect', () => {
+    mockHook.loggedIn = true;
+
+    render(<RepeaterDashboard {...defaultProps} />);
+
+    const input = screen.getByLabelText('Console command');
+    expect(input).toHaveAttribute('autocapitalize', 'none');
+    expect(input).toHaveAttribute('autocorrect', 'off');
+    expect(input).toHaveAttribute('spellcheck', 'false');
+  });
+
   describe('path type display and reset', () => {
     it('shows flood when direct_path_len is -1', () => {
       render(<RepeaterDashboard {...defaultProps} />);

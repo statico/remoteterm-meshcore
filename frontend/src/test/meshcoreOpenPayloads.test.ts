@@ -9,6 +9,7 @@ import {
   REACTION_EMOJIS,
   giphyUrlForId,
   parseGif,
+  parseMeshCoreOneReaction,
   parseReaction,
   splitReplyMention,
 } from '../utils/meshcoreOpenPayloads';
@@ -116,5 +117,46 @@ describe('splitReplyMention', () => {
     expect(splitReplyMention('hello world')).toBeNull();
     expect(splitReplyMention('@[Alice]')).toBeNull(); // mention only, no body
     expect(splitReplyMention('text @[Alice] g:abc')).toBeNull(); // not a leading mention
+  });
+});
+
+describe('parseMeshCoreOneReaction', () => {
+  it('parses a channel reaction "{emoji}@[sender]\\n{hash}" (issue #354)', () => {
+    expect(parseMeshCoreOneReaction('\u{1F44D}@[AlphaNode]\nb45pc4ek')).toEqual({
+      emoji: '\u{1F44D}',
+      targetHash: 'b45pc4ek',
+      targetSender: 'AlphaNode',
+    });
+  });
+
+  it('parses a DM reaction with no target sender', () => {
+    expect(parseMeshCoreOneReaction('\u{1F44D}\nb45pc4ek')).toEqual({
+      emoji: '\u{1F44D}',
+      targetHash: 'b45pc4ek',
+    });
+  });
+
+  it('parses the newer "@[sender]{emoji}" ordering', () => {
+    expect(parseMeshCoreOneReaction('@[Node One]\u{1F92F}\ntpmh79ve')).toEqual({
+      emoji: '\u{1F92F}',
+      targetHash: 'tpmh79ve',
+      targetSender: 'Node One',
+    });
+  });
+
+  it('keeps emoji modifiers (variation selector, ZWJ, skin tone)', () => {
+    expect(parseMeshCoreOneReaction('\u2764\ufe0f@[Bob]\nb45pc4ek')?.emoji).toBe('\u2764\ufe0f');
+    expect(parseMeshCoreOneReaction('\u{1F44D}\u{1F3FD}\nb45pc4ek')?.emoji).toBe(
+      '\u{1F44D}\u{1F3FD}'
+    );
+  });
+
+  it('rejects non-reaction text', () => {
+    expect(parseMeshCoreOneReaction('hello\nworld123')).toBeNull(); // no emoji
+    expect(parseMeshCoreOneReaction('\u{1F44D}\nb45pc4e')).toBeNull(); // hash too short
+    expect(parseMeshCoreOneReaction('\u{1F44D}\nb45pc4eu')).toBeNull(); // "u" not Crockford
+    expect(parseMeshCoreOneReaction('\u{1F44D} b45pc4ek')).toBeNull(); // single line
+    expect(parseMeshCoreOneReaction('\u{1F44D}@[Bob]\nb45pc4ek\nmore')).toBeNull();
+    expect(parseMeshCoreOneReaction('r:1a2b:00')).toBeNull();
   });
 });

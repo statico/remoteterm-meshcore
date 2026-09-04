@@ -93,8 +93,10 @@ const REACTION_PATTERN = /^r:([0-9a-f]{4}):([0-9a-f]{2})$/;
 export interface ParsedReaction {
   /** The decoded reaction emoji. */
   emoji: string;
-  /** 4-hex hash identifying the target message (not resolved here). */
+  /** Hash identifying the target message (not resolved here). */
   targetHash: string;
+  /** Name of the target message's sender, when the payload carries one. */
+  targetSender?: string;
 }
 
 /**
@@ -110,6 +112,49 @@ export function parseReaction(text: string): ParsedReaction | null {
     return null;
   }
   return { emoji: REACTION_EMOJIS[index], targetHash: match[1] };
+}
+
+// --- MeshCore One reaction ({emoji}@[{sender}]\n{hash}) ---
+
+// MeshCore One (github.com/Avi0n/MeshCoreOne, docs/Reactions.md) speaks a
+// different reaction dialect that meshcore-open users see too, and which
+// otherwise renders as an emoji followed by a junk token (issue #354):
+//
+//   channel: {emoji}@[{targetSenderName}]\n{hash}
+//   DM:      {emoji}\n{hash}
+//
+// A newer MC1 build swaps the first line to "@[{targetSenderName}]{emoji}", so
+// both orders are accepted. <hash> is 8 Crockford Base32 chars (SHA-256 of the
+// target text + its sender timestamp, first 5 bytes) — like the meshcore-open
+// hash it is not resolved back to the target message here. There is no wire
+// representation for removing a reaction.
+
+// Crockford Base32 is case-insensitive and normalizes I/L -> 1 and O -> 0, so
+// every letter but U can appear in a received hash.
+const MC1_HASH_PATTERN = /^[0-9a-tv-z]{8}$/i;
+
+// The first line is the emoji plus, on a channel reaction, the target's name in
+// either order. MC1 only checks that the emoji segment is non-empty and starts
+// with an emoji, so match it loosely and test the first character.
+const MC1_HEAD_PATTERN = /^(?:([^@[\]]+)(?:@\[([^\]]+)\])?|@\[([^\]]+)\](.+))$/;
+const EMOJI_START = /^\p{Extended_Pictographic}/u;
+
+/**
+ * Parse a MeshCore One reaction payload. Returns the emoji, the (unresolved)
+ * target-message hash and, for channel reactions, the target sender's name;
+ * null when the text is not a MeshCore One reaction.
+ */
+export function parseMeshCoreOneReaction(text: string): ParsedReaction | null {
+  const lines = text.trim().split('\n');
+  if (lines.length !== 2) return null;
+  const hash = lines[1].trim();
+  if (!MC1_HASH_PATTERN.test(hash)) return null;
+  const head = MC1_HEAD_PATTERN.exec(lines[0].trim());
+  if (!head) return null;
+  const emoji = (head[1] ?? head[4]).trim();
+  if (!EMOJI_START.test(emoji)) return null;
+  const targetSender = head[2] ?? head[3];
+  return targetSender ? { emoji, targetHash: hash, targetSender } : { emoji, targetHash: hash };
 }
 
 // --- Reply-mention prefix (@[senderName] <payload>) ---

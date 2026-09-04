@@ -14,10 +14,11 @@ on:
 
 concurrency:
   group: docker-${{ github.ref }}
-  # Superseding a branch build is fine, but a release image build must finish:
-  # the Release workflow publishes the release from the same tag, and letting
-  # that cancel this one leaves the version with no image.
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  # Only supersede PR builds. A tag build must finish or the release ships with
+  # no image, and cancelling main builds made the README's Docker badge read
+  # "failing" whenever two commits landed close together: the badge reports the
+  # last run on the default branch, and a cancelled run renders as a failure.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}

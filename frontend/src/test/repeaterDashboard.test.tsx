@@ -597,6 +597,73 @@ describe('RepeaterDashboard', () => {
     expect(input).toHaveAttribute('spellcheck', 'false');
   });
 
+  describe('console command history recall', () => {
+    const sent = (command: string) => ({
+      command,
+      response: '',
+      timestamp: 0,
+      outgoing: true,
+    });
+
+    beforeEach(() => {
+      mockHook.loggedIn = true;
+      mockHook.consoleHistory = [sent('advert'), sent('advert'), sent('clock sync')];
+    });
+
+    it('arrow up recalls the last command', () => {
+      render(<RepeaterDashboard {...defaultProps} />);
+
+      const input = screen.getByLabelText('Console command') as HTMLInputElement;
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      expect(input.value).toBe('clock sync');
+    });
+
+    it('repeated arrow up walks further back, deduping consecutive repeats', () => {
+      render(<RepeaterDashboard {...defaultProps} />);
+
+      const input = screen.getByLabelText('Console command') as HTMLInputElement;
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      expect(input.value).toBe('advert');
+
+      // Only two distinct entries, so the third press is a no-op
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      expect(input.value).toBe('advert');
+    });
+
+    it('arrow down returns toward the empty input', () => {
+      render(<RepeaterDashboard {...defaultProps} />);
+
+      const input = screen.getByLabelText('Console command') as HTMLInputElement;
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(input.value).toBe('clock sync');
+
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(input.value).toBe('');
+    });
+
+    it('is a no-op with empty history', () => {
+      mockHook.consoleHistory = [];
+
+      render(<RepeaterDashboard {...defaultProps} />);
+
+      const input = screen.getByLabelText('Console command') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'partial' } });
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      expect(input.value).toBe('partial');
+    });
+
+    it('links out to the MeshCore CLI docs', () => {
+      render(<RepeaterDashboard {...defaultProps} />);
+
+      const link = screen.getByRole('link', { name: 'CLI docs' });
+      expect(link).toHaveAttribute('href', 'https://docs.meshcore.io/cli_commands/');
+      expect(link).toHaveAttribute('target', '_blank');
+    });
+  });
+
   describe('path type display and reset', () => {
     it('shows flood when direct_path_len is -1', () => {
       render(<RepeaterDashboard {...defaultProps} />);

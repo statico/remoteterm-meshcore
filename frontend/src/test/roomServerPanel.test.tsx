@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { RoomServerPanel, resetRoomCacheForTests } from '../components/RoomServerPanel';
+import { resetRememberedServerPasswordsForTests } from '../hooks/useRememberedServerPassword';
 import type { Contact } from '../types';
 
 vi.mock('../api', () => ({
@@ -51,6 +52,7 @@ describe('RoomServerPanel', () => {
     vi.clearAllMocks();
     localStorage.clear();
     resetRoomCacheForTests();
+    resetRememberedServerPasswordsForTests();
   });
 
   it('keeps room controls available when login is not confirmed', async () => {
@@ -168,5 +170,68 @@ describe('RoomServerPanel', () => {
     expect(screen.queryByText('Retry Password Login')).not.toBeInTheDocument();
     expect(screen.queryByText('Retry Existing-Access Login')).not.toBeInTheDocument();
     expect(mockToast.success).toHaveBeenCalledWith('Login confirmed by the room server.');
+  });
+  it('auto-logs in once when a password is already remembered', async () => {
+    localStorage.setItem(
+      `remoteterm-server-password:room:${roomContact.public_key}`,
+      JSON.stringify({ password: 'remembered-password' })
+    );
+    mockApi.roomLogin.mockResolvedValue({ status: 'ok', authenticated: true, message: null });
+
+    const { rerender } = render(<RoomServerPanel contact={roomContact} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Show Tools')).toBeInTheDocument();
+    });
+    rerender(<RoomServerPanel contact={roomContact} />);
+
+    expect(mockApi.roomLogin).toHaveBeenCalledTimes(1);
+    expect(mockApi.roomLogin).toHaveBeenCalledWith(roomContact.public_key, 'remembered-password');
+  });
+
+  it('does not auto-log in when no password is remembered', async () => {
+    render(<RoomServerPanel contact={roomContact} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Login with Password')).toBeInTheDocument();
+    });
+    expect(mockApi.roomLogin).not.toHaveBeenCalled();
+  });
+
+  it('does not retry the auto-login after it fails', async () => {
+    localStorage.setItem(
+      `remoteterm-server-password:room:${roomContact.public_key}`,
+      JSON.stringify({ password: 'remembered-password' })
+    );
+    mockApi.roomLogin.mockRejectedValue(new Error('room server unreachable'));
+
+    const { rerender } = render(<RoomServerPanel contact={roomContact} />);
+
+    await waitFor(() => {
+      expect(mockApi.roomLogin).toHaveBeenCalledTimes(1);
+    });
+    rerender(<RoomServerPanel contact={roomContact} />);
+    await waitFor(() => {
+      expect(screen.getByText('Retry Password Login')).toBeInTheDocument();
+    });
+
+    expect(mockApi.roomLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-issues the login when Sync Now is clicked', async () => {
+    mockApi.roomLogin.mockResolvedValue({ status: 'ok', authenticated: true, message: null });
+
+    render(<RoomServerPanel contact={roomContact} />);
+
+    fireEvent.click(screen.getByText('Login with Existing Access / Guest'));
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(mockApi.roomLogin).toHaveBeenCalledTimes(2);
+    });
   });
 });

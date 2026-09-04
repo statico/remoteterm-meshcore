@@ -41,6 +41,14 @@ Import via `PUT /api/radio/private-key` is always available regardless of this s
 
 The Radio Settings config export/import feature uses these endpoints. When export is disabled, config exports will omit the private key and show a notice.
 
+## ModuleNotFoundError: No module named 'meshcore'
+
+This means uvicorn ran against your system Python instead of the project's virtualenv. Fix it from the repo root:
+
+- Run `uv sync`. It is required before `uv run ...` and creates the `.venv` that holds the dependencies. Do not try to install them with `apt`/`dnf` — most are not packaged, and they are not needed on the system Python at all.
+- Check `uv --version`. If that fails, uv isn't installed (or something else named `uv` is on your `PATH`): install it with `curl -LsSf https://astral.sh/uv/install.sh | sh` and restart your shell.
+- Check `which uvicorn`. If it resolves to `/usr/bin/uvicorn`, you are picking up a system uvicorn; always launch through `uv run uvicorn ...` from the repo root so the project venv wins.
+
 ## Contact Loading Issues
 
 RemoteTerm loads favorite and recently active contacts onto the radio so that the radio can automatically acknowledge incoming DMs on your behalf. To do this, it first enumerates the radio's existing contact table, then reconciles it with the desired working set.

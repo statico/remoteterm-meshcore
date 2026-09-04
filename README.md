@@ -95,6 +95,9 @@ Access the app at http://localhost:8000. Once the backend is running, the intera
 
 Source checkouts expect a normal frontend build in `frontend/dist`.
 
+> [!IMPORTANT]
+> `uv sync` is a required step, not an optional one. It creates an isolated `.venv` inside the checkout and installs every Python dependency there, so your distro's Python and its `apt`/`dnf` packages are never used — there is no list of `python3-*` system packages to install, and Debian/Ubuntu's PEP 668 "externally-managed-environment" restriction does not apply. If `uv run` fails with `ModuleNotFoundError: No module named 'meshcore'`, see [README_ADVANCED.md](README_ADVANCED.md#modulenotfounderror-no-module-named-meshcore).
+
 > [!TIP]
 > Running on lightweight hardware, or just don't want to build the frontend locally? From a cloned checkout, run `python3 scripts/setup/fetch_prebuilt_frontend.py` to fetch and unpack a prebuilt frontend into `frontend/prebuilt`, then start the app normally with `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 
@@ -200,6 +203,44 @@ sudo systemctl enable --now remoteterm-meshcore
 ```
 
 Access the app at http://localhost:8000.
+
+## Updating
+
+Your data lives in the SQLite database at `MESHCORE_DATABASE_PATH` — `data/meshcore.db` by default, or `/var/lib/remoteterm-meshcore/meshcore.db` for the AUR package. Update in place rather than reinstalling from scratch, and back that file up first (stop the app, then copy it). Schema migrations run automatically on startup, so an updated app will upgrade an existing database for you.
+
+Clone and build:
+
+```bash
+cd remoteterm-meshcore
+git pull
+uv sync
+cd frontend && npm install && npm run build && cd ..
+```
+
+If you use the prebuilt frontend instead of building it, run `python3 scripts/setup/fetch_prebuilt_frontend.py` in place of the `frontend` step. Then restart the app, or `sudo systemctl restart remoteterm` if you installed the systemd service.
+
+Docker:
+
+```bash
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+This keeps your `./data` bind mount, so the database survives. If you switched to a local build (`build: .`), use `sudo docker compose up -d --build` instead.
+
+Arch Linux (AUR):
+
+```bash
+# with an AUR helper
+yay -Syu remoteterm-meshcore
+
+# or manually, from your checkout of the AUR repo
+git pull
+makepkg -si
+sudo systemctl restart remoteterm-meshcore
+```
+
+The AUR package keeps the database in `/var/lib/remoteterm-meshcore/`, which is untouched by package upgrades.
 
 ## Standard Environment Variables
 

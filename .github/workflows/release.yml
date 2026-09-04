@@ -1,0 +1,76 @@
+name: Release
+
+# Builds the prebuilt-frontend artifact and publishes the GitHub release for a
+# version tag. scripts/setup/fetch_prebuilt_frontend.py reads the latest
+# release's assets, so every release must carry this zip; doing it in CI keeps
+# that from depending on whoever happens to be cutting the release.
+#
+# Cut a release with scripts/build/publish.sh, which bumps the version and
+# pushes the commit, then push the matching tag:
+#   git tag X.Y.Z && git push origin X.Y.Z
+
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (no v prefix, e.g. 3.18.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # create_github_release.sh reads the version's CHANGELOG section.
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="${{ inputs.version || github.ref_name }}"
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build release artifact
+        id: artifact
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          GIT_HASH="$(git rev-parse --short HEAD)"
+          ASSET="remoteterm-prebuilt-frontend-v${VERSION}-${GIT_HASH}.zip"
+          scripts/build/package_release_artifact.sh \
+            --version "$VERSION" \
+            --git-hash "$GIT_HASH" \
+            --full-git-hash "$(git rev-parse HEAD)" \
+            --output "$ASSET"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only used by a workflow_dispatch run, where the tag does not exist yet.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/build/create_github_release.sh \
+            --version "${{ steps.version.outputs.version }}" \
+            --full-git-hash "$(git rev-parse HEAD)" \
+            --asset "${{ steps.artifact.outputs.asset }}"

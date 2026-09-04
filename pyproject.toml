@@ -1,6 +1,6 @@
 [project]
 name = "remoteterm-meshcore"
-version = "3.18.0"
+version = "3.19.0"
 description = "RemoteTerm - Web interface for MeshCore radio mesh networks"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -1,3 +1,10 @@
+## [3.19.0] - 2026-09-04
+
+* Feature: Auto-login to room servers on open and add a Sync Now button to pull recent messages
+* Feature: Add a Re-enter Password action so a mistyped repeater or room password no longer requires a browser reload
+* Bug: Stop room server login state leaking between rooms when switching conversations
+* Misc: Publish releases from CI only, so the release artifact no longer depends on the machine cutting it
+
 ## [3.18.0] - 2026-09-04
 
 * Feature: Render MeshCore One emoji reactions instead of garbled text (jkingsman/Remote-Terminal-for-MeshCore#354)

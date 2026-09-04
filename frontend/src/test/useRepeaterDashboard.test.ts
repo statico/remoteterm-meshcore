@@ -8,7 +8,8 @@ import {
 import type { Conversation } from '../types';
 
 // Mock the api module
-vi.mock('../api', () => ({
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
   api: {
     repeaterLogin: vi.fn(),
     repeaterStatus: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock('../components/ui/sonner', () => ({
 // Get mock reference — cast to Record<string, Mock> for type-safe mock method access
 const { api: _rawApi } = await import('../api');
 const mockApi = _rawApi as unknown as Record<string, Mock>;
+const { ApiError } = await import('../api');
 const { toast } = await import('../components/ui/sonner');
 const mockToast = toast as unknown as Record<string, Mock>;
 
@@ -203,6 +205,19 @@ describe('useRepeaterDashboard', () => {
     expect(mockApi.repeaterStatus).toHaveBeenCalledTimes(3);
     expect(result.current.paneStates.status.error).toBe('fail3');
     expect(result.current.paneData.status).toBe(null);
+  });
+
+  it('refreshPane does not retry a 422 mesh timeout', async () => {
+    mockApi.repeaterStatus.mockRejectedValue(new ApiError('No telemetry response', 422));
+
+    const { result } = renderHook(() => useRepeaterDashboard(repeaterConversation));
+
+    await act(async () => {
+      await result.current.refreshPane('status');
+    });
+
+    expect(mockApi.repeaterStatus).toHaveBeenCalledTimes(1);
+    expect(result.current.paneStates.status.error).toBe('No telemetry response');
   });
 
   it('refreshPane succeeds on second attempt', async () => {

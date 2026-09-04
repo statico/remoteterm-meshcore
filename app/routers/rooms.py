@@ -58,7 +58,7 @@ async def room_status(public_key: str) -> RepeaterStatusResponse:
         status = await mc.commands.req_status_sync(contact.public_key, timeout=10, min_timeout=5)
 
     if status is None:
-        raise HTTPException(status_code=408, detail="No status response from room server")
+        raise HTTPException(status_code=422, detail="No status response from room server")
 
     return RepeaterStatusResponse(
         battery_volts=status.get("bat", 0) / 1000.0,
@@ -98,7 +98,7 @@ async def room_lpp_telemetry(public_key: str) -> RepeaterLppTelemetryResponse:
         )
 
     if telemetry is None:
-        raise HTTPException(status_code=408, detail="No telemetry response from room server")
+        raise HTTPException(status_code=422, detail="No telemetry response from room server")
 
     sensors = [
         LppSensor(

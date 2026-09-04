@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { toast } from '../components/ui/sonner';
 import type {
   Conversation,
@@ -397,8 +397,11 @@ export function useRepeaterDashboard(
           if (!mountedRef.current || activeIdRef.current !== conversationId) return;
 
           const msg = err instanceof Error ? err.message : 'Request failed';
+          // 4xx means the request itself failed (e.g. 422 mesh timeout); retrying
+          // just floods the mesh with duplicate requests.
+          const retryable = !(err instanceof ApiError && err.status >= 400 && err.status < 500);
 
-          if (attempt === MAX_RETRIES) {
+          if (attempt === MAX_RETRIES || !retryable) {
             const errorState = {
               loading: false,
               attempt,
@@ -414,6 +417,7 @@ export function useRepeaterDashboard(
               [pane]: errorState,
             }));
             toast.error(`Failed to fetch ${pane}`, { description: msg });
+            return;
           } else {
             // Wait before retrying
             await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));

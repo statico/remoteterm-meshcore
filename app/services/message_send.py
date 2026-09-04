@@ -312,7 +312,7 @@ async def send_channel_message_with_effective_scope(
                 action_label,
                 channel.name,
             )
-            raise HTTPException(status_code=408, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
+            raise HTTPException(status_code=422, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
         if send_result.type == EventType.ERROR:
             logger.error(
                 "Radio returned error during %s for channel %s: %s",
@@ -660,7 +660,7 @@ async def send_direct_message_to_contact(
                 "No response from radio after direct send to %s; send outcome is unknown",
                 contact.public_key[:12],
             )
-            raise HTTPException(status_code=408, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
+            raise HTTPException(status_code=422, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
 
         if result.type == EventType.ERROR:
             raise HTTPException(status_code=422, detail=f"Failed to send message: {result.payload}")
@@ -888,7 +888,7 @@ async def send_channel_message_to_channel(
                     "No response from radio after channel send to %s; send outcome is unknown",
                     channel.name,
                 )
-                raise HTTPException(status_code=408, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
+                raise HTTPException(status_code=422, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
 
             if result.type == EventType.ERROR:
                 raise HTTPException(
@@ -1024,7 +1024,7 @@ async def resend_channel_message_record(
                     "No response from radio after channel resend to %s; send outcome is unknown",
                     channel.name,
                 )
-                raise HTTPException(status_code=408, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
+                raise HTTPException(status_code=422, detail=NO_RADIO_RESPONSE_AFTER_SEND_DETAIL)
             if result.type == EventType.ERROR:
                 raise HTTPException(
                     status_code=422,

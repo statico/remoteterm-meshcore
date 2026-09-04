@@ -679,7 +679,7 @@ async def trace_path(request: RadioTraceRequest) -> RadioTraceResponse:
             try:
                 event = await asyncio.wait_for(response_task, timeout=timeout_seconds)
             except TimeoutError as exc:
-                raise HTTPException(status_code=408, detail="No trace response heard") from exc
+                raise HTTPException(status_code=422, detail="No trace response heard") from exc
         finally:
             if not response_task.done():
                 response_task.cancel()
@@ -687,7 +687,7 @@ async def trace_path(request: RadioTraceRequest) -> RadioTraceResponse:
                 await response_task
 
     if event is None:
-        raise HTTPException(status_code=408, detail="No trace response heard")
+        raise HTTPException(status_code=422, detail="No trace response heard")
 
     payload = event.payload if isinstance(event.payload, dict) else {}
     path_len = payload.get("path_len")

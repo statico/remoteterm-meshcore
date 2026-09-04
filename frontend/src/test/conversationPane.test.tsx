@@ -35,17 +35,23 @@ vi.mock('../components/RepeaterDashboard', () => ({
 
 vi.mock('../components/RoomServerPanel', () => ({
   RoomServerPanel: ({
+    contact,
     onAuthenticatedChange,
   }: {
+    contact: Contact;
     onAuthenticatedChange?: (value: boolean) => void;
-  }) => (
-    <div>
-      <div data-testid="room-server-panel" />
-      <button type="button" onClick={() => onAuthenticatedChange?.(true)}>
-        Authenticate room
-      </button>
-    </div>
-  ),
+  }) => {
+    // Mirrors the real panel: login state is read once, when the component mounts.
+    const [mountedFor] = React.useState(contact.public_key);
+    return (
+      <div>
+        <div data-testid="room-server-panel" data-mounted-for={mountedFor} />
+        <button type="button" onClick={() => onAuthenticatedChange?.(true)}>
+          Authenticate room
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('../components/MapView', () => ({
@@ -299,6 +305,75 @@ describe('ConversationPane', () => {
     await waitFor(() => {
       expect(screen.getByTestId('message-list')).toBeInTheDocument();
       expect(screen.getByTestId('message-input')).toBeInTheDocument();
+    });
+  });
+
+  it('remounts the room panel when switching between room servers', async () => {
+    const roomA = 'cc'.repeat(32);
+    const roomB = 'dd'.repeat(32);
+    const contacts: Contact[] = [
+      {
+        public_key: roomA,
+        name: 'Ops Board',
+        type: 3,
+        flags: 0,
+        direct_path: null,
+        direct_path_len: -1,
+        direct_path_hash_mode: -1,
+        last_advert: null,
+        lat: null,
+        lon: null,
+        last_seen: null,
+        on_radio: false,
+        favorite: false,
+        last_contacted: null,
+        last_read_at: null,
+        first_seen: null,
+      },
+      {
+        public_key: roomB,
+        name: 'Field Board',
+        type: 3,
+        flags: 0,
+        direct_path: null,
+        direct_path_len: -1,
+        direct_path_hash_mode: -1,
+        last_advert: null,
+        lat: null,
+        lon: null,
+        last_seen: null,
+        on_radio: false,
+        favorite: false,
+        last_contacted: null,
+        last_read_at: null,
+        first_seen: null,
+      },
+    ];
+
+    const { rerender } = render(
+      <ConversationPane
+        {...createProps({
+          activeConversation: { type: 'contact', id: roomA, name: 'Ops Board' },
+          contacts,
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('room-server-panel')).toHaveAttribute('data-mounted-for', roomA);
+    });
+
+    rerender(
+      <ConversationPane
+        {...createProps({
+          activeConversation: { type: 'contact', id: roomB, name: 'Field Board' },
+          contacts,
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('room-server-panel')).toHaveAttribute('data-mounted-for', roomB);
     });
   });
 

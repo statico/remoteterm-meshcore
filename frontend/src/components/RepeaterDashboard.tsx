@@ -87,6 +87,7 @@ export function RepeaterDashboard({
     consoleLoading,
     login,
     loginAsGuest,
+    resetLogin,
     refreshPane,
     loadAll,
     sendConsoleCommand,
@@ -95,8 +96,14 @@ export function RepeaterDashboard({
     rebootRepeater,
     syncClock,
   } = useRepeaterDashboard(conversation, { hasAdvertLocation });
-  const { password, setPassword, rememberPassword, setRememberPassword, persistAfterLogin } =
-    useRememberedServerPassword('repeater', conversation.id);
+  const {
+    password,
+    setPassword,
+    rememberPassword,
+    setRememberPassword,
+    persistAfterLogin,
+    forgetPassword,
+  } = useRememberedServerPassword('repeater', conversation.id);
 
   // Telemetry history: preload from stored data, refresh from live status
   const [telemetryHistory, setTelemetryHistory] = useState<TelemetryHistoryEntry[]>([]);
@@ -148,6 +155,10 @@ export function RepeaterDashboard({
   const handleRepeaterGuestLogin = async () => {
     await loginAsGuest();
     persistAfterLogin('');
+  };
+  const handleReenterPassword = () => {
+    forgetPassword();
+    resetLogin();
   };
 
   // Loading all panes indicator
@@ -325,6 +336,7 @@ export function RepeaterDashboard({
               canRetryPassword={password.trim().length > 0}
               onRetryPassword={() => handleRepeaterLogin(password)}
               onRetryBlank={handleRepeaterGuestLogin}
+              onReenterPassword={handleReenterPassword}
               blankRetryLabel="Retry Existing-Access Login"
             />
             {/* Top row: Telemetry + Radio Settings | Node Info + Neighbors */}

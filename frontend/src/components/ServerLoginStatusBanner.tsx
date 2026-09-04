@@ -9,9 +9,9 @@ interface ServerLoginStatusBannerProps {
   canRetryPassword: boolean;
   onRetryPassword: () => Promise<void> | void;
   onRetryBlank: () => Promise<void> | void;
+  onReenterPassword: () => void;
   passwordRetryLabel?: string;
   blankRetryLabel?: string;
-  showRetryActions?: boolean;
 }
 
 export function ServerLoginStatusBanner({
@@ -20,16 +20,15 @@ export function ServerLoginStatusBanner({
   canRetryPassword,
   onRetryPassword,
   onRetryBlank,
+  onReenterPassword,
   passwordRetryLabel = 'Retry Password Login',
   blankRetryLabel = 'Retry Existing-Access Login',
-  showRetryActions = true,
 }: ServerLoginStatusBannerProps) {
   if (attempt?.outcome === 'confirmed') {
     return null;
   }
 
   const tone = getServerLoginAttemptTone(attempt);
-  const shouldShowActions = showRetryActions;
   const toneClassName =
     tone === 'success'
       ? 'border-success/30 bg-success/10 text-success'
@@ -48,28 +47,29 @@ export function ServerLoginStatusBanner({
           </p>
           {attempt?.details && <p className="text-xs opacity-90">{attempt.details}</p>}
         </div>
-        {shouldShowActions ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void onRetryPassword()}
-              disabled={loading || !canRetryPassword}
-            >
-              {passwordRetryLabel}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void onRetryBlank()}
-              disabled={loading}
-            >
-              {blankRetryLabel}
-            </Button>
-          </div>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void onRetryPassword()}
+            disabled={loading || !canRetryPassword}
+          >
+            {passwordRetryLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void onRetryBlank()}
+            disabled={loading}
+          >
+            {blankRetryLabel}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onReenterPassword}>
+            Re-enter Password
+          </Button>
+        </div>
       </div>
     </div>
   );

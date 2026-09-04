@@ -118,6 +118,37 @@ describe('RoomServerPanel', () => {
     });
   });
 
+  it('returns to an empty login form when re-entering the password', async () => {
+    mockApi.roomLogin.mockResolvedValueOnce({
+      status: 'timeout',
+      authenticated: false,
+      message: 'No reply heard',
+    });
+
+    render(<RoomServerPanel contact={roomContact} />);
+
+    fireEvent.click(screen.getByLabelText('Remember password'));
+    fireEvent.change(screen.getByLabelText('Repeater password'), {
+      target: { value: 'wrong-password' },
+    });
+    fireEvent.click(screen.getByText('Login with Password'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Re-enter Password')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Re-enter Password'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Login with Password')).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Repeater password')).toHaveValue('');
+    expect(screen.queryByText('Re-enter Password')).not.toBeInTheDocument();
+    expect(localStorage.getItem(`remoteterm-server-password:room:${roomContact.public_key}`)).toBe(
+      null
+    );
+  });
+
   it('shows only a success toast after a confirmed login', async () => {
     mockApi.roomLogin.mockResolvedValueOnce({
       status: 'ok',

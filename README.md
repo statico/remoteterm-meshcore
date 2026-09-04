@@ -1,5 +1,8 @@
 # RemoteTerm for MeshCore
 
+> [!NOTE]
+> I've forked the original https://github.com/jkingsman/Remote-Terminal-for-MeshCore to fix issues per the author's [development pause](https://github.com/jkingsman/Remote-Terminal-for-MeshCore/issues/343). Hopefully this fork will fold back into upstream at a later date.
+
 Backend server + browser interface for MeshCore mesh radio networks, providing a rich, web-based power-user management and messaging system through a companion radio.
 
 Connect your radio over Serial, TCP, or BLE, and then you can:

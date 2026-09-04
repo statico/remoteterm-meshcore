@@ -16,7 +16,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-REPO = "jkingsman/Remote-Terminal-for-MeshCore"
+REPO = "statico/remoteterm-meshcore"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 PREBUILT_PREFIX = "Remote-Terminal-for-MeshCore/frontend/prebuilt/"
 

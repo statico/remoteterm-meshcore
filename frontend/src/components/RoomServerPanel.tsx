@@ -300,7 +300,7 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
           <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             Room server access is experimental and in public alpha. Please report any issues on{' '}
             <a
-              href="https://github.com/jkingsman/Remote-Terminal-for-MeshCore/issues"
+              href="https://github.com/statico/remoteterm-meshcore/issues"
               target="_blank"
               rel="noreferrer"
               className="font-medium underline underline-offset-2 hover:text-warning/80"

@@ -1,6 +1,6 @@
 [Unit]
 Description=RemoteTerm for MeshCore
-Documentation=https://github.com/jkingsman/Remote-Terminal-for-MeshCore
+Documentation=https://github.com/statico/remoteterm-meshcore
 After=network-online.target
 Wants=network-online.target
 

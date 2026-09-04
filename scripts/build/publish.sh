@@ -14,8 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=scripts/build/release_common.sh
 source "$SCRIPT_DIR/release_common.sh"
 
+# The Docker workflow builds and pushes the multi-arch image when the version
+# tag lands; this is only used for the summary at the end.
 DOCKER_IMAGE="ghcr.io/statico/remoteterm-meshcore"
-DOCKER_PLATFORMS="linux/amd64,linux/arm64"
 VERSION=""
 NOTES_FILE=""
 SKIP_QUALITY=0
@@ -89,11 +90,11 @@ release_validate_version "$VERSION"
 
 # Update pyproject.toml
 echo -e "${YELLOW}Updating pyproject.toml...${NC}"
-sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+release_sed_i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 
 # Update frontend package.json
 echo -e "${YELLOW}Updating frontend/package.json...${NC}"
-sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
+release_sed_i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
 
 # Update uv.lock with new version
 echo -e "${YELLOW}Updating uv.lock...${NC}"
@@ -194,16 +195,6 @@ scripts/build/package_release_artifact.sh \
 echo -e "${GREEN}Packaged release artifact created: $RELEASE_ASSET${NC}"
 echo
 
-# Build and push multi-arch docker image
-echo -e "${YELLOW}Building and pushing multi-arch Docker image...${NC}"
-scripts/build/push_docker_multiarch.sh \
-    --version "$VERSION" \
-    --git-hash "$GIT_HASH" \
-    --image "$DOCKER_IMAGE" \
-    --platforms "$DOCKER_PLATFORMS"
-echo -e "${GREEN}Multi-arch Docker build + push complete!${NC}"
-echo
-
 # Create GitHub release using the changelog notes for this version.
 echo -e "${YELLOW}Creating GitHub release...${NC}"
 scripts/build/create_github_release.sh \
@@ -216,13 +207,9 @@ echo
 echo -e "${GREEN}=== Publish complete! ===${NC}"
 echo -e "Version: ${YELLOW}$VERSION${NC}"
 echo -e "Git hash: ${YELLOW}$GIT_HASH${NC}"
-echo -e "Docker tags pushed:"
+echo -e "Docker image: built and pushed by the Docker workflow on the $VERSION tag:"
 echo -e "  - $DOCKER_IMAGE:latest"
 echo -e "  - $DOCKER_IMAGE:$VERSION"
-echo -e "  - $DOCKER_IMAGE:$GIT_HASH"
-echo -e "Platforms:"
-echo -e "  - linux/amd64"
-echo -e "  - linux/arm64"
 echo -e "GitHub release:"
 echo -e "  - $VERSION"
 echo -e "Release artifact:"

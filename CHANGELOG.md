@@ -1,3 +1,10 @@
+## [3.18.0] - 2026-09-04
+
+* Feature: Render MeshCore One emoji reactions instead of garbled text (jkingsman/Remote-Terminal-for-MeshCore#354)
+* Bug: Stop mobile keyboards autocapitalising repeater CLI commands (jkingsman/Remote-Terminal-for-MeshCore#349)
+* Misc: First release of the statico fork; Docker images now publish to ghcr.io/statico/remoteterm-meshcore
+* Misc: Document that uv sync is required, and add update instructions (jkingsman/Remote-Terminal-for-MeshCore#356, jkingsman/Remote-Terminal-for-MeshCore#348)
+
 ## [3.17.1] - 2026-07-26
 
 * Feature: Auto-retry with flood for no-response-heard repeater login

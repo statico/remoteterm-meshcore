@@ -122,8 +122,14 @@ export function resetRoomCacheForTests() {
 }
 
 export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPanelProps) {
-  const { password, setPassword, rememberPassword, setRememberPassword, persistAfterLogin } =
-    useRememberedServerPassword('room', contact.public_key);
+  const {
+    password,
+    setPassword,
+    rememberPassword,
+    setRememberPassword,
+    persistAfterLogin,
+    forgetPassword,
+  } = useRememberedServerPassword('room', contact.public_key);
 
   const cached = useMemo(() => getCachedRoom(contact.public_key), [contact.public_key]);
 
@@ -252,6 +258,14 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
     persistAfterLogin('');
   }, [performLogin, persistAfterLogin]);
 
+  // Return to the login form (e.g. after a mistyped password).
+  const handleReenterPassword = useCallback(() => {
+    forgetPassword();
+    setAuthenticated(false);
+    setLoginError(null);
+    setLastLoginAttempt(null);
+  }, [forgetPassword]);
+
   const handleConsoleCommand = useCallback(
     async (command: string) => {
       setConsoleLoading(true);
@@ -338,35 +352,11 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
             canRetryPassword={password.trim().length > 0}
             onRetryPassword={() => handleLogin(password)}
             onRetryBlank={handleLoginAsGuest}
+            onReenterPassword={handleReenterPassword}
             blankRetryLabel="Retry Existing-Access Login"
-            showRetryActions={false}
           />
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {showLoginFailureState ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleLogin(password)}
-                disabled={loginLoading || password.trim().length === 0}
-              >
-                Retry Password Login
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleLoginAsGuest}
-                disabled={loginLoading}
-              >
-                Retry Existing-Access Login
-              </Button>
-            </div>
-          ) : (
-            <div />
-          )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             type="button"
             variant="outline"

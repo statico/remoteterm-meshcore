@@ -195,6 +195,7 @@ export interface UseRepeaterDashboardResult {
   consoleLoading: boolean;
   login: (password: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
+  resetLogin: () => void;
   refreshPane: (pane: PaneName) => Promise<void>;
   loadAll: () => Promise<void>;
   sendConsoleCommand: (command: string) => Promise<void>;
@@ -330,6 +331,13 @@ export function useRepeaterDashboard(
   const loginAsGuest = useCallback(async () => {
     await login('');
   }, [login]);
+
+  // Return to the login form (e.g. after a mistyped password).
+  const resetLogin = useCallback(() => {
+    setLoggedIn(false);
+    setLoginError(null);
+    setLastLoginAttempt(null);
+  }, []);
 
   const refreshPane = useCallback(
     async (pane: PaneName) => {
@@ -518,6 +526,7 @@ export function useRepeaterDashboard(
     consoleLoading,
     login,
     loginAsGuest,
+    resetLogin,
     refreshPane,
     loadAll,
     sendConsoleCommand,

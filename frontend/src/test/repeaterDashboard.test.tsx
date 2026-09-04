@@ -38,6 +38,7 @@ const mockHook: {
   consoleLoading: false,
   login: vi.fn(),
   loginAsGuest: vi.fn(),
+  resetLogin: vi.fn(),
   refreshPane: vi.fn(),
   loadAll: vi.fn(),
   sendConsoleCommand: vi.fn(),
@@ -143,6 +144,8 @@ describe('RepeaterDashboard', () => {
     mockHook.loggedIn = false;
     mockHook.loginLoading = false;
     mockHook.loginError = null;
+    mockHook.lastLoginAttempt = null;
+    localStorage.clear();
     mockHook.paneData = {
       status: null,
       nodeInfo: null,
@@ -243,6 +246,34 @@ describe('RepeaterDashboard', () => {
     render(<RepeaterDashboard {...defaultProps} />);
 
     expect(screen.getByText('Invalid password')).toBeInTheDocument();
+  });
+
+  it('returns to an empty login form when re-entering the password', () => {
+    const storageKey = `remoteterm-server-password:repeater:${REPEATER_KEY}`;
+    localStorage.setItem(storageKey, JSON.stringify({ password: 'wrong-password' }));
+    mockHook.loggedIn = true;
+    mockHook.lastLoginAttempt = {
+      method: 'password',
+      outcome: 'not_confirmed',
+      summary: 'Password login was not confirmed',
+      details: null,
+      heardBack: false,
+      at: Date.now(),
+    };
+    mockHook.resetLogin = vi.fn(() => {
+      mockHook.loggedIn = false;
+      mockHook.lastLoginAttempt = null;
+    });
+
+    const { rerender } = render(<RepeaterDashboard {...defaultProps} />);
+
+    fireEvent.click(screen.getByText('Re-enter Password'));
+    expect(mockHook.resetLogin).toHaveBeenCalledTimes(1);
+
+    rerender(<RepeaterDashboard {...defaultProps} />);
+
+    expect(screen.getByPlaceholderText('Repeater password...')).toHaveValue('');
+    expect(localStorage.getItem(storageKey)).toBe(null);
   });
 
   it('shows pane error when fetch fails', () => {

@@ -79,11 +79,23 @@ export function useRememberedServerPassword(kind: ServerLoginKind, publicKey: st
     [rememberPassword, storageKey]
   );
 
+  const forgetPassword = useCallback(() => {
+    inMemoryPasswords.delete(storageKey);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // localStorage may be unavailable
+    }
+    setPassword('');
+    setRememberPassword(false);
+  }, [storageKey]);
+
   return {
     password,
     setPassword,
     rememberPassword,
     setRememberPassword,
     persistAfterLogin,
+    forgetPassword,
   };
 }

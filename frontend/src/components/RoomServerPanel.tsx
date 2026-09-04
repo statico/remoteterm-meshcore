@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api';
 import { toast } from './ui/sonner';
@@ -124,6 +124,7 @@ export function resetRoomCacheForTests() {
 export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPanelProps) {
   const {
     password,
+    storedPassword,
     setPassword,
     rememberPassword,
     setRememberPassword,
@@ -253,6 +254,16 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
     [performLogin, persistAfterLogin]
   );
 
+  // Log in once on open when we already know the password, so reopening a room
+  // pulls the backlog without a manual click. The ref guard is deliberate: a
+  // failed login must never retry, because every login is mesh traffic.
+  const autoLoginFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoLoginFiredRef.current || authenticated || loginLoading || !storedPassword) return;
+    autoLoginFiredRef.current = true;
+    void handleLogin(storedPassword);
+  }, [storedPassword, authenticated, loginLoading, handleLogin]);
+
   const handleLoginAsGuest = useCallback(async () => {
     await performLogin('', 'blank');
     persistAfterLogin('');
@@ -357,6 +368,16 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
           />
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={loginLoading}
+            title="Re-login to ask the room server to resend recent messages"
+            onClick={() => performLogin(password, password.trim() ? 'password' : 'blank')}
+          >
+            {loginLoading ? 'Syncing...' : 'Sync Now'}
+          </Button>
           <Button
             type="button"
             variant="outline"

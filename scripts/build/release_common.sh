@@ -91,3 +91,13 @@ release_ensure_buildx_builder() {
     fi
     docker buildx inspect --bootstrap >/dev/null
 }
+
+# In-place sed that works with both GNU sed (no backup suffix) and the BSD sed
+# on macOS (requires one). Publishing from a laptop is common enough to care.
+release_sed_i() {
+    if sed --version >/dev/null 2>&1; then
+        sed -i "$@"
+    else
+        sed -i '' "$@"
+    fi
+}

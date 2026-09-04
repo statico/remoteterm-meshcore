@@ -20,7 +20,6 @@ DOCKER_IMAGE="ghcr.io/statico/remoteterm-meshcore"
 VERSION=""
 NOTES_FILE=""
 SKIP_QUALITY=0
-RELEASE_ASSET_PATH=""
 
 usage() {
     cat <<'EOF'
@@ -108,10 +107,6 @@ RAW_CHANGELOG_INPUT_FILE="$(mktemp)"
 FORMATTED_CHANGELOG_INPUT_FILE="$(mktemp)"
 cleanup() {
     rm -f "$RAW_CHANGELOG_INPUT_FILE" "$FORMATTED_CHANGELOG_INPUT_FILE"
-    rm -rf "${REPO_ROOT:?}/frontend/prebuilt"
-    if [ -n "$RELEASE_ASSET_PATH" ] && [ -f "$RELEASE_ASSET_PATH" ]; then
-        rm -f "$RELEASE_ASSET_PATH"
-    fi
 }
 trap cleanup EXIT
 
@@ -180,37 +175,24 @@ git push
 echo -e "${GREEN}Changes committed!${NC}"
 echo
 
-# Get git hashes (after commit so they reflect the new commit)
-GIT_HASH=$(git rev-parse --short HEAD)
+# Tag the release. The Release workflow builds the prebuilt-frontend artifact
+# and publishes the GitHub release from this tag, so doing it here too would
+# race with CI on `gh release create`.
 FULL_GIT_HASH=$(git rev-parse HEAD)
-RELEASE_ASSET="remoteterm-prebuilt-frontend-v${VERSION}-${GIT_HASH}.zip"
-RELEASE_ASSET_PATH="$REPO_ROOT/$RELEASE_ASSET"
+TAG_NOTES_FILE="$(mktemp)"
+release_extract_changelog_section "$REPO_ROOT" "$VERSION" "$TAG_NOTES_FILE"
 
-echo -e "${YELLOW}Building packaged frontend artifact...${NC}"
-scripts/build/package_release_artifact.sh \
-    --version "$VERSION" \
-    --git-hash "$GIT_HASH" \
-    --full-git-hash "$FULL_GIT_HASH" \
-    --output "$RELEASE_ASSET_PATH"
-echo -e "${GREEN}Packaged release artifact created: $RELEASE_ASSET${NC}"
-echo
-
-# Create GitHub release using the changelog notes for this version.
-echo -e "${YELLOW}Creating GitHub release...${NC}"
-scripts/build/create_github_release.sh \
-    --version "$VERSION" \
-    --full-git-hash "$FULL_GIT_HASH" \
-    --asset "$RELEASE_ASSET_PATH"
-echo -e "${GREEN}GitHub release created!${NC}"
+echo -e "${YELLOW}Tagging $VERSION...${NC}"
+git tag -a "$VERSION" "$FULL_GIT_HASH" -F "$TAG_NOTES_FILE"
+rm -f "$TAG_NOTES_FILE"
+git push origin "$VERSION"
+echo -e "${GREEN}Tag pushed! CI will build the artifact and publish the release.${NC}"
 echo
 
 echo -e "${GREEN}=== Publish complete! ===${NC}"
 echo -e "Version: ${YELLOW}$VERSION${NC}"
-echo -e "Git hash: ${YELLOW}$GIT_HASH${NC}"
+echo -e "Git hash: ${YELLOW}$(git rev-parse --short HEAD)${NC}"
 echo -e "Docker image: built and pushed by the Docker workflow on the $VERSION tag:"
 echo -e "  - $DOCKER_IMAGE:latest"
 echo -e "  - $DOCKER_IMAGE:$VERSION"
-echo -e "GitHub release:"
-echo -e "  - $VERSION"
-echo -e "Release artifact:"
-echo -e "  - $RELEASE_ASSET"
+echo -e "GitHub release: published by the Release workflow on the $VERSION tag"

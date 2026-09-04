@@ -318,7 +318,11 @@ export function ConversationPane({
         <ContactResolutionBanner variant="unknown-full-key" />
       )}
       {activeContactIsRoom && activeContact && (
-        <RoomServerPanel contact={activeContact} onAuthenticatedChange={setRoomAuthenticated} />
+        <RoomServerPanel
+          key={activeContact.public_key}
+          contact={activeContact}
+          onAuthenticatedChange={setRoomAuthenticated}
+        />
       )}
       {showRoomChat && <div data-toast-anchor="conversation" aria-hidden="true" />}
       {showRoomChat && (

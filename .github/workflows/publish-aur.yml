@@ -1,8 +1,9 @@
 name: Publish AUR package
 
-# Pushes the contents of pkg/aur/ to the remoteterm-meshcore AUR repository
-# whenever a GitHub release is published. Can also be triggered manually for
-# testing or out-of-band republishes.
+# Pushes the contents of pkg/aur/ to the remoteterm-meshcore AUR repository.
+#
+# This fork does not own the AUR package, so the automatic release trigger is
+# disabled; run it by hand only if you have the credentials below.
 #
 # Required secrets:
 #   AUR_SSH_PRIVATE_KEY  Private SSH key registered with the AUR maintainer
@@ -10,8 +11,6 @@ name: Publish AUR package
 #   AUR_COMMIT_EMAIL     Email used for the AUR git commit identity.
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -37,11 +36,7 @@ jobs:
       - name: Resolve version from event
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${{ github.event.release.tag_name }}"
-          fi
+          VERSION="${{ inputs.version }}"
           VERSION="${VERSION#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing AUR package for version $VERSION"
@@ -62,7 +57,7 @@ jobs:
             pkg/aur/remoteterm-meshcore.sysusers
             pkg/aur/remoteterm-meshcore.tmpfiles
             pkg/aur/remoteterm.env
-          commit_username: jackkingsman
+          commit_username: statico
           commit_email: ${{ secrets.AUR_COMMIT_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to ${{ steps.version.outputs.version }}"

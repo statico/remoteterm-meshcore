@@ -1,3 +1,7 @@
+## [3.22.0] - 2026-09-10
+
+* Added Ollama-powered summaries of unread channel messages, shown above the unread marker (off by default; enable it and set a model in Settings)
+
 ## [3.21.0] - 2026-09-10
 
 * Send MeshCore Open emoji reactions: hover a message and pick one of the six quick emoji (#2)

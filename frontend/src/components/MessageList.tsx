@@ -33,6 +33,7 @@ import { PathModal } from './PathModal';
 import { RawPacketInspectorDialog } from './RawPacketDetailModal';
 import { toast } from './ui/sonner';
 import { handleKeyboardActivate } from '../utils/a11y';
+import { Smile } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 
@@ -141,9 +142,9 @@ function ReactionPicker({
         aria-label="React to this message"
         title="React"
         onClick={() => setOpen(true)}
-        className="reaction-picker-button self-center mx-1 rounded px-1 text-sm leading-none opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+        className="reaction-picker-button self-center mx-1 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
       >
-        🙂
+        <Smile className="h-4 w-4" aria-hidden="true" />
       </button>
     );
   }

@@ -1,3 +1,10 @@
+## [3.20.0] - 2026-09-10
+
+* Misc: Report this fork as RemoteTerm-statico on community MQTT, so its traffic is distinguishable from upstream
+* Misc: Update all dependencies behind a 14-day minimum release age gate, keeping freshly published registry versions out of the lockfiles
+* Misc: Upgrade the frontend to React 19
+* Misc: Only cancel PR image builds, so the Docker badge stops reading "failing"
+
 ## [3.19.0] - 2026-09-04
 
 * Feature: Auto-login to room servers on open and add a Sync Now button to pull recent messages

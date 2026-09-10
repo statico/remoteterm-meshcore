@@ -1,3 +1,8 @@
+## [3.21.0] - 2026-09-10
+
+* Send MeshCore Open emoji reactions: hover a message and pick one of the six quick emoji (#2)
+* Send GIFs by pasting a Giphy link, which goes out as the short MeshCore Open GIF payload (#2)
+
 ## [3.20.0] - 2026-09-10
 
 * Misc: Report this fork as RemoteTerm-statico on community MQTT, so its traffic is distinguishable from upstream

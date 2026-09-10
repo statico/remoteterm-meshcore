@@ -1,12 +1,22 @@
 # Contributing
 
+## Pull Requests Are Disabled — Please File An Issue
+
+This project does not accept pull requests. It is faster to tell a coding agent what
+to do than it is to review someone else's code, so contributions come in as
+descriptions of the problem rather than as diffs.
+
+File an issue instead, for both bug reports and feature requests. Issues can be as
+long and as descriptive as you want — there is no such thing as too much detail here.
+A thorough issue is worth more than a patch.
+
 ## Guiding Principles
 
 - In all your interactions with developers, maintainers, and users, be kind.
-- Prefer small, comprehensible changes over large sweeping ones. Individual commits should be meaningful atomic chunks of work. Pull requests with many, many commits instead of a phased approach may be declined.
-- Pull requests must be fully understood and explicitly endorsed by a human before merge. AI assistance is great, and this repo is optimized for it, but we keep quality by keeping our agents on track to write clear code, useful (not useless) tests, good architecture, and big-picture thinking.
-- No pull request should introduce new failing lint, typecheck, test, or build results.
-- Every pull request should have an associated issue or discussion thread; a brand new feature appearing first in a PR is an antipattern.
+- Prefer small, comprehensible changes over large sweeping ones. Individual commits should be meaningful atomic chunks of work.
+- Every change must be fully understood and explicitly endorsed by a human before it lands. AI assistance is great, and this repo is optimized for it, but we keep quality by keeping our agents on track to write clear code, useful (not useless) tests, good architecture, and big-picture thinking.
+- No change should introduce new failing lint, typecheck, test, or build results.
+- Every change starts from an issue or discussion thread.
 - No truly automated radio traffic. Bot replies are already the practical edge of what this project wants to automate; any kind of traffic that would be intervalized or automated is not what this project is about.
 - No ingestion from the internet onto the mesh. This project is a radio client, not a bridge for outside traffic to enter the network. The mesh is strong because it is a radio mesh, not the internet with some weird wireless links.
 
@@ -177,13 +187,13 @@ E2E_PARTNER_RADIO_NAME="MyTestNode" \
 npx playwright test
 ```
 
-## Pull Request Expectations
+## What Makes A Good Issue
 
-- Keep scope tight.
-- Explain why the change is needed.
-- Link the issue or discussion where the behavior was agreed on.
-- Call out any follow-up work left intentionally undone.
-- Do not treat code review as the place where the app's direction is first introduced or debated
+- Keep one issue to one problem.
+- Explain why the change is needed, not just what to change.
+- For a bug: what you did, what happened, what you expected, and your version, platform, and radio.
+- Be as descriptive as you like. Logs, screenshots, exact steps, links to the relevant code, even a sketch of how you would implement it — all of it helps, none of it is too much.
+- An issue is where the app's direction gets discussed. That conversation happens before any code is written.
 
 ## Notes For Agent-Assisted Work
 

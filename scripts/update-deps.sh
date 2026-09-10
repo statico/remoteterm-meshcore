@@ -14,6 +14,14 @@
 #   scripts/update-deps.sh            # stay within the semver ranges in the manifests
 #   scripts/update-deps.sh --latest   # also cross major versions (review the diff!)
 #   MIN_RELEASE_AGE_DAYS=30 scripts/update-deps.sh
+#   UPDATE_SKIP="typescript @types/node" scripts/update-deps.sh --latest
+#
+# Held back on purpose (each needs its own migration, not a version bump):
+#   typescript        7.x  - typescript-eslint 8 peer-requires <6.1.0
+#   tailwindcss       4.x  - CSS-first config; changes default border/ring styling app-wide
+#   eslint            10.x - needs eslint-plugin-react-hooks 7, whose React Compiler
+#   react-hooks       7.x    rules flag ~90 existing violations
+#   @types/node       -    - the "latest" dist-tag (22.x) is older than what we pin (25.x)
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -36,12 +44,14 @@ if [ "${1:-}" = "--latest" ]; then
   # `npm update` will not cross a major, so ask for @latest by name. --before
   # still applies, so "latest" means latest as of the cutoff.
   # Package names never contain spaces, so plain word splitting is enough here.
-  PKGS="$(node -p '
+  PKGS="$(UPDATE_SKIP="${UPDATE_SKIP:-}" node -p '
     const p = require("./package.json");
     const all = { ...p.dependencies, ...p.devDependencies };
+    const skip = new Set((process.env.UPDATE_SKIP || "").split(/\s+/).filter(Boolean));
     Object.keys(all)
       // aliased specs ("npm:other-pkg@x") pin an exact fork; @latest would undo that
       .filter((n) => !String(all[n]).startsWith("npm:"))
+      .filter((n) => !skip.has(n))
       .map((n) => n + "@latest")
       .join(" ");
   ')"

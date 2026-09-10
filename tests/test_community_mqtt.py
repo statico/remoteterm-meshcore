@@ -1432,7 +1432,7 @@ class TestGetClientVersion:
             mock_build_info.return_value.version = "1.2.3"
             mock_build_info.return_value.commit_hash = "abcdef"
             result = _get_client_version()
-        assert result == "RemoteTerm/1.2.3-abcdef"
+        assert result == f"{_CLIENT_ID}/1.2.3-abcdef"
 
     def test_falls_back_to_unknown_hash_when_commit_missing(self):
         """Should keep the canonical shape even when the commit hash is unavailable."""
@@ -1440,7 +1440,7 @@ class TestGetClientVersion:
             mock_build_info.return_value.version = "1.2.3"
             mock_build_info.return_value.commit_hash = None
             result = _get_client_version()
-        assert result == "RemoteTerm/1.2.3-unknown"
+        assert result == f"{_CLIENT_ID}/1.2.3-unknown"
 
 
 class TestPublishStatus:

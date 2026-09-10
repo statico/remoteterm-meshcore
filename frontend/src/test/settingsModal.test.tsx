@@ -77,6 +77,9 @@ const baseSettings: AppSettings = {
   auto_resend_channel: false,
   telemetry_interval_hours: 8,
   telemetry_routed_hourly: false,
+  ollama_enabled: false,
+  ollama_base_url: 'http://localhost:11434',
+  ollama_model: '',
 };
 
 function renderModal(overrides?: {

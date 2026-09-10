@@ -4,6 +4,7 @@ import type {
   BulkCreateHashtagChannelsResult,
   Channel,
   ChannelDetail,
+  ChannelUnreadSummary,
   CommandResponse,
   Contact,
   ContactAnalytics,
@@ -224,6 +225,10 @@ export const api = {
   getChannelDetail: (key: string) => fetchJson<ChannelDetail>(`/channels/${key}/detail`),
   markChannelRead: (key: string) =>
     fetchJson<{ status: string; key: string }>(`/channels/${key}/mark-read`, {
+      method: 'POST',
+    }),
+  summarizeChannelUnread: (key: string, after: number) =>
+    fetchJson<ChannelUnreadSummary>(`/channels/${key}/summarize-unread?after=${after}`, {
       method: 'POST',
     }),
   setChannelFloodScopeOverride: (key: string, floodScopeOverride: string) =>

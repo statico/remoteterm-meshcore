@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type Ref } from 'react';
 
 import { ChatHeader } from './ChatHeader';
+import { ChannelUnreadSummaryBanner } from './ChannelUnreadSummaryBanner';
 import { MessageInput, type MessageInputHandle } from './MessageInput';
 import { MessageList } from './MessageList';
 import { RawPacketFeedView } from './RawPacketFeedView';
@@ -47,6 +48,8 @@ interface ConversationPaneProps {
   loadingOlder: boolean;
   hasOlderMessages: boolean;
   unreadMarkerMessageId?: number | null;
+  /** Read boundary to summarize unreads from, or null when no summary applies. */
+  unreadSummaryAfter?: number | null;
   onNavigateToUnread?: (messageId: number) => void;
   targetMessageId: number | null;
   hasNewerMessages: boolean;
@@ -133,6 +136,7 @@ export function ConversationPane({
   loadingOlder,
   hasOlderMessages,
   unreadMarkerMessageId,
+  unreadSummaryAfter = null,
   onNavigateToUnread,
   targetMessageId,
   hasNewerMessages,
@@ -316,6 +320,13 @@ export function ConversationPane({
       )}
       {activeConversation.type === 'contact' && isUnknownFullKeyActiveContact && (
         <ContactResolutionBanner variant="unknown-full-key" />
+      )}
+      {activeConversation.type === 'channel' && unreadSummaryAfter !== null && (
+        <ChannelUnreadSummaryBanner
+          key={activeConversation.id}
+          channelKey={activeConversation.id}
+          after={unreadSummaryAfter}
+        />
       )}
       {activeContactIsRoom && activeContact && (
         <RoomServerPanel

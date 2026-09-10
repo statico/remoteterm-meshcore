@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { Checkbox } from '../ui/checkbox';
+import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
@@ -61,12 +63,16 @@ export function SettingsRadioAppSection({
 
   const [schedule, setSchedule] = useState<TelemetrySchedule | null>(null);
   const [intervalDraft, setIntervalDraft] = useState<number>(appSettings.telemetry_interval_hours);
+  const [ollamaUrlDraft, setOllamaUrlDraft] = useState(appSettings.ollama_base_url);
+  const [ollamaModelDraft, setOllamaModelDraft] = useState(appSettings.ollama_model);
 
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     setDiscoveryBlockedTypes(appSettings.discovery_blocked_types ?? []);
     setIntervalDraft(appSettings.telemetry_interval_hours);
+    setOllamaUrlDraft(appSettings.ollama_base_url);
+    setOllamaModelDraft(appSettings.ollama_model);
   }, [appSettings]);
 
   useEffect(() => {
@@ -410,6 +416,74 @@ export function SettingsRadioAppSection({
             })}
           </div>
         )}
+      </div>
+
+      <Separator />
+
+      {/* ── Unread Summaries ── */}
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold tracking-tight">Unread Channel Summaries</h3>
+        <p className="text-[0.8125rem] text-muted-foreground">
+          Opening a channel with unread messages can show a short catch-up summary, written by a
+          model on an Ollama server you run. The RemoteTerm server calls Ollama, so the address
+          below must be reachable from the server rather than from this browser. Off by default;
+          your channel messages are sent to that server when it is on.
+        </p>
+
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="ollama-enabled"
+            checked={appSettings.ollama_enabled}
+            onCheckedChange={(checked) => {
+              void persistAppSettings({ ollama_enabled: checked === true }, () => {});
+            }}
+            className="mt-0.5"
+          />
+          <Label htmlFor="ollama-enabled" className="font-normal">
+            Summarize unread messages when opening a channel
+          </Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ollama-base-url">Ollama server URL</Label>
+          <Input
+            id="ollama-base-url"
+            value={ollamaUrlDraft}
+            spellCheck={false}
+            placeholder="http://localhost:11434"
+            onChange={(e) => setOllamaUrlDraft(e.target.value)}
+            onBlur={() => {
+              const next = ollamaUrlDraft.trim();
+              if (next === appSettings.ollama_base_url) return;
+              void persistAppSettings({ ollama_base_url: next }, () =>
+                setOllamaUrlDraft(appSettings.ollama_base_url)
+              );
+            }}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ollama-model">Ollama model</Label>
+          <Input
+            id="ollama-model"
+            value={ollamaModelDraft}
+            spellCheck={false}
+            placeholder="phi3:mini"
+            onChange={(e) => setOllamaModelDraft(e.target.value)}
+            onBlur={() => {
+              const next = ollamaModelDraft.trim();
+              if (next === appSettings.ollama_model) return;
+              void persistAppSettings({ ollama_model: next }, () =>
+                setOllamaModelDraft(appSettings.ollama_model)
+              );
+            }}
+          />
+          <p className="text-[0.8125rem] text-muted-foreground">
+            A model you have already pulled, named as <code className="text-xs">ollama list</code>{' '}
+            shows it. Small models such as <code className="text-xs">phi3:mini</code> are enough for
+            a few sentences. Summaries stay off until this is set.
+          </p>
+        </div>
       </div>
 
       <Separator />

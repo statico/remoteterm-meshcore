@@ -10,13 +10,7 @@ import {
 } from 'lucide-react';
 
 export type SettingsSection =
-  | 'radio'
-  | 'local'
-  | 'radio-app'
-  | 'database'
-  | 'fanout'
-  | 'statistics'
-  | 'about';
+  'radio' | 'local' | 'radio-app' | 'database' | 'fanout' | 'statistics' | 'about';
 
 export const SETTINGS_SECTION_ORDER: SettingsSection[] = [
   'radio',

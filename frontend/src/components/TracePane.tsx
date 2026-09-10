@@ -409,12 +409,10 @@ export function TracePane({ contacts, config, onRunTracePath }: TracePaneProps) 
       const returnHops = [...current]
         .reverse()
         .slice(1)
-        .map(
-          (hop, i): TraceDraftHop => ({
-            ...hop,
-            id: nextDraftHopId(hop.kind, current.length + i),
-          })
-        );
+        .map((hop, i): TraceDraftHop => ({
+          ...hop,
+          id: nextDraftHopId(hop.kind, current.length + i),
+        }));
       return [...current, ...returnHops];
     });
     clearPendingResult();

@@ -79,35 +79,33 @@ describe('TracePane', () => {
   it('adds, reorders, removes, and sends a trace path with known repeaters', async () => {
     const relayA = makeContact('11'.repeat(32), 'Relay Alpha');
     const relayB = makeContact('22'.repeat(32), 'Relay Beta');
-    const onRunTracePath = vi.fn(
-      async (): Promise<RadioTraceResponse> => ({
-        path_len: 2,
-        timeout_seconds: 6,
-        nodes: [
-          {
-            role: 'repeater',
-            public_key: relayB.public_key,
-            name: relayB.name,
-            observed_hash: relayB.public_key.slice(0, 8),
-            snr: 7.5,
-          },
-          {
-            role: 'repeater',
-            public_key: relayA.public_key,
-            name: relayA.name,
-            observed_hash: relayA.public_key.slice(0, 8),
-            snr: 3.25,
-          },
-          {
-            role: 'local',
-            public_key: config.public_key,
-            name: config.name,
-            observed_hash: null,
-            snr: 5.0,
-          },
-        ],
-      })
-    );
+    const onRunTracePath = vi.fn(async (): Promise<RadioTraceResponse> => ({
+      path_len: 2,
+      timeout_seconds: 6,
+      nodes: [
+        {
+          role: 'repeater',
+          public_key: relayB.public_key,
+          name: relayB.name,
+          observed_hash: relayB.public_key.slice(0, 8),
+          snr: 7.5,
+        },
+        {
+          role: 'repeater',
+          public_key: relayA.public_key,
+          name: relayA.name,
+          observed_hash: relayA.public_key.slice(0, 8),
+          snr: 3.25,
+        },
+        {
+          role: 'local',
+          public_key: config.public_key,
+          name: config.name,
+          observed_hash: null,
+          snr: 5.0,
+        },
+      ],
+    }));
 
     render(
       <TracePane config={config} onRunTracePath={onRunTracePath} contacts={[relayA, relayB]} />
@@ -142,13 +140,11 @@ describe('TracePane', () => {
     const relayA = makeContact('11'.repeat(32), 'Relay Alpha');
     const relayB = makeContact('22'.repeat(32), 'Relay Beta');
     const relayC = makeContact('33'.repeat(32), 'Relay Charlie');
-    const onRunTracePath = vi.fn(
-      async (): Promise<RadioTraceResponse> => ({
-        path_len: 0,
-        timeout_seconds: 6,
-        nodes: [],
-      })
-    );
+    const onRunTracePath = vi.fn(async (): Promise<RadioTraceResponse> => ({
+      path_len: 0,
+      timeout_seconds: 6,
+      nodes: [],
+    }));
 
     render(
       <TracePane
@@ -195,35 +191,33 @@ describe('TracePane', () => {
 
   it('adds custom hops from the modal and locks later custom hops to the same byte width', async () => {
     const relayA = makeContact('11'.repeat(32), 'Relay Alpha');
-    const onRunTracePath = vi.fn(
-      async (): Promise<RadioTraceResponse> => ({
-        path_len: 2,
-        timeout_seconds: 4.5,
-        nodes: [
-          {
-            role: 'custom',
-            public_key: null,
-            name: null,
-            observed_hash: 'ae',
-            snr: 4.0,
-          },
-          {
-            role: 'repeater',
-            public_key: relayA.public_key,
-            name: relayA.name,
-            observed_hash: '11',
-            snr: 2.0,
-          },
-          {
-            role: 'local',
-            public_key: config.public_key,
-            name: config.name,
-            observed_hash: null,
-            snr: 3.0,
-          },
-        ],
-      })
-    );
+    const onRunTracePath = vi.fn(async (): Promise<RadioTraceResponse> => ({
+      path_len: 2,
+      timeout_seconds: 4.5,
+      nodes: [
+        {
+          role: 'custom',
+          public_key: null,
+          name: null,
+          observed_hash: 'ae',
+          snr: 4.0,
+        },
+        {
+          role: 'repeater',
+          public_key: relayA.public_key,
+          name: relayA.name,
+          observed_hash: '11',
+          snr: 2.0,
+        },
+        {
+          role: 'local',
+          public_key: config.public_key,
+          name: config.name,
+          observed_hash: null,
+          snr: 3.0,
+        },
+      ],
+    }));
 
     render(<TracePane config={config} onRunTracePath={onRunTracePath} contacts={[relayA]} />);
 
@@ -255,13 +249,11 @@ describe('TracePane', () => {
     const relayA = makeContact('11'.repeat(32), 'Relay Alpha');
     const relayB = makeContact('22'.repeat(32), 'Relay Beta');
     const relayC = makeContact('33'.repeat(32), 'Relay Charlie');
-    const onRunTracePath = vi.fn(
-      async (): Promise<RadioTraceResponse> => ({
-        path_len: 0,
-        timeout_seconds: 6,
-        nodes: [],
-      })
-    );
+    const onRunTracePath = vi.fn(async (): Promise<RadioTraceResponse> => ({
+      path_len: 0,
+      timeout_seconds: 6,
+      nodes: [],
+    }));
 
     const { unmount } = render(
       <TracePane

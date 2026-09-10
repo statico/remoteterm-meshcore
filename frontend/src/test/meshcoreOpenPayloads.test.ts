@@ -7,6 +7,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   REACTION_EMOJIS,
+  computeReactionHash,
+  encodeReaction,
+  gifIdFromInput,
   giphyUrlForId,
   parseGif,
   parseMeshCoreOneReaction,
@@ -158,5 +161,73 @@ describe('parseMeshCoreOneReaction', () => {
     expect(parseMeshCoreOneReaction('\u{1F44D} b45pc4ek')).toBeNull(); // single line
     expect(parseMeshCoreOneReaction('\u{1F44D}@[Bob]\nb45pc4ek\nmore')).toBeNull();
     expect(parseMeshCoreOneReaction('r:1a2b:00')).toBeNull();
+  });
+});
+
+describe('computeReactionHash', () => {
+  // Reference values produced by the ported Dart VM string hash; they pin the
+  // algorithm so a refactor cannot silently break interop with meshcore-open.
+  it('hashes a channel target (timestamp + sender + first 5 chars)', () => {
+    expect(computeReactionHash(1700000000, 'AlphaNode', 'hello world')).toBe('738c');
+    expect(computeReactionHash(1700000000, null, 'hello world')).toBe('033f');
+    // Only the first 5 characters of the text take part in the hash.
+    expect(computeReactionHash(1700000000, 'AlphaNode', 'hello world')).toBe(
+      computeReactionHash(1700000000, 'AlphaNode', 'hello')
+    );
+  });
+
+  it('omits the sender for 1:1 chats', () => {
+    expect(computeReactionHash(1700000000, null, 'hello')).toBe(
+      computeReactionHash(1700000000, '', 'hello')
+    );
+    expect(computeReactionHash(1700000000, null, 'hello')).not.toBe(
+      computeReactionHash(1700000000, 'AlphaNode', 'hello')
+    );
+  });
+
+  it('changes with the timestamp', () => {
+    expect(computeReactionHash(1700000000, null, 'hello')).not.toBe(
+      computeReactionHash(1700000001, null, 'hello')
+    );
+  });
+});
+
+describe('encodeReaction', () => {
+  it('round-trips through parseReaction', () => {
+    const payload = encodeReaction('\u{1F44D}', 1700000000, 'AlphaNode', 'hello world');
+    expect(payload).not.toBeNull();
+    expect(parseReaction(payload!)).toEqual({
+      emoji: '\u{1F44D}',
+      targetHash: computeReactionHash(1700000000, 'AlphaNode', 'hello world'),
+    });
+  });
+
+  it('encodes every emoji in the table', () => {
+    for (const emoji of REACTION_EMOJIS) {
+      const payload = encodeReaction(emoji, 1, null, 'x');
+      expect(parseReaction(payload!)?.emoji).toBe(emoji);
+    }
+  });
+
+  it('returns null for an emoji outside the table', () => {
+    expect(encodeReaction('\u{1F984}', 1, null, 'x')).toBeNull();
+  });
+});
+
+describe('gifIdFromInput', () => {
+  it('accepts an already-encoded payload', () => {
+    expect(gifIdFromInput('g:abc123')).toBe('abc123');
+  });
+
+  it('accepts pasted Giphy links', () => {
+    expect(gifIdFromInput('https://media.giphy.com/media/abc123/giphy.gif')).toBe('abc123');
+    expect(gifIdFromInput('media.giphy.com/media/abc123/giphy.gif')).toBe('abc123');
+    expect(gifIdFromInput('https://giphy.com/gifs/some-title-with-dashes-abc123')).toBe('abc123');
+    expect(gifIdFromInput('https://giphy.com/gifs/abc123/')).toBe('abc123');
+  });
+
+  it('leaves ordinary text alone', () => {
+    expect(gifIdFromInput('hello world')).toBeNull();
+    expect(gifIdFromInput('https://example.com/cat.gif')).toBeNull();
   });
 });

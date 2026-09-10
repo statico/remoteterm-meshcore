@@ -20,11 +20,7 @@ import type { TelemetryHistoryEntry, TelemetryLppSensor, Contact } from '../../t
 const MAX_TRACKED = 8;
 
 type BuiltinMetric =
-  | 'battery_volts'
-  | 'noise_floor_dbm'
-  | 'packets'
-  | 'recv_errors'
-  | 'uptime_seconds';
+  'battery_volts' | 'noise_floor_dbm' | 'packets' | 'recv_errors' | 'uptime_seconds';
 
 interface MetricConfig {
   label: string;

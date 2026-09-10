@@ -18,6 +18,7 @@ import {
   getTextReplaceMapJson,
   applyTextReplacements,
 } from '../utils/textReplace';
+import { gifIdFromInput } from '../utils/meshcoreOpenPayloads';
 
 // MeshCore message size limits (empirically determined from LoRa packet constraints)
 // Direct delivery allows ~156 bytes; multi-hop requires buffer for path growth.
@@ -135,10 +136,14 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       e.preventDefault();
       const trimmed = text.trim();
       if (!trimmed || sending || disabled) return;
+      // A pasted Giphy link goes out as the short "g:<id>" payload MeshCore Open
+      // clients render as a GIF — and which fits in a mesh message.
+      const gifId = gifIdFromInput(trimmed);
+      const payload = gifId ? `g:${gifId}` : trimmed;
 
       setSending(true);
       try {
-        await onSend(trimmed);
+        await onSend(payload);
         setText('');
       } catch (err) {
         console.error('Failed to send message:', err);

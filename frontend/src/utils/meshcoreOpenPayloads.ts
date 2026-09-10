@@ -14,14 +14,16 @@
  *   lib/widgets/emoji_picker.dart
  * (github.com/zjs81/meshcore-open, dev branch).
  *
- * Reaction support here is intentionally "generic display only": we decode the
- * emoji from <index> and show it, but we do NOT resolve <hash> back to the
- * target message (that requires porting Dart's String.hashCode). See issue #291.
+ * Received reactions are displayed generically: we decode the emoji from
+ * <index> and show it, but we do NOT resolve <hash> back to the target message
+ * (see issue #291). Sending is the other direction and does need the hash, so
+ * Dart's String.hashCode is ported below.
  */
 
 // --- Emoji table (order must match meshcore-open exactly for index compat) ---
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '👏', '🔥'];
+/** The six one-tap reaction emoji meshcore-open shows first. */
+export const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '👏', '🔥'];
 
 // prettier-ignore
 const SMILEYS = [
@@ -181,4 +183,80 @@ export function splitReplyMention(text: string): SplitReplyMention | null {
   const match = REPLY_MENTION_PREFIX.exec(text.trim());
   if (!match) return null;
   return { mention: match[1], body: match[2] };
+}
+
+// --- Encoding (sending) ---
+
+// meshcore-open hashes the reaction target with Dart's String.hashCode, so we
+// have to reproduce the Dart VM's string hash exactly or its clients will not
+// match our reaction back to a message. Ported from runtime/vm/object.h
+// (StringHasher) + runtime/vm/hash.h (CombineHashes/FinalizeHash) in the Dart
+// SDK: Jenkins one-at-a-time over UTF-16 code units. The VM masks the result to
+// 30 bits, which cannot affect the low 16 bits the reaction hash uses.
+function dartStringHash(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash + s.charCodeAt(i)) >>> 0;
+    hash = (hash + (hash << 10)) >>> 0;
+    hash = (hash ^ (hash >>> 6)) >>> 0;
+  }
+  hash = (hash + (hash << 3)) >>> 0;
+  hash = (hash ^ (hash >>> 11)) >>> 0;
+  hash = (hash + (hash << 15)) >>> 0;
+  hash &= 0x3fffffff;
+  return hash === 0 ? 1 : hash;
+}
+
+/**
+ * Compute the 4-hex-char target hash for a reaction, matching meshcore-open's
+ * ReactionHelper.computeReactionHash: timestamp + [sender name] + the first 5
+ * characters of the text. `senderName` is omitted for 1:1 chats, where the
+ * sender is implicit.
+ */
+export function computeReactionHash(
+  timestampSeconds: number,
+  senderName: string | null,
+  text: string
+): string {
+  const input = `${timestampSeconds}${senderName ?? ''}${text.slice(0, 5)}`;
+  return (dartStringHash(input) & 0xffff).toString(16).padStart(4, '0');
+}
+
+/**
+ * Encode a reaction payload ("r:<hash>:<index>") for a target message, or null
+ * when the emoji is not in the shared table (so it has no wire index).
+ */
+export function encodeReaction(
+  emoji: string,
+  timestampSeconds: number,
+  senderName: string | null,
+  text: string
+): string | null {
+  const index = REACTION_EMOJIS.indexOf(emoji);
+  if (index < 0) return null;
+  return `r:${computeReactionHash(timestampSeconds, senderName, text)}:${index
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
+// meshcore-open's GifHelper.parseGif also accepts Giphy URLs, so accept the
+// pasted-link forms when composing and send the short "g:<id>" over the air.
+const GIPHY_URL_PATTERNS = [
+  /^(?:https?:\/\/)?media\d*\.giphy\.com\/media\/(?:[A-Za-z0-9_-]+\/)?([A-Za-z0-9_-]+)\/giphy\.gif/,
+  /^(?:https?:\/\/)?(?:www\.)?giphy\.com\/gifs\/(?:[A-Za-z0-9_-]*-)?([A-Za-z0-9_-]+)\/?$/,
+];
+
+/**
+ * Extract a Giphy GIF id from composed text: either an already-encoded
+ * "g:<id>" payload or a pasted Giphy link. Returns null for anything else.
+ */
+export function gifIdFromInput(text: string): string | null {
+  const trimmed = text.trim();
+  const bare = parseGif(trimmed);
+  if (bare) return bare;
+  for (const pattern of GIPHY_URL_PATTERNS) {
+    const match = pattern.exec(trimmed);
+    if (match) return match[1];
+  }
+  return null;
 }

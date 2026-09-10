@@ -16,8 +16,10 @@ import {
   parseSenderFromText,
 } from '../utils/messageParser';
 import {
+  encodeReaction,
   giphyUrlForId,
   parseGif,
+  QUICK_EMOJIS,
   parseMeshCoreOneReaction,
   parseReaction,
   splitReplyMention,
@@ -60,6 +62,8 @@ interface MessageListProps {
   onLoadNewer?: () => void;
   onJumpToBottom?: () => void;
   preSorted?: boolean;
+  /** Send an encoded MeshCore Open reaction payload for a message. */
+  onSendReaction?: (payload: string) => Promise<void>;
 }
 
 // Renders a MeshCore Open GIF payload, falling back to the raw text on load error.
@@ -98,6 +102,72 @@ function ReactionPayload({ emoji, targetSender }: { emoji: string; targetSender?
       <span className="text-xs text-muted-foreground italic">
         {targetSender ? `reacted to ${targetSender}` : 'reacted'}
       </span>
+    </span>
+  );
+}
+
+// One-tap reaction picker: the six quick emoji meshcore-open offers first. The
+// full 184-emoji table is only used for decoding what others send.
+function ReactionPicker({
+  message,
+  radioName,
+  onSendReaction,
+}: {
+  message: Message;
+  radioName?: string;
+  onSendReaction: (payload: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // meshcore-open hashes the target with its sender's name on channels, and
+  // without it in a 1:1 chat where the sender is implicit.
+  const targetSender = message.type === 'CHAN' ? (message.sender_name ?? radioName ?? null) : null;
+
+  const react = (emoji: string) => {
+    setOpen(false);
+    const payload = encodeReaction(emoji, message.sender_timestamp!, targetSender, message.text);
+    if (!payload) return;
+    void onSendReaction(payload).catch((err) => {
+      toast.error('Failed to send reaction', {
+        description: err instanceof Error ? err.message : 'Check radio connection',
+      });
+    });
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        aria-label="React to this message"
+        title="React"
+        onClick={() => setOpen(true)}
+        className="reaction-picker-button self-center mx-1 rounded px-1 text-sm leading-none opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+      >
+        🙂
+      </button>
+    );
+  }
+  return (
+    <span className="self-center mx-1 flex items-center gap-0.5 rounded-md border border-border bg-background px-1 py-0.5 shadow-sm">
+      {QUICK_EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          aria-label={`React with ${emoji}`}
+          onClick={() => react(emoji)}
+          className="rounded px-1 text-base leading-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {emoji}
+        </button>
+      ))}
+      <button
+        type="button"
+        aria-label="Cancel reaction"
+        onClick={() => setOpen(false)}
+        className="rounded px-1 text-xs leading-none text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ✕
+      </button>
     </span>
   );
 }
@@ -411,6 +481,7 @@ export function MessageList({
   onLoadNewer,
   onJumpToBottom,
   preSorted = false,
+  onSendReaction,
 }: MessageListProps) {
   const { renderRichPayloads } = useRichPayloads();
   const listRef = useRef<HTMLDivElement>(null);
@@ -1234,7 +1305,7 @@ export function MessageList({
                 <div
                   data-message-id={msg.id}
                   className={cn(
-                    'flex items-start max-w-[85%]',
+                    'group flex items-start max-w-[85%]',
                     msg.outgoing && 'flex-row-reverse self-end',
                     isFirstInGroup && !isFirstMessage && 'mt-3'
                   )}
@@ -1407,6 +1478,15 @@ export function MessageList({
                         ))}
                     </div>
                   </div>
+                  {/* Gated on the rich-payload pref: with it off the reaction you
+                      just sent would render back to you as raw "r:..." text. */}
+                  {onSendReaction && renderRichPayloads && msg.sender_timestamp != null && (
+                    <ReactionPicker
+                      message={msg}
+                      radioName={radioName}
+                      onSendReaction={onSendReaction}
+                    />
+                  )}
                 </div>
               </div>
             );

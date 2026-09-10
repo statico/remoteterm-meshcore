@@ -359,6 +359,7 @@ export function ConversationPane({
           loadingNewer={loadingNewer}
           onLoadNewer={onLoadNewer}
           onJumpToBottom={onJumpToBottom}
+          onSendReaction={onSendMessage}
         />
       )}
       {showRoomChat && !(activeConversation.type === 'contact' && isPrefixOnlyActiveContact) ? (

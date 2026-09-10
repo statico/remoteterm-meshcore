@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.models import CONTACT_TYPE_REPEATER, AppSettings
 from app.region_scope import normalize_region_scope
 from app.repository import AppSettingsRepository, ChannelRepository, ContactRepository
+from app.services.ollama_summary import OllamaConfigError, normalize_ollama_base_url
 from app.telemetry_interval import (
     DEFAULT_TELEMETRY_INTERVAL_HOURS,
     TELEMETRY_INTERVAL_OPTIONS_HOURS,
@@ -87,6 +88,15 @@ class AppSettingsUpdate(BaseModel):
             "When enabled, tracked repeaters with a direct or routed (non-flood) "
             "path are polled every hour instead of on the normal scheduled interval."
         ),
+    )
+    ollama_enabled: bool | None = Field(
+        default=None, description="Enable Ollama unread-summary banners for channels"
+    )
+    ollama_base_url: str | None = Field(
+        default=None, description="Base URL of the Ollama server (e.g. http://localhost:11434)"
+    )
+    ollama_model: str | None = Field(
+        default=None, description="Ollama model for unread summaries (e.g. phi3:mini)"
     )
 
 
@@ -270,6 +280,21 @@ async def update_settings(update: AppSettingsUpdate) -> AppSettings:
     if update.telemetry_routed_hourly is not None:
         logger.info("Updating telemetry_routed_hourly to %s", update.telemetry_routed_hourly)
         kwargs["telemetry_routed_hourly"] = update.telemetry_routed_hourly
+
+    if update.ollama_enabled is not None:
+        logger.info("Updating ollama_enabled to %s", update.ollama_enabled)
+        kwargs["ollama_enabled"] = update.ollama_enabled
+
+    if update.ollama_base_url is not None:
+        try:
+            kwargs["ollama_base_url"] = normalize_ollama_base_url(update.ollama_base_url)
+        except OllamaConfigError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.info("Updating ollama_base_url to %s", kwargs["ollama_base_url"])
+
+    if update.ollama_model is not None:
+        kwargs["ollama_model"] = update.ollama_model.strip()
+        logger.info("Updating ollama_model to %r", kwargs["ollama_model"])
 
     # Flood scope
     flood_scope_changed = False

@@ -1055,6 +1055,29 @@ class AppSettings(BaseModel):
         ),
     )
 
+    ollama_enabled: bool = Field(
+        default=False,
+        description="When enabled, opening a channel with unreads shows an Ollama catch-up summary",
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL of the Ollama server, reached from the RemoteTerm server",
+    )
+    ollama_model: str = Field(
+        default="",
+        description="Ollama model used for unread channel summaries (e.g. phi3:mini)",
+    )
+
+
+class ChannelUnreadSummaryResponse(BaseModel):
+    summary: str | None = Field(
+        default=None, description="The generated summary, or null when none was produced"
+    )
+    message_count: int = Field(default=0, description="Number of unread messages summarized")
+    reason: str | None = Field(
+        default=None, description="Why no summary was produced, when summary is null"
+    )
+
 
 class BusyChannel(BaseModel):
     channel_key: str

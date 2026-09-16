@@ -1,3 +1,7 @@
+## [3.22.1] - 2026-09-16
+
+* Added a per-contact regional override (the globe in the chat header now works for contacts, not just channels), so DMs can be scoped to a region, forced unscoped, or left to inherit the global setting. The override only applies to flood-routed DMs; a direct send over a known path carries no region. Thanks to @2steuer for the report (#4).
+
 ## [3.22.0] - 2026-09-10
 
 * Added Ollama-powered summaries of unread channel messages, shown above the unread marker (off by default; enable it and set a model in Settings)

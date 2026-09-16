@@ -180,6 +180,9 @@ class ContactRepository:
             last_contacted=row["last_contacted"],
             last_read_at=row["last_read_at"],
             first_seen=row["first_seen"],
+            flood_scope_override=(
+                row["flood_scope_override"] if "flood_scope_override" in available_columns else None
+            ),
         )
 
     @staticmethod
@@ -481,6 +484,19 @@ class ContactRepository:
             ) as cursor:
                 rows = await cursor.fetchall()
         return [ContactRepository._row_to_contact(row) for row in rows]
+
+    @staticmethod
+    async def update_flood_scope_override(
+        public_key: str, flood_scope_override: str | None
+    ) -> bool:
+        """Set or clear a contact's flood-scope override."""
+        async with db.tx() as conn:
+            async with conn.execute(
+                "UPDATE contacts SET flood_scope_override = ? WHERE public_key = ?",
+                (flood_scope_override, public_key.lower()),
+            ) as cursor:
+                rowcount = cursor.rowcount
+        return rowcount > 0
 
     @staticmethod
     async def set_favorite(public_key: str, value: bool) -> None:

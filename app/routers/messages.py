@@ -122,6 +122,7 @@ async def send_direct_message(request: SendDirectMessageRequest) -> Message:
         broadcast_fn=broadcast_event,
         track_pending_ack_fn=track_pending_ack,
         now_fn=time.time,
+        error_broadcast_fn=broadcast_error,
         message_repository=MessageRepository,
         contact_repository=ContactRepository,
     )

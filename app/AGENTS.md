@@ -171,6 +171,7 @@ The retry deliberately does not re-run `_ensure_on_radio` — re-adding the cont
 - `ROUTE_TYPE_TRANSPORT_FLOOD`/`ROUTE_TYPE_TRANSPORT_DIRECT` packets carry a 4-byte transport-code block; `parse_packet_envelope` exposes it as `transport_codes = (code_1, code_2)` (little-endian uint16s; `code_2` is reserved/0).
 - `code_1` is a keyed MAC over the payload, not a stable per-region id: `code = HMAC-SHA256(SHA256("#" + region_name)[:16], payload_type || payload)[:2]` (firmware `TransportKeyStore.cpp`; reserved values `0x0000`/`0xFFFF` are nudged to `0x0001`/`0xFFFE`). There is **no** reverse lookup table — to name a packet's region you recompute the code per candidate region and check for a match (`app/region_resolver.py`).
 - Candidate region names come from `app_settings.known_regions` (user-editable, seeded by migration 063 from `flood_scope` + channel `flood_scope_override`).
+- Outbound scope is tri-state per conversation (`channels.flood_scope_override`, `contacts.flood_scope_override`): NULL inherits the global `flood_scope`, `*` forces unscoped/plain flood, and `#Region` scopes the send. `parse_override_input`/`resolve_override_scope` in `region_scope.py` are the single decision point; `temporary_flood_scope` in `services/flood_scope.py` applies and restores it around a send. A contact override only reaches the mesh on flood-routed DMs — a direct send over a known path carries no transport code.
 - Channel messages persist `messages.transport_code` (uint16, NULL = unscoped plain flood) and `messages.region` (resolved name, NULL = scoped but no list match) at ingest, so the chat region badge survives raw-packet purge. The packet inspector (`GET /packets/{id}` and the `raw_packet` WS broadcast) resolves region on the fly against the current list since it still holds the raw payload.
 
 ### Region-scope adoption stats (`region_scope_24h`)
@@ -258,6 +259,7 @@ Web Push is a standalone subsystem in `app/push/`, separate from the fanout modu
 - `POST /contacts/{public_key}/mark-read`
 - `POST /contacts/{public_key}/command`
 - `POST /contacts/{public_key}/routing-override`
+- `POST /contacts/{public_key}/flood-scope-override` — per-contact regional override for flood-routed DMs (same tri-state as the channel endpoint)
 - `POST /contacts/{public_key}/trace`
 - `POST /contacts/{public_key}/path-discovery` — discover forward/return paths, persist the learned direct route, and sync it back to the radio best-effort
 - `POST /contacts/{public_key}/repeater/login` — one attempt on the effective route, then one flood retry on timeout

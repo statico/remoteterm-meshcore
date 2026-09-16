@@ -3,7 +3,7 @@ import { Bell, BellOff, ChevronsLeftRight, Globe2, Info, Route, Star, Trash2 } f
 import { toast } from './ui/sonner';
 import { DirectTraceIcon } from './DirectTraceIcon';
 import { ContactPathDiscoveryModal } from './ContactPathDiscoveryModal';
-import { ChannelFloodScopeOverrideModal } from './ChannelFloodScopeOverrideModal';
+import { FloodScopeOverrideModal } from './FloodScopeOverrideModal';
 import { ChannelPathHashModeOverrideModal } from './ChannelPathHashModeOverrideModal';
 import { handleKeyboardActivate } from '../utils/a11y';
 import { isPublicChannelKey } from '../utils/publicChannel';
@@ -34,6 +34,7 @@ interface ChatHeaderProps {
   onToggleFavorite: (type: 'channel' | 'contact', id: string) => void;
   onToggleMute?: (key: string) => void;
   onSetChannelFloodScopeOverride?: (key: string, floodScopeOverride: string) => void;
+  onSetContactFloodScopeOverride?: (publicKey: string, floodScopeOverride: string) => void;
   onSetChannelPathHashModeOverride?: (key: string, pathHashModeOverride: number | null) => void;
   onDeleteChannel: (key: string) => void;
   onDeleteContact: (publicKey: string) => void;
@@ -60,6 +61,7 @@ export function ChatHeader({
   onToggleFavorite,
   onToggleMute,
   onSetChannelFloodScopeOverride,
+  onSetContactFloodScopeOverride,
   onSetChannelPathHashModeOverride,
   onDeleteChannel,
   onDeleteContact,
@@ -97,8 +99,22 @@ export function ChatHeader({
     conversation.type === 'channel'
       ? channels.find((channel) => channel.key === conversation.id)
       : undefined;
+  const activeContact =
+    conversation.type === 'contact'
+      ? contacts.find((contact) => contact.public_key === conversation.id)
+      : null;
   const activeFloodScopeOverride =
-    conversation.type === 'channel' ? (activeChannel?.flood_scope_override ?? null) : null;
+    conversation.type === 'channel'
+      ? (activeChannel?.flood_scope_override ?? null)
+      : (activeContact?.flood_scope_override ?? null);
+  // One globe for both conversation types: channels scope the whole channel,
+  // contacts scope flood-routed DMs.
+  const setFloodScopeOverride =
+    conversation.type === 'channel'
+      ? onSetChannelFloodScopeOverride
+      : conversation.type === 'contact'
+        ? onSetContactFloodScopeOverride
+        : undefined;
   const activeFloodScopeLabel = activeFloodScopeOverride
     ? stripRegionScopePrefix(activeFloodScopeOverride)
     : null;
@@ -112,10 +128,6 @@ export function ChatHeader({
     onSetChannelPathHashModeOverride &&
     config?.path_hash_mode_supported;
   const isPrivateChannel = conversation.type === 'channel' && !activeChannel?.is_hashtag;
-  const activeContact =
-    conversation.type === 'contact'
-      ? contacts.find((contact) => contact.public_key === conversation.id)
-      : null;
   const activeContactIsRoomServer = activeContact?.type === CONTACT_TYPE_ROOM;
   const activeContactIsPrefixOnly = activeContact
     ? isPrefixOnlyContact(activeContact.public_key)
@@ -140,7 +152,7 @@ export function ChatHeader({
         : 'Add to favorites';
 
   const handleEditFloodScopeOverride = () => {
-    if (conversation.type !== 'channel' || !onSetChannelFloodScopeOverride) return;
+    if (!setFloodScopeOverride) return;
     setChannelOverrideOpen(true);
   };
 
@@ -258,7 +270,7 @@ export function ChatHeader({
                 </span>
               )}
             </span>
-            {conversation.type === 'channel' && activeFloodScopeBadge && (
+            {setFloodScopeOverride && activeFloodScopeBadge && (
               <button
                 className="mt-0.5 flex basis-full items-center gap-1 text-left sm:hidden"
                 onClick={handleEditFloodScopeOverride}
@@ -436,7 +448,7 @@ export function ChatHeader({
               )}
             </div>
           )}
-        {conversation.type === 'channel' && onSetChannelFloodScopeOverride && (
+        {setFloodScopeOverride && (
           <button
             className="flex shrink-0 items-center gap-1 rounded px-1 py-1 text-lg leading-none transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleEditFloodScopeOverride}
@@ -510,13 +522,14 @@ export function ChatHeader({
           onDiscover={onPathDiscovery}
         />
       )}
-      {conversation.type === 'channel' && onSetChannelFloodScopeOverride && (
-        <ChannelFloodScopeOverrideModal
+      {setFloodScopeOverride && (
+        <FloodScopeOverrideModal
           open={channelOverrideOpen}
           onClose={() => setChannelOverrideOpen(false)}
           roomName={conversation.name}
+          kind={conversation.type === 'channel' ? 'channel' : 'contact'}
           currentOverride={activeFloodScopeOverride}
-          onSetOverride={(value) => onSetChannelFloodScopeOverride(conversation.id, value)}
+          onSetOverride={(value) => setFloodScopeOverride(conversation.id, value)}
         />
       )}
       {showPathHashModeOverride && (

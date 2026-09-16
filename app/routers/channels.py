@@ -19,7 +19,7 @@ from app.models import (
     ChannelUnreadSummaryResponse,
 )
 from app.packet_processor import create_message_from_decrypted
-from app.region_scope import UNSCOPED_OVERRIDE_MARKER, is_unscoped, normalize_region_scope
+from app.region_scope import parse_override_input
 from app.repository import (
     AppSettingsRepository,
     ChannelRepository,
@@ -416,19 +416,7 @@ async def set_channel_flood_scope_override(
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    # Tri-state persisted override:
-    #   blank        -> None: clear the override, inherit the global scope
-    #   "*" / "0"    -> canonical unscoped marker: force unscoped even over a global
-    #   region name  -> "#Region": scope this channel
-    # NOTE: at this (channel-override) layer blank means "clear/inherit", so we must
-    # check for blank *before* is_unscoped() (which also treats "" as unscoped).
-    raw_override = (request.flood_scope_override or "").strip()
-    if raw_override == "":
-        override: str | None = None
-    elif is_unscoped(raw_override):
-        override = UNSCOPED_OVERRIDE_MARKER
-    else:
-        override = normalize_region_scope(raw_override)
+    override = parse_override_input(request.flood_scope_override)
     updated = await ChannelRepository.update_flood_scope_override(channel.key, override)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to update flood-scope override")

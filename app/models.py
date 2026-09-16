@@ -115,6 +115,15 @@ class Contact(BaseModel):
     last_contacted: int | None = None  # Last time we sent/received a message
     last_read_at: int | None = None  # Server-side read state tracking
     first_seen: int | None = None
+    flood_scope_override: str | None = Field(
+        default=None,
+        description=(
+            "Per-contact outbound flood scope override for direct messages, tri-state: "
+            "null = inherit the global app setting; '*' (UNSCOPED_OVERRIDE_MARKER) = force "
+            "unscoped/plain flood even over a scoped global; a region name (e.g. "
+            "'#Esperance') = scope DMs to this contact. Only affects flood-routed DMs."
+        ),
+    )
     effective_route: ContactRoute | None = None
     effective_route_source: Literal["override", "direct", "flood"] = "flood"
     direct_route: ContactRoute | None = None
@@ -229,6 +238,18 @@ class CreateContactRequest(BaseModel):
     try_historical: bool = Field(
         default=False,
         description="Attempt to decrypt historical DM packets for this contact",
+    )
+
+
+class ContactFloodScopeOverrideRequest(BaseModel):
+    flood_scope_override: str = Field(
+        description=(
+            "Tri-state contact override. Blank clears the override (inherit the global "
+            "scope); '*' forces unscoped/plain flood even when a global region is set; "
+            "any other value scopes direct messages to that region. Note the deliberate "
+            "asymmetry vs. the send layer: here blank means 'inherit', so an explicit "
+            "unscoped request must use '*'."
+        )
     )
 
 

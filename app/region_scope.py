@@ -37,3 +37,36 @@ def normalize_region_scope(scope: str | None) -> str:
     if stripped.startswith("#"):
         return stripped
     return f"#{stripped}"
+
+
+def parse_override_input(raw: str | None) -> str | None:
+    """Parse a user-supplied override into the persisted tri-state value.
+
+    Shared by the channel and contact override endpoints:
+    - blank       -> ``None``: clear the override, inherit the global scope
+    - ``"*"``/``"0"`` -> ``UNSCOPED_OVERRIDE_MARKER``: force unscoped even over a global
+    - region name -> ``"#Region"``: scope this conversation
+
+    NOTE: at this layer blank means "clear/inherit", so blank is checked *before*
+    ``is_unscoped()`` (which also treats ``""`` as unscoped).
+    """
+    stripped = (raw or "").strip()
+    if stripped == "":
+        return None
+    if is_unscoped(stripped):
+        return UNSCOPED_OVERRIDE_MARKER
+    return normalize_region_scope(stripped)
+
+
+def resolve_override_scope(override: str | None) -> tuple[str, bool]:
+    """Map a persisted tri-state override to ``(desired_scope, explicit)``.
+
+    ``explicit`` is False only for ``None`` (inherit), where the caller must leave
+    the radio's standing scope untouched. An explicit unscoped override yields
+    ``("", True)`` so the caller knows to force plain flood.
+    """
+    if override is None:
+        return "", False
+    if is_unscoped(override):
+        return "", True
+    return normalize_region_scope(override), True

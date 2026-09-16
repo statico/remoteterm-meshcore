@@ -11,7 +11,7 @@ from meshcore import EventType
 
 from app.models import ResendChannelMessageResponse
 from app.radio import RadioOperationBusyError
-from app.region_scope import is_unscoped, normalize_region_scope
+from app.region_scope import normalize_region_scope, resolve_override_scope
 from app.repository import (
     AppSettingsRepository,
     ChannelRepository,
@@ -19,7 +19,7 @@ from app.repository import (
     MessageRepository,
 )
 from app.services import dm_ack_tracker
-from app.services.flood_scope import set_radio_flood_scope
+from app.services.flood_scope import set_radio_flood_scope, temporary_flood_scope
 from app.services.messages import (
     BroadcastFn,
     broadcast_message,
@@ -161,20 +161,8 @@ async def send_channel_message_with_effective_scope(
     back to the channel's persisted override.
     """
     if isinstance(flood_scope_override, _ScopeUnset):
-        # Fall back to the channel's persisted override, which is tri-state:
-        #   None -> inherit the global scope (leave radio untouched)
-        #   unscoped marker ("*") -> force unscoped even over a scoped global
-        #   region name -> scope this channel
-        channel_override = channel.flood_scope_override
-        if channel_override is None:
-            desired_scope = ""
-            scope_explicit = False
-        elif is_unscoped(channel_override):
-            desired_scope = ""
-            scope_explicit = True
-        else:
-            desired_scope = normalize_region_scope(channel_override)
-            scope_explicit = True
+        # Fall back to the channel's persisted tri-state override.
+        desired_scope, scope_explicit = resolve_override_scope(channel.flood_scope_override)
     else:
         desired_scope = normalize_region_scope(flood_scope_override)
         scope_explicit = True
@@ -531,12 +519,18 @@ async def _retry_direct_message_until_acked(
                     if refreshed_contact:
                         cached_contact = refreshed_contact
 
-                result = await mc.commands.send_msg(
-                    dst=cached_contact,
-                    msg=text,
-                    timestamp=sender_timestamp,
-                    attempt=attempt,
-                )
+                async with temporary_flood_scope(
+                    mc=mc,
+                    override=contact.flood_scope_override,
+                    radio_manager=radio_manager,
+                    action_label=f"DM retry to {contact.public_key[:12]}",
+                ):
+                    result = await mc.commands.send_msg(
+                        dst=cached_contact,
+                        msg=text,
+                        timestamp=sender_timestamp,
+                        attempt=attempt,
+                    )
         except RadioOperationBusyError:
             logger.debug(
                 "Radio busy during DM retry attempt %d/%d for %s, will retry without consuming attempt",
@@ -613,6 +607,7 @@ async def send_direct_message_to_contact(
     broadcast_fn: BroadcastFn,
     track_pending_ack_fn: TrackAckFn,
     now_fn: NowFn,
+    error_broadcast_fn: BroadcastFn | None = None,
     retry_task_scheduler: RetryTaskScheduler | None = None,
     retry_sleep_fn=None,
     message_repository=MessageRepository,
@@ -649,11 +644,20 @@ async def send_direct_message_to_contact(
                 text=text,
                 requested_timestamp=sent_at,
             )
-            result = await mc.commands.send_msg(
-                dst=cached_contact,
-                msg=text,
-                timestamp=sender_timestamp,
-            )
+            # The per-contact override only reaches the mesh when the DM is
+            # flood-routed; a direct send over a known path carries no transport code.
+            async with temporary_flood_scope(
+                mc=mc,
+                override=contact.flood_scope_override,
+                radio_manager=radio_manager,
+                action_label=f"sending message to {contact.public_key[:12]}",
+                error_broadcast_fn=error_broadcast_fn,
+            ):
+                result = await mc.commands.send_msg(
+                    dst=cached_contact,
+                    msg=text,
+                    timestamp=sender_timestamp,
+                )
 
         if result is None:
             logger.warning(

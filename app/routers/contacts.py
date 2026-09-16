@@ -13,6 +13,7 @@ from app.models import (
     ContactActiveRoom,
     ContactAdvertPathSummary,
     ContactAnalytics,
+    ContactFloodScopeOverrideRequest,
     ContactRoutingOverrideRequest,
     ContactTelemetryResponse,
     ContactUpsert,
@@ -26,6 +27,7 @@ from app.models import (
 )
 from app.packet_processor import start_historical_dm_decryption
 from app.path_utils import parse_explicit_hop_route
+from app.region_scope import parse_override_input
 from app.repository import (
     AmbiguousPublicKeyPrefixError,
     ContactAdvertPathRepository,
@@ -616,6 +618,26 @@ async def set_contact_routing_override(
         await _broadcast_contact_update(updated_contact)
 
     return {"status": "ok", "public_key": contact.public_key}
+
+
+@router.post("/{public_key}/flood-scope-override", response_model=Contact)
+async def set_contact_flood_scope_override(
+    public_key: str, request: ContactFloodScopeOverrideRequest
+) -> Contact:
+    """Set or clear a per-contact flood-scope override for direct messages."""
+    contact = await _resolve_contact_or_404(public_key)
+
+    override = parse_override_input(request.flood_scope_override)
+    updated = await ContactRepository.update_flood_scope_override(contact.public_key, override)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to update flood-scope override")
+
+    refreshed = await ContactRepository.get_by_key(contact.public_key)
+    if refreshed is None:
+        raise HTTPException(status_code=500, detail="Contact disappeared after update")
+
+    await _broadcast_contact_update(refreshed)
+    return refreshed
 
 
 # ---------------------------------------------------------------------------

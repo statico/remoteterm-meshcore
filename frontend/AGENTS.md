@@ -140,7 +140,7 @@ frontend/src/
 │   ├── RoomServerPanel.tsx     # Room-server auth gate + status banner ahead of room chat
 │   ├── ServerLoginStatusBanner.tsx # Shared repeater/room login state banner
 │   ├── ChannelInfoPane.tsx     # Channel detail sheet (stats, top senders)
-│   ├── ChannelFloodScopeOverrideModal.tsx # Per-channel flood-scope override editor
+│   ├── FloodScopeOverrideModal.tsx # Per-channel/per-contact flood-scope override editor
 │   ├── ChannelPathHashModeOverrideModal.tsx # Per-channel path hash mode override editor
 │   ├── BulkAddChannelResultModal.tsx # Results dialog for bulk channel creation
 │   ├── CommandPalette.tsx      # Command palette overlay

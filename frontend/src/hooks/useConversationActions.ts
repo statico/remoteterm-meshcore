@@ -21,6 +21,10 @@ interface UseConversationActionsResult {
     channelKey: string,
     floodScopeOverride: string
   ) => Promise<void>;
+  handleSetContactFloodScopeOverride: (
+    publicKey: string,
+    floodScopeOverride: string
+  ) => Promise<void>;
   handleSetChannelPathHashModeOverride: (
     channelKey: string,
     pathHashModeOverride: number | null
@@ -110,6 +114,23 @@ export function useConversationActions({
     [mergeChannelIntoList]
   );
 
+  const handleSetContactFloodScopeOverride = useCallback(
+    async (publicKey: string, floodScopeOverride: string) => {
+      try {
+        const updated = await api.setContactFloodScopeOverride(publicKey, floodScopeOverride);
+        setContacts((prev) => mergeContactIntoList(prev, updated));
+        toast.success(
+          updated.flood_scope_override ? 'Regional override saved' : 'Regional override cleared'
+        );
+      } catch (err) {
+        toast.error('Failed to update regional override', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+    },
+    [setContacts]
+  );
+
   const handleSetChannelPathHashModeOverride = useCallback(
     async (channelKey: string, pathHashModeOverride: number | null) => {
       try {
@@ -166,6 +187,7 @@ export function useConversationActions({
     handleSendMessage,
     handleResendChannelMessage,
     handleSetChannelFloodScopeOverride,
+    handleSetContactFloodScopeOverride,
     handleSetChannelPathHashModeOverride,
     handleSenderClick,
     handleTrace,

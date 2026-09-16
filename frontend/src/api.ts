@@ -237,6 +237,12 @@ export const api = {
       body: JSON.stringify({ flood_scope_override: floodScopeOverride }),
     }),
 
+  setContactFloodScopeOverride: (publicKey: string, floodScopeOverride: string) =>
+    fetchJson<Contact>(`/contacts/${publicKey}/flood-scope-override`, {
+      method: 'POST',
+      body: JSON.stringify({ flood_scope_override: floodScopeOverride }),
+    }),
+
   setChannelPathHashModeOverride: (key: string, pathHashModeOverride: number | null) =>
     fetchJson<Channel>(`/channels/${key}/path-hash-mode-override`, {
       method: 'POST',

@@ -364,6 +364,7 @@ All endpoints are prefixed with `/api` (e.g., `/api/health`).
 | POST | `/api/channels/bulk-hashtag` | Create multiple hashtag channels |
 | DELETE | `/api/channels/{key}` | Delete channel |
 | POST | `/api/channels/{key}/flood-scope-override` | Set or clear a per-channel regional flood-scope override |
+| POST | `/api/contacts/{public_key}/flood-scope-override` | Set or clear a per-contact regional flood-scope override for direct messages |
 | POST | `/api/channels/{key}/path-hash-mode-override` | Set or clear a per-channel path hash mode override |
 | POST | `/api/channels/{key}/mark-read` | Mark channel as read |
 | POST | `/api/channels/{key}/summarize-unread` | Summarize unread channel messages via the configured Ollama server |
@@ -427,7 +428,7 @@ All endpoints are prefixed with `/api` (e.g., `/api/health`).
 - Hashtag channels: `SHA256("#name")[:16]` converted to hex
 - Hashtag channel names are hashed **verbatim** (any character — `&`, capitals, spaces, accents — is valid), matching `meshcore_py` / meshcore-cli / meshcore.js, which impose no character restriction (firmware never validates or even sees the name; it only receives the precomputed secret). The New-Conversation UI defaults to normalizing names to lowercase `[a-z0-9-]`, but a "Permit capitals, whitespace, and extended characters" toggle hashes the name exactly as typed for cross-client interop. The only server-side limit is non-empty and ≤32 UTF-8 bytes including the leading `#` (the on-radio name field size).
 - Custom channels: User-provided or generated
-- Channels may also persist `flood_scope_override`; when set, channel sends temporarily switch the radio flood scope to that value for the duration of the send, then restore the global app setting.
+- Channels and contacts may also persist `flood_scope_override`; when set, sends temporarily switch the radio flood scope to that value for the duration of the send, then restore the global app setting. A contact override only affects flood-routed DMs, since a direct send over a known path carries no transport code.
 - Channels may persist `path_hash_mode_override` (0/1/2); when set, channel sends temporarily switch the radio path hash mode for the duration of the send, then restore the radio default.
 
 ### Message Types

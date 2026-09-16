@@ -166,6 +166,7 @@ export interface Contact {
   last_contacted: number | null;
   last_read_at: number | null;
   first_seen: number | null;
+  flood_scope_override?: string | null;
 }
 
 export interface ContactRoute {

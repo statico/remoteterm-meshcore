@@ -17,21 +17,23 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
-interface ChannelFloodScopeOverrideModalProps {
+interface FloodScopeOverrideModalProps {
   open: boolean;
   onClose: () => void;
   roomName: string;
+  kind: 'channel' | 'contact';
   currentOverride: string | null;
   onSetOverride: (value: string) => void;
 }
 
-export function ChannelFloodScopeOverrideModal({
+export function FloodScopeOverrideModal({
   open,
   onClose,
   roomName,
+  kind,
   currentOverride,
   onSetOverride,
-}: ChannelFloodScopeOverrideModalProps) {
+}: FloodScopeOverrideModalProps) {
   const [region, setRegion] = useState('');
 
   useEffect(() => {
@@ -56,10 +58,17 @@ export function ChannelFloodScopeOverrideModal({
         <DialogHeader>
           <DialogTitle>Regional Override</DialogTitle>
           <DialogDescription>
-            Channel-level regional routing temporarily changes the radio flood scope before send and
-            restores it after. This can noticeably slow channel sends. Choose one of three modes
-            below: scope to a region, force unscoped (plain flood, ignoring your global region), or
-            inherit the global setting.
+            Regional routing temporarily changes the radio flood scope before send and restores it
+            after. This can noticeably slow sends. Choose one of three modes below: scope to a
+            region, force unscoped (plain flood, ignoring your global region), or inherit the global
+            setting.
+            {kind === 'contact' && (
+              <>
+                {' '}
+                A direct message only carries a region when it is flood-routed; sends over a known
+                path ignore this setting.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 

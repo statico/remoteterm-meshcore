@@ -15,18 +15,9 @@ vi.mock('../api', () => ({
   },
 }));
 
-vi.mock('../components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-  }),
-}));
-
 const { api: _rawApi } = await import('../api');
 const mockApi = _rawApi as unknown as Record<string, Mock>;
-const { toast } = await import('../components/ui/sonner');
-const mockToast = toast as unknown as Record<string, Mock>;
+const lastSyncKey = `remoteterm-room-last-sync:${'aa'.repeat(32)}`;
 
 const roomContact: Contact = {
   public_key: 'aa'.repeat(32),
@@ -71,13 +62,10 @@ describe('RoomServerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Show Tools')).toBeInTheDocument();
     });
-    expect(screen.getByText('Show Tools')).toBeInTheDocument();
-    expect(screen.getByText('Retry Existing-Access Login')).toBeInTheDocument();
-    expect(mockToast.warning).toHaveBeenCalledWith("Couldn't confirm room login", {
-      description:
-        "No login confirmation was heard from the room server. You're free to try sending messages; try logging in again if authenticated actions fail.",
-    });
+    expect(screen.getByText("We couldn't confirm the login.")).toBeInTheDocument();
+    expect(screen.getByText('Change Password')).toBeInTheDocument();
     expect(onAuthenticatedChange).toHaveBeenLastCalledWith(true);
+    expect(localStorage.getItem(lastSyncKey)).toBe(null);
   });
 
   it('retains the last password for one-click retry after unlocking the panel', async () => {
@@ -101,10 +89,10 @@ describe('RoomServerPanel', () => {
     fireEvent.click(screen.getByText('Login with Password'));
 
     await waitFor(() => {
-      expect(screen.getByText('Retry Password Login')).toBeInTheDocument();
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Retry Password Login'));
+    fireEvent.click(screen.getByText('Sync Now'));
 
     await waitFor(() => {
       expect(mockApi.roomLogin).toHaveBeenNthCalledWith(
@@ -136,22 +124,22 @@ describe('RoomServerPanel', () => {
     fireEvent.click(screen.getByText('Login with Password'));
 
     await waitFor(() => {
-      expect(screen.getByText('Re-enter Password')).toBeInTheDocument();
+      expect(screen.getByText('Change Password')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Re-enter Password'));
+    fireEvent.click(screen.getByText('Change Password'));
 
     await waitFor(() => {
       expect(screen.getByText('Login with Password')).toBeInTheDocument();
     });
     expect(screen.getByLabelText('Repeater password')).toHaveValue('');
-    expect(screen.queryByText('Re-enter Password')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change Password')).not.toBeInTheDocument();
     expect(localStorage.getItem(`remoteterm-server-password:room:${roomContact.public_key}`)).toBe(
       null
     );
   });
 
-  it('shows only a success toast after a confirmed login', async () => {
+  it('records the sync after a confirmed login', async () => {
     mockApi.roomLogin.mockResolvedValueOnce({
       status: 'ok',
       authenticated: true,
@@ -166,10 +154,32 @@ describe('RoomServerPanel', () => {
       expect(screen.getByText('Show Tools')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Login confirmed by the room server.')).not.toBeInTheDocument();
-    expect(screen.queryByText('Retry Password Login')).not.toBeInTheDocument();
-    expect(screen.queryByText('Retry Existing-Access Login')).not.toBeInTheDocument();
-    expect(mockToast.success).toHaveBeenCalledWith('Login confirmed by the room server.');
+    expect(screen.getByText(/^Synced /)).toBeInTheDocument();
+    expect(screen.queryByText('Change Password')).not.toBeInTheDocument();
+    expect(Number(localStorage.getItem(lastSyncKey))).toBeGreaterThan(0);
+  });
+
+  it('opens a previously synced room straight to chat without re-logging in', async () => {
+    localStorage.setItem(lastSyncKey, String(Date.now() - 60_000));
+    const onAuthenticatedChange = vi.fn();
+
+    render(<RoomServerPanel contact={roomContact} onAuthenticatedChange={onAuthenticatedChange} />);
+
+    expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    await waitFor(() => expect(onAuthenticatedChange).toHaveBeenLastCalledWith(true));
+    expect(mockApi.roomLogin).not.toHaveBeenCalled();
+  });
+
+  it('quietly re-syncs a stale room with an existing-member login', async () => {
+    localStorage.setItem(lastSyncKey, String(Date.now() - 60 * 60_000));
+    mockApi.roomLogin.mockResolvedValue({ status: 'ok', authenticated: true, message: null });
+
+    render(<RoomServerPanel contact={roomContact} />);
+
+    await waitFor(() => {
+      expect(mockApi.roomLogin).toHaveBeenCalledWith(roomContact.public_key, '');
+    });
+    expect(mockApi.roomLogin).toHaveBeenCalledTimes(1);
   });
   it('auto-logs in once when a password is already remembered', async () => {
     localStorage.setItem(
@@ -212,7 +222,7 @@ describe('RoomServerPanel', () => {
     });
     rerender(<RoomServerPanel contact={roomContact} />);
     await waitFor(() => {
-      expect(screen.getByText('Retry Password Login')).toBeInTheDocument();
+      expect(screen.getByText('Change Password')).toBeInTheDocument();
     });
 
     expect(mockApi.roomLogin).toHaveBeenCalledTimes(1);

@@ -31,13 +31,22 @@ export function resetRememberedServerPasswordsForTests() {
   inMemoryPasswords.clear();
 }
 
+function loadInitialPassword(kind: ServerLoginKind, publicKey: string) {
+  const stored = loadStoredPassword(kind, publicKey);
+  if (stored) return { password: stored.password, remember: true };
+  const inMemory = inMemoryPasswords.get(getStorageKey(kind, publicKey));
+  return { password: inMemory?.password ?? '', remember: false };
+}
+
 export function useRememberedServerPassword(kind: ServerLoginKind, publicKey: string) {
   const storageKey = useMemo(() => getStorageKey(kind, publicKey), [kind, publicKey]);
-  const [password, setPassword] = useState('');
-  const [rememberPassword, setRememberPassword] = useState(false);
+  // Loaded synchronously so mount-time effects (auto-login) see it on first render.
+  const [initial] = useState(() => loadInitialPassword(kind, publicKey));
+  const [password, setPassword] = useState(initial.password);
+  const [rememberPassword, setRememberPassword] = useState(initial.remember);
   // Mirrors what was loaded from storage. Unlike `password` it never changes as
   // the user types, so callers can key one-shot effects (auto-login) off it.
-  const [storedPassword, setStoredPassword] = useState('');
+  const [storedPassword, setStoredPassword] = useState(initial.password);
 
   useEffect(() => {
     const stored = loadStoredPassword(kind, publicKey);

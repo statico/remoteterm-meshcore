@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api';
-import { toast } from './ui/sonner';
+import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import type {
@@ -16,7 +16,6 @@ import { AclPane } from './repeater/RepeaterAclPane';
 import { LppTelemetryPane } from './repeater/RepeaterLppTelemetryPane';
 import { ConsolePane } from './repeater/RepeaterConsolePane';
 import { RepeaterLogin } from './RepeaterLogin';
-import { ServerLoginStatusBanner } from './ServerLoginStatusBanner';
 import { useRememberedServerPassword } from '../hooks/useRememberedServerPassword';
 import {
   buildServerLoginAttemptFromError,
@@ -117,6 +116,34 @@ function setCachedRoom(publicKey: string, entry: RoomCacheEntry) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Persisted sync time: a room we have logged into once opens straight to chat
+// ---------------------------------------------------------------------------
+
+const LAST_SYNC_KEY_PREFIX = 'remoteterm-room-last-sync';
+// The room server keeps pushing new posts to members on its own; a re-login
+// only wakes a push loop that gave up on us, so it needn't run on every open.
+const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+
+function loadLastSync(publicKey: string): number | null {
+  try {
+    const value = Number(localStorage.getItem(`${LAST_SYNC_KEY_PREFIX}:${publicKey}`));
+    return value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastSync(publicKey: string, at: number | null) {
+  try {
+    const key = `${LAST_SYNC_KEY_PREFIX}:${publicKey}`;
+    if (at === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, String(at));
+  } catch {
+    // localStorage may be unavailable
+  }
+}
+
 export function resetRoomCacheForTests() {
   roomCache.clear();
 }
@@ -136,7 +163,9 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
 
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(cached?.loginError ?? null);
-  const [authenticated, setAuthenticated] = useState(cached?.authenticated ?? false);
+  const [authenticated, setAuthenticated] = useState(
+    () => cached?.authenticated ?? loadLastSync(contact.public_key) !== null
+  );
   const [lastLoginAttempt, setLastLoginAttempt] = useState<ServerLoginAttemptState | null>(
     cached?.lastLoginAttempt ?? null
   );
@@ -222,23 +251,12 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
         const result = await api.roomLogin(contact.public_key, nextPassword);
         setLastLoginAttempt(buildServerLoginAttemptFromResponse(method, result, 'room server'));
         setAuthenticated(true);
-        if (result.authenticated) {
-          toast.success('Login confirmed by the room server.');
-        } else {
-          toast.warning("Couldn't confirm room login", {
-            description:
-              result.message ??
-              'No confirmation came back from the room server. You can still open tools and try again.',
-          });
-        }
+        if (result.authenticated) saveLastSync(contact.public_key, Date.now());
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         setLastLoginAttempt(buildServerLoginAttemptFromError(method, message, 'room server'));
         setAuthenticated(true);
         setLoginError(message);
-        toast.error('Room login request failed', {
-          description: `${message}. You can still open tools and retry the login from here.`,
-        });
       } finally {
         setLoginLoading(false);
       }
@@ -254,15 +272,21 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
     [performLogin, persistAfterLogin]
   );
 
-  // Log in once on open when we already know the password, so reopening a room
-  // pulls the backlog without a manual click. The ref guard is deliberate: a
-  // failed login must never retry, because every login is mesh traffic.
-  const autoLoginFiredRef = useRef(false);
+  // Re-sync quietly on open for a room we have joined before (or know the
+  // password for), at most once per AUTO_SYNC_INTERVAL_MS. A blank login is how
+  // an existing member reconnects. The attempt is stamped before it is sent and
+  // the ref guards the mount: a failed login must never retry on its own,
+  // because every login is mesh traffic.
+  const autoSyncFiredRef = useRef(false);
   useEffect(() => {
-    if (autoLoginFiredRef.current || authenticated || loginLoading || !storedPassword) return;
-    autoLoginFiredRef.current = true;
-    void handleLogin(storedPassword);
-  }, [storedPassword, authenticated, loginLoading, handleLogin]);
+    if (autoSyncFiredRef.current) return;
+    autoSyncFiredRef.current = true;
+    const lastSync = loadLastSync(contact.public_key);
+    if (lastSync === null && !storedPassword) return;
+    if (lastSync !== null && Date.now() - lastSync < AUTO_SYNC_INTERVAL_MS) return;
+    if (lastSync !== null) saveLastSync(contact.public_key, Date.now());
+    void performLogin(storedPassword, storedPassword ? 'password' : 'blank');
+  }, [contact.public_key, storedPassword, performLogin]);
 
   const handleLoginAsGuest = useCallback(async () => {
     await performLogin('', 'blank');
@@ -272,10 +296,11 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
   // Return to the login form (e.g. after a mistyped password).
   const handleReenterPassword = useCallback(() => {
     forgetPassword();
+    saveLastSync(contact.public_key, null);
     setAuthenticated(false);
     setLoginError(null);
     setLastLoginAttempt(null);
-  }, [forgetPassword]);
+  }, [contact.public_key, forgetPassword]);
 
   const handleConsoleCommand = useCallback(
     async (command: string) => {
@@ -315,25 +340,19 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
   );
 
   const panelTitle = useMemo(() => contact.name || contact.public_key.slice(0, 12), [contact]);
-  const showLoginFailureState =
-    lastLoginAttempt !== null && lastLoginAttempt.outcome !== 'confirmed';
+  const loginFailed = lastLoginAttempt !== null && lastLoginAttempt.outcome !== 'confirmed';
+  const syncStatus = loginLoading
+    ? 'Syncing...'
+    : lastLoginAttempt === null
+      ? null
+      : loginFailed
+        ? lastLoginAttempt.summary
+        : `Synced ${new Date(lastLoginAttempt.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
   if (!authenticated) {
     return (
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto flex w-full max-w-sm flex-col gap-4">
-          <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-            Room server access is experimental and in public alpha. Please report any issues on{' '}
-            <a
-              href="https://github.com/statico/remoteterm-meshcore/issues"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium underline underline-offset-2 hover:text-warning/80"
-            >
-              GitHub
-            </a>
-            .
-          </div>
           <RepeaterLogin
             repeaterName={panelTitle}
             loading={loginLoading}
@@ -354,39 +373,42 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
   }
 
   return (
-    <section className="border-b border-border bg-muted/20 px-4 py-3">
-      <div className="space-y-3">
-        {showLoginFailureState ? (
-          <ServerLoginStatusBanner
-            attempt={lastLoginAttempt}
-            loading={loginLoading}
-            canRetryPassword={password.trim().length > 0}
-            onRetryPassword={() => handleLogin(password)}
-            onRetryBlank={handleLoginAsGuest}
-            onReenterPassword={handleReenterPassword}
-            blankRetryLabel="Retry Existing-Access Login"
-          />
-        ) : null}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={loginLoading}
-            title="Re-login to ask the room server to resend recent messages"
-            onClick={() => performLogin(password, password.trim() ? 'password' : 'blank')}
+    <section className="border-b border-border bg-muted/20 px-4 py-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {syncStatus && (
+          <p
+            className={cn(
+              'mr-auto min-w-0 truncate text-xs',
+              loginFailed && !loginLoading ? 'text-warning' : 'text-muted-foreground'
+            )}
+            title={lastLoginAttempt?.details ?? undefined}
           >
-            {loginLoading ? 'Syncing...' : 'Sync Now'}
+            {syncStatus}
+          </p>
+        )}
+        {loginFailed && (
+          <Button type="button" variant="ghost" size="sm" onClick={handleReenterPassword}>
+            Change Password
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAdvancedOpen((prev) => !prev)}
-          >
-            {advancedOpen ? 'Hide Tools' : 'Show Tools'}
-          </Button>
-        </div>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={loginLoading}
+          title="Re-login to ask the room server to resend recent messages"
+          onClick={() => performLogin(password, password.trim() ? 'password' : 'blank')}
+        >
+          {loginLoading ? 'Syncing...' : 'Sync Now'}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setAdvancedOpen((prev) => !prev)}
+        >
+          {advancedOpen ? 'Hide Tools' : 'Show Tools'}
+        </Button>
       </div>
       <Sheet open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col">

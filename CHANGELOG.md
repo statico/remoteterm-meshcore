@@ -1,3 +1,7 @@
+## [3.23.1] - 2026-10-13
+
+* Misc: Bump source-map-js and multidict for Dependabot alerts
+
 ## [3.23.0] - 2026-10-13
 
 * Feature: Room servers you've synced before open straight to chat, and re-sync quietly in the background (at most every 15 minutes) instead of showing the login form

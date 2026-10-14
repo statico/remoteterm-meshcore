@@ -1,3 +1,11 @@
+## [3.23.0] - 2026-10-13
+
+* Feature: Room servers you've synced before open straight to chat, and re-sync quietly in the background (at most every 15 minutes) instead of showing the login form
+* Feature: Room sync status is a single line in a slimmer toolbar; room login toasts and the alpha banner are gone
+* Bug: Stop the room server toolbar duplicating with every incoming message after login
+* Bug: Stop a synced room's chat being hidden after switching between rooms
+* Misc: Bump urllib3, oauthlib and undici for Dependabot alerts
+
 ## [3.22.1] - 2026-09-16
 
 * Added a per-contact regional override (the globe in the chat header now works for contacts, not just channels), so DMs can be scoped to a region, forced unscoped, or left to inherit the global setting. The override only applies to flood-routed DMs; a direct send over a known path carries no region. Thanks to @2steuer for the report (#4).

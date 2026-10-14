@@ -260,37 +260,34 @@ describe('ConversationPane', () => {
   });
 
   it('gates room chat behind room login controls until authenticated', async () => {
-    render(
-      <ConversationPane
-        {...createProps({
-          activeConversation: {
-            type: 'contact',
-            id: 'cc'.repeat(32),
-            name: 'Ops Board',
-          },
-          contacts: [
-            {
-              public_key: 'cc'.repeat(32),
-              name: 'Ops Board',
-              type: 3,
-              flags: 0,
-              direct_path: null,
-              direct_path_len: -1,
-              direct_path_hash_mode: -1,
-              last_advert: null,
-              lat: null,
-              lon: null,
-              last_seen: null,
-              on_radio: false,
-              favorite: false,
-              last_contacted: null,
-              last_read_at: null,
-              first_seen: null,
-            },
-          ],
-        })}
-      />
-    );
+    const roomProps: Partial<React.ComponentProps<typeof ConversationPane>> = {
+      activeConversation: {
+        type: 'contact',
+        id: 'cc'.repeat(32),
+        name: 'Ops Board',
+      },
+      contacts: [
+        {
+          public_key: 'cc'.repeat(32),
+          name: 'Ops Board',
+          type: 3,
+          flags: 0,
+          direct_path: null,
+          direct_path_len: -1,
+          direct_path_hash_mode: -1,
+          last_advert: null,
+          lat: null,
+          lon: null,
+          last_seen: null,
+          on_radio: false,
+          favorite: false,
+          last_contacted: null,
+          last_read_at: null,
+          first_seen: null,
+        },
+      ],
+    };
+    const { rerender } = render(<ConversationPane {...createProps(roomProps)} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('room-server-panel')).toBeInTheDocument();
@@ -306,6 +303,12 @@ describe('ConversationPane', () => {
       expect(screen.getByTestId('message-list')).toBeInTheDocument();
       expect(screen.getByTestId('message-input')).toBeInTheDocument();
     });
+
+    // The panel and the message list sit side by side; if they ever share a
+    // key, every re-render leaks another copy of the panel.
+    rerender(<ConversationPane {...createProps(roomProps)} />);
+    rerender(<ConversationPane {...createProps(roomProps)} />);
+    expect(screen.getAllByTestId('room-server-panel')).toHaveLength(1);
   });
 
   it('remounts the room panel when switching between room servers', async () => {

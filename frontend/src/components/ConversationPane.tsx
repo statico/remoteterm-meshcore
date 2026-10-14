@@ -333,7 +333,8 @@ export function ConversationPane({
       )}
       {activeContactIsRoom && activeContact && (
         <RoomServerPanel
-          key={activeContact.public_key}
+          // Prefixed: MessageList below is a sibling keyed on the same id.
+          key={`room-${activeContact.public_key}`}
           contact={activeContact}
           onAuthenticatedChange={setRoomAuthenticated}
         />

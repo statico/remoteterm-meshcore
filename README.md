@@ -5,7 +5,7 @@
 [![CodeQL](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml/badge.svg)](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/statico/remoteterm-meshcore?logo=github)](https://github.com/statico/remoteterm-meshcore/releases)
 [![Container](https://img.shields.io/badge/ghcr.io-statico%2Fremoteterm--meshcore-blue?logo=docker)](https://github.com/statico/remoteterm-meshcore/pkgs/container/remoteterm-meshcore)
-[![AUR](https://img.shields.io/aur/version/remoteterm-meshcore?logo=archlinux)](https://aur.archlinux.org/packages/remoteterm-meshcore)
+[![AUR](https://img.shields.io/aur/version/remoteterm-meshcore-statico?logo=archlinux)](https://aur.archlinux.org/packages/remoteterm-meshcore-statico)
 [![License](https://img.shields.io/github/license/statico/remoteterm-meshcore)](LICENSE.md)
 
 > [!NOTE]
@@ -183,15 +183,15 @@ sudo docker compose down
 
 ## Install Path 3: Arch Linux (AUR)
 
-A [`remoteterm-meshcore`](https://aur.archlinux.org/packages/remoteterm-meshcore) package is available in the AUR. Install it with an AUR helper or build it manually:
+A [`remoteterm-meshcore-statico`](https://aur.archlinux.org/packages/remoteterm-meshcore-statico) package is available in the AUR. It conflicts with upstream's `remoteterm-meshcore` package, so remove that first if you have it. Install it with an AUR helper or build it manually:
 
 ```bash
 # with an AUR helper
-yay -S remoteterm-meshcore
+yay -S remoteterm-meshcore-statico
 
 # or manually
-git clone https://aur.archlinux.org/remoteterm-meshcore.git
-cd remoteterm-meshcore
+git clone https://aur.archlinux.org/remoteterm-meshcore-statico.git
+cd remoteterm-meshcore-statico
 makepkg -si
 ```
 
@@ -232,7 +232,7 @@ Arch Linux (AUR):
 
 ```bash
 # with an AUR helper
-yay -Syu remoteterm-meshcore
+yay -Syu remoteterm-meshcore-statico
 
 # or manually, from your checkout of the AUR repo
 git pull

@@ -1,6 +1,6 @@
-# Maintainer: Jack Kingsman <jack@jackkingsman.me>
+# Maintainer: statico <https://github.com/statico>
 
-pkgname=remoteterm-meshcore
+pkgname=remoteterm-meshcore-statico
 # pkgver is rewritten by .github/workflows/publish-aur.yml on each release.
 pkgver=3.9.0
 pkgrel=1
@@ -12,6 +12,8 @@ license=('MIT')
 # python-build-standalone so the package is immune to Arch python ABI bumps.
 depends=(glibc)
 makedepends=(uv nodejs npm)
+provides=(remoteterm-meshcore)
+conflicts=(remoteterm-meshcore)
 optdepends=('bluez: BLE transport support')
 backup=(etc/remoteterm-meshcore/remoteterm.env)
 # The bundled python-build-standalone binary ships pre-stripped. makepkg's

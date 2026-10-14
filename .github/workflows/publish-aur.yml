@@ -1,16 +1,18 @@
 name: Publish AUR package
 
-# Pushes the contents of pkg/aur/ to the remoteterm-meshcore AUR repository.
-#
-# This fork does not own the AUR package, so the automatic release trigger is
-# disabled; run it by hand only if you have the credentials below.
+# Pushes the contents of pkg/aur/ to the remoteterm-meshcore-statico AUR
+# repository on every release tag (or by hand). The upstream
+# remoteterm-meshcore AUR package belongs to jkingsman.
 #
 # Required secrets:
-#   AUR_SSH_PRIVATE_KEY  Private SSH key registered with the AUR maintainer
-#                        account that owns the remoteterm-meshcore package.
+#   AUR_SSH_PRIVATE_KEY  Private SSH key registered with the AUR account that
+#                        owns remoteterm-meshcore-statico.
 #   AUR_COMMIT_EMAIL     Email used for the AUR git commit identity.
 
 on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       version:
@@ -36,7 +38,7 @@ jobs:
       - name: Resolve version from event
         id: version
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ inputs.version || github.ref_name }}"
           VERSION="${VERSION#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing AUR package for version $VERSION"
@@ -49,7 +51,7 @@ jobs:
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
-          pkgname: remoteterm-meshcore
+          pkgname: remoteterm-meshcore-statico
           pkgbuild: pkg/aur/PKGBUILD
           assets: |
             pkg/aur/remoteterm-meshcore.install

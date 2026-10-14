@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type Ref } from 'react';
+import { lazy, Suspense, useMemo, useState, type Ref } from 'react';
 
 import { ChatHeader } from './ChatHeader';
 import { ChannelUnreadSummaryBanner } from './ChannelUnreadSummaryBanner';
@@ -189,9 +189,9 @@ export function ConversationPane({
     return contacts.find((candidate) => candidate.public_key === activeConversation.id) ?? null;
   }, [activeConversation, contacts]);
   const activeContactIsRoom = activeContact?.type === CONTACT_TYPE_ROOM;
-  useEffect(() => {
-    setRoomAuthenticated(false);
-  }, [activeConversation?.id]);
+  // No reset on conversation change: the room panel is keyed per room and
+  // reports its own state on mount. A reset effect here would run after the
+  // child's report (parent effects fire last) and hide an already-synced room.
   const isPrefixOnlyActiveContact = activeContact
     ? isPrefixOnlyContact(activeContact.public_key)
     : false;

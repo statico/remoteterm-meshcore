@@ -292,7 +292,7 @@ Web Push is a standalone subsystem in `app/push/`, separate from the fanout modu
 - `POST /channels/{key}/mark-read`
 
 ### Messages
-- `GET /messages` — list with filters; supports `q` (full-text search), `after`/`after_id` (forward cursor)
+- `GET /messages` — list with filters; supports `q` (full-text search), `after`/`after_id` (forward cursor, ascending; either works alone: `after_id` alone is a plain id cursor)
 - `GET /messages/around/{message_id}` — context messages around a target (for jump-to-message navigation)
 - `POST /messages/direct`
 - `POST /messages/channel`

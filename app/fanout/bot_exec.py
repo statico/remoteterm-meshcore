@@ -60,17 +60,22 @@ class BotCallPlan:
 class BotReply:
     """A structured bot response that may scope its outgoing message(s).
 
-    Produced when a bot returns ``{"region": ..., "message": ...}``. The plain
+    Produced when a bot returns ``{"message": ..., "region"/"dm"/"channel": ...}``. The plain
     ``str``/``list[str]`` return shapes are unaffected and never produce a BotReply.
 
     ``flood_scope_override`` carries the per-send region decision for the reply:
       - ``None``  → no region specified; use the channel's persisted override
       - ``""``    → region explicitly cleared; send unscoped/plain flood
       - region    → scope the reply send to that region name
+
+    ``dm`` (a contact public key) or ``channel`` (a channel key) sends the reply
+    there instead of back to the conversation the message came from.
     """
 
     messages: list[str]
     flood_scope_override: str | None = None
+    dm: str | None = None
+    channel: str | None = None
 
 
 def _coerce_bot_dict_reply(result: dict) -> "BotReply | None":
@@ -106,7 +111,22 @@ def _coerce_bot_dict_reply(result: dict) -> "BotReply | None":
     else:
         flood_scope_override = None  # no region specified: use channel default
 
-    return BotReply(messages=messages, flood_scope_override=flood_scope_override)
+    dm, channel = result.get("dm"), result.get("channel")
+    if (dm is not None and not isinstance(dm, str)) or (
+        channel is not None and not isinstance(channel, str)
+    ):
+        logger.debug("Bot dict response 'dm' and 'channel' must be strings")
+        return None
+    if dm and channel:
+        logger.debug("Bot dict response may set 'dm' or 'channel', not both")
+        return None
+
+    return BotReply(
+        messages=messages,
+        flood_scope_override=flood_scope_override,
+        dm=dm or None,
+        channel=channel.upper() if channel else None,
+    )
 
 
 def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
@@ -244,7 +264,9 @@ def execute_bot_code(
     a list of strings (multiple messages sent in order), or a dict
     `{"region": <name|None>, "message": <str|list[str]>}` to scope the reply to a
     region for this send only (`None`/empty region = unscoped flood). The dict
-    form only affects channel replies; `region` is ignored for DM replies.
+    form only affects channel replies; `region` is ignored for DM replies. The
+    dict may also carry `"dm": <public key>` or `"channel": <channel key>` to send
+    the reply there instead of back to the originating conversation.
 
     Legacy bot functions with older signatures are detected via inspect and
     called without the newer parameters for backward compatibility.
@@ -432,6 +454,10 @@ async def process_bot_response(
     if isinstance(response, BotReply):
         messages = response.messages
         flood_scope_override = response.flood_scope_override
+        if response.dm:
+            is_dm, sender_key = True, response.dm
+        elif response.channel:
+            is_dm, channel_key = False, response.channel
     elif isinstance(response, str):
         messages = [response]
         flood_scope_override = None

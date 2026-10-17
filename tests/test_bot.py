@@ -1363,3 +1363,26 @@ def test_split_text_respects_multibyte_and_unbroken_runs():
     # Never cuts a multi-byte character in half.
     assert all(len(c.encode()) <= 5 for c in split_text("ééééé", 5))
     assert "".join(split_text("ééééé", 5)) == "ééééé"
+
+
+@pytest.mark.asyncio
+async def test_dict_reply_routes_to_dm_or_channel():
+    """{"dm": key} and {"channel": key} redirect the reply away from the origin."""
+    from app.fanout.bot_exec import _coerce_bot_dict_reply
+
+    sent = []
+
+    async def capture(text, is_dm, sender_key, channel_key, scope):
+        sent.append((text, is_dm, sender_key, channel_key))
+
+    with (
+        patch("app.fanout.bot_exec._send_single_bot_message", side_effect=capture),
+        patch("app.routers.messages.current_radio_name", return_value="Bot"),
+    ):
+        dm = _coerce_bot_dict_reply({"message": "hi", "dm": "cc" * 32})
+        await process_bot_response(dm, False, "", "AB" * 16)
+        chan = _coerce_bot_dict_reply({"message": "yo", "channel": "ef" * 16})
+        await process_bot_response(chan, True, "dd" * 32, None)
+
+    assert sent == [("hi", True, "cc" * 32, "AB" * 16), ("yo", False, "dd" * 32, "EF" * 16)]
+    assert _coerce_bot_dict_reply({"message": "x", "dm": "a", "channel": "b"}) is None

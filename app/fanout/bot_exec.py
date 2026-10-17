@@ -39,6 +39,11 @@ BOT_MESSAGE_SPACING = 2.0
 _bot_send_lock = asyncio.Lock()
 _last_bot_send_time: float = 0.0
 
+# Delivered only to bots that take **kwargs or name the parameter; the
+# positional call styles never grow, so older signatures keep binding.
+OPT_IN_KWARGS = ("region", "scoped", "message_id", "paths", "is_room")
+OPTIONAL_KWARGS = ("is_outgoing", "path_bytes_per_hop", "packet_hash", *OPT_IN_KWARGS)
+
 # global container for persistent data storage between bot executions, will be added to execution namespace
 _bot_globals: dict[str, Any] = {}
 
@@ -124,17 +129,13 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
     ]
     has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in param_values)
     has_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in param_values)
-    explicit_optional_names = tuple(
-        name
-        for name in ("is_outgoing", "path_bytes_per_hop", "packet_hash", "region", "scoped")
-        if name in params
-    )
+    explicit_optional_names = tuple(name for name in OPTIONAL_KWARGS if name in params)
     unsupported_required_kwonly = [
         p.name
         for p in param_values
         if p.kind == inspect.Parameter.KEYWORD_ONLY
         and p.default is inspect.Parameter.empty
-        and p.name not in {"is_outgoing", "path_bytes_per_hop", "packet_hash", "region", "scoped"}
+        and p.name not in OPTIONAL_KWARGS
     ]
     if unsupported_required_kwonly:
         raise ValueError(
@@ -162,10 +163,9 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
         keyword_args["path_bytes_per_hop"] = 1
     if has_kwargs or "packet_hash" in params:
         keyword_args["packet_hash"] = ""
-    if has_kwargs or "region" in params:
-        keyword_args["region"] = None
-    if has_kwargs or "scoped" in params:
-        keyword_args["scoped"] = False
+    for name in OPT_IN_KWARGS:
+        if has_kwargs or name in params:
+            keyword_args[name] = None
     candidate_specs.append(("keyword", [], keyword_args))
 
     if not has_kwargs and explicit_optional_names:
@@ -176,10 +176,9 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
             kwargs["path_bytes_per_hop"] = 1
         if has_kwargs or "packet_hash" in params:
             kwargs["packet_hash"] = ""
-        if has_kwargs or "region" in params:
-            kwargs["region"] = None
-        if has_kwargs or "scoped" in params:
-            kwargs["scoped"] = False
+        for name in OPT_IN_KWARGS:
+            if name in params:
+                kwargs[name] = None
         candidate_specs.append(("mixed_keyword", base_args, kwargs))
 
     if has_varargs or positional_capacity >= 11:
@@ -205,7 +204,9 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
         "Supported trailing parameters are: path; path + is_outgoing; "
         "path + path_bytes_per_hop; path + is_outgoing + path_bytes_per_hop; "
         "path + is_outgoing + path_bytes_per_hop + packet_hash; "
-        "or use **kwargs for forward compatibility (which also receives region and scoped)."
+        "or use **kwargs for forward compatibility (which also receives "
+        + ", ".join(OPT_IN_KWARGS)
+        + ")."
     )
 
 
@@ -224,6 +225,9 @@ def execute_bot_code(
     packet_hash: str | None = None,
     region: str | None = None,
     scoped: bool = False,
+    message_id: int | None = None,
+    paths: list[dict[str, Any]] | None = None,
+    is_room: bool = False,
 ) -> str | list[str] | BotReply | None:
     """
     Execute user-provided bot code with message context.
@@ -232,9 +236,9 @@ def execute_bot_code(
     `bot(sender_name, sender_key, message_text, is_dm, channel_key, channel_name, sender_timestamp, path, is_outgoing, path_bytes_per_hop, packet_hash)`
     or use named parameters / `**kwargs`.
 
-    `region` and `scoped` are only delivered to bots that opt in via `**kwargs`
-    or by naming the parameter; the positional call styles are unchanged for
-    backward compatibility.
+    `OPT_IN_KWARGS` (region, scoped, message_id, paths, is_room) are only
+    delivered to bots that opt in via `**kwargs` or by naming the parameter; the
+    positional call styles are unchanged for backward compatibility.
 
     The bot returns either None (no response), a string (single response message),
     a list of strings (multiple messages sent in order), or a dict
@@ -266,6 +270,12 @@ def execute_bot_code(
             the decoded region name, or None if the scope matched none of your
             known_regions (i.e. scoped, but region unrecognized). region is never
             enough on its own to tell "unscoped" from "unrecognized" — use scoped.
+        message_id: Database id of the message (usable with the messages API)
+        paths: Every path heard for the message as dicts with path, path_len,
+            received_at, snr and rssi, including repeats heard during the
+            two-second settle wait. None when no path was recorded.
+        is_room: True for posts in a room server conversation. sender_key and
+            sender_name are then the post's author; replies go to the room.
 
     Returns:
         Response string, list of strings, or None.
@@ -342,33 +352,25 @@ def execute_bot_code(
                 is_outgoing,
             )
         elif call_plan.call_style == "keyword":
-            keyword_args: dict[str, Any] = {}
-            if "sender_name" in call_plan.keyword_args:
-                keyword_args["sender_name"] = sender_name
-            if "sender_key" in call_plan.keyword_args:
-                keyword_args["sender_key"] = sender_key
-            if "message_text" in call_plan.keyword_args:
-                keyword_args["message_text"] = message_text
-            if "is_dm" in call_plan.keyword_args:
-                keyword_args["is_dm"] = is_dm
-            if "channel_key" in call_plan.keyword_args:
-                keyword_args["channel_key"] = channel_key
-            if "channel_name" in call_plan.keyword_args:
-                keyword_args["channel_name"] = channel_name
-            if "sender_timestamp" in call_plan.keyword_args:
-                keyword_args["sender_timestamp"] = sender_timestamp
-            if "path" in call_plan.keyword_args:
-                keyword_args["path"] = path
-            if "is_outgoing" in call_plan.keyword_args:
-                keyword_args["is_outgoing"] = is_outgoing
-            if "path_bytes_per_hop" in call_plan.keyword_args:
-                keyword_args["path_bytes_per_hop"] = path_bytes_per_hop
-            if "packet_hash" in call_plan.keyword_args:
-                keyword_args["packet_hash"] = packet_hash
-            if "region" in call_plan.keyword_args:
-                keyword_args["region"] = region
-            if "scoped" in call_plan.keyword_args:
-                keyword_args["scoped"] = scoped
+            available: dict[str, Any] = {
+                "sender_name": sender_name,
+                "sender_key": sender_key,
+                "message_text": message_text,
+                "is_dm": is_dm,
+                "channel_key": channel_key,
+                "channel_name": channel_name,
+                "sender_timestamp": sender_timestamp,
+                "path": path,
+                "is_outgoing": is_outgoing,
+                "path_bytes_per_hop": path_bytes_per_hop,
+                "packet_hash": packet_hash,
+                "region": region,
+                "scoped": scoped,
+                "message_id": message_id,
+                "paths": paths,
+                "is_room": is_room,
+            }
+            keyword_args = {name: available[name] for name in call_plan.keyword_args}
             result = bot_func(**keyword_args)
         else:
             result = bot_func(

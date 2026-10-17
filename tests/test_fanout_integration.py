@@ -1788,6 +1788,60 @@ class TestBotModuleLifecycle:
 
         assert captured.get("response") == "region=EU"
 
+    @pytest.mark.asyncio
+    async def test_room_post_reaches_bot_with_settled_paths_and_replies_to_room(self):
+        """Room posts set is_room, deliver every stored path, and reply to the room, not the author."""
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+
+        from app.fanout.bot import BotModule
+        from app.models import CONTACT_TYPE_ROOM, MessagePath
+
+        code = (
+            "def bot(**k): return f\"{k['is_room']} {k['message_id']} "
+            "{[p['snr'] for p in k['paths']]}\""
+        )
+        mod = BotModule("bot1", {"code": code}, name="Test Bot")
+        mod._active = True
+        room_key = "bb" * 32
+        captured: dict = {}
+
+        async def capture(response, is_dm, sender_key, channel_key):
+            captured.update(response=response, sender_key=sender_key)
+
+        stored = SimpleNamespace(
+            paths=[
+                MessagePath(path="aa", received_at=1, snr=5.0),
+                MessagePath(path="ccdd", received_at=2, snr=-3.5),
+            ]
+        )
+        with (
+            patch("app.fanout.bot.asyncio.sleep", new_callable=AsyncMock),
+            patch("app.fanout.bot_exec.process_bot_response", side_effect=capture),
+            patch(
+                "app.repository.ContactRepository.get_by_key",
+                new=AsyncMock(return_value=SimpleNamespace(type=CONTACT_TYPE_ROOM, name="Room")),
+            ),
+            patch("app.repository.MessageRepository.get_by_id", new=AsyncMock(return_value=stored)),
+        ):
+            await mod.on_message(
+                {
+                    "id": 42,
+                    "type": "PRIV",
+                    "conversation_key": room_key,
+                    "sender_key": "cc" * 32,
+                    "sender_name": "Author",
+                    "text": "hello room",
+                    "outgoing": False,
+                    "paths": [{"path": "aa", "received_at": 1, "snr": 5.0}],
+                }
+            )
+            if mod._tasks:
+                await asyncio.gather(*mod._tasks, return_exceptions=True)
+
+        assert captured["response"] == "True 42 [5.0, -3.5]"
+        assert captured["sender_key"] == room_key
+
 
 # ---------------------------------------------------------------------------
 # Manager restart failure tests

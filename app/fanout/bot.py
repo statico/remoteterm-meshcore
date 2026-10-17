@@ -99,18 +99,23 @@ class BotModule(FanoutModule):
             channel_key = None
             channel_name = None
 
+            from app.models import CONTACT_TYPE_ROOM
+            from app.repository import ContactRepository
+
+            contact = await ContactRepository.get_by_key(conversation_key)
+            # Room posts carry the author as sender; the conversation is the room.
+            is_room = bool(contact and contact.type == CONTACT_TYPE_ROOM)
+
             # Outgoing DMs: sender is us, not the contact
             if is_outgoing:
                 sender_name = None
             else:
                 sender_name = data.get("sender_name")
                 if sender_name is None:
-                    from app.repository import ContactRepository
-
-                    contact = await ContactRepository.get_by_key(conversation_key)
                     sender_name = contact.name if contact else None
         else:
             sender_key = None
+            is_room = False
             is_outgoing = bool(data.get("outgoing", False))
             sender_name = data.get("sender_name")
             channel_key = conversation_key
@@ -147,6 +152,15 @@ class BotModule(FanoutModule):
         # Wait for message to settle (allows retransmissions to be deduped)
         await asyncio.sleep(2)
 
+        # Paths heard during the wait are in the database, not the broadcast.
+        message_id = data.get("id")
+        if message_id is not None:
+            from app.repository import MessageRepository
+
+            stored = await MessageRepository.get_by_id(message_id)
+            if stored and stored.paths:
+                paths = [p.model_dump() for p in stored.paths]
+
         # Execute bot code in thread pool with timeout
         from app.fanout.bot_exec import _bot_executor, _bot_semaphore
 
@@ -171,6 +185,9 @@ class BotModule(FanoutModule):
                         packet_hash,
                         region,
                         scoped,
+                        message_id,
+                        paths,
+                        is_room,
                     ),
                     timeout=BOT_EXECUTION_TIMEOUT,
                 )
@@ -182,7 +199,10 @@ class BotModule(FanoutModule):
                 return
 
         if response and self._active:
-            await process_bot_response(response, is_dm, sender_key or "", channel_key)
+            # DM replies go to the conversation: for rooms, sender_key is the author.
+            await process_bot_response(
+                response, is_dm, conversation_key if is_dm else "", channel_key
+            )
 
     @property
     def status(self) -> str:

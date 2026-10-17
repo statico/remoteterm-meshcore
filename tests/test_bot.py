@@ -1178,6 +1178,28 @@ class TestBotListResponses:
             assert sent_messages == ["First", "Second", "Third"]
 
     @pytest.mark.asyncio
+    async def test_long_channel_reply_is_split_to_fit(self):
+        """Replies over the byte limit are split on words, leaving room for the name."""
+        sent_messages = []
+
+        async def mock_send(request):
+            sent_messages.append(request.text)
+
+        long_text = " ".join(["word"] * 60)  # 299 bytes
+        with (
+            patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
+            patch("app.routers.messages.current_radio_name", return_value="Bot"),
+            patch("app.routers.messages.send_channel_message", side_effect=mock_send),
+        ):
+            await process_bot_response(
+                response=long_text, is_dm=False, sender_key="a" * 64, channel_key="AB" * 16
+            )
+
+        assert len(sent_messages) == 2
+        assert all(len(m.encode()) <= 156 - 3 - 2 for m in sent_messages)
+        assert " ".join(sent_messages) == long_text
+
+    @pytest.mark.asyncio
     async def test_list_response_rate_limited_between_messages(self):
         """Each message in a list should be rate limited."""
         sleep_calls = []
@@ -1330,3 +1352,14 @@ class TestBotReplyRouting:
         assert request.text == "hi"
         # SendDirectMessageRequest has no scope field; region is simply ignored.
         assert not hasattr(request, "flood_scope_override")
+
+
+def test_split_text_respects_multibyte_and_unbroken_runs():
+    from app.services.message_send import split_text
+
+    assert split_text("short", 10) == ["short"]
+    assert split_text("", 10) == []
+    assert split_text("abcdefghij", 4) == ["abcd", "efgh", "ij"]
+    # Never cuts a multi-byte character in half.
+    assert all(len(c.encode()) <= 5 for c in split_text("ééééé", 5))
+    assert "".join(split_text("ééééé", 5)) == "ééééé"

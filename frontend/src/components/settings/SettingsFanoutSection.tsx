@@ -102,7 +102,8 @@ const DEFAULT_BOT_CODE = `def bot(**kwargs) -> str | list[str] | None:
         a list of strings to send multiple messages in order, or a dict
         {"region": <name or None>, "message": <str or list[str]>} to scope a
         channel reply to a region for that send only (None/"" = unscoped flood;
-        region is ignored for DM replies).
+        region is ignored for DM replies). Replies too long for one radio
+        message are split on word boundaries automatically.
     """
     sender_name = kwargs.get("sender_name")
     message_text = kwargs.get("message_text", "")
@@ -1881,7 +1882,8 @@ function BotConfigEditor({
           <strong>Note:</strong> Bots respond to all messages, including your own. For channel
           messages, <code>sender_key</code> is <code>None</code>. Multiple enabled bots run
           concurrently. Outgoing messages are serialized with a two-second delay between sends to
-          prevent repeater collision.
+          prevent repeater collision. Replies too long for one radio message are split
+          automatically.
         </p>
       </div>
     </div>

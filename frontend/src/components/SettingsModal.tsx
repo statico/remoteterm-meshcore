@@ -26,6 +26,7 @@ import { SettingsFanoutSection } from './settings/SettingsFanoutSection';
 import { SettingsDatabaseSection } from './settings/SettingsDatabaseSection';
 import { SettingsStatisticsSection } from './settings/SettingsStatisticsSection';
 import { SettingsAboutSection } from './settings/SettingsAboutSection';
+import { LoadingIndicator } from './LoadingIndicator';
 
 interface SettingsModalBaseProps {
   open: boolean;
@@ -233,9 +234,13 @@ export function SettingsModal(props: SettingsModalProps) {
               />
             ) : (
               <div className={sectionContentClass}>
-                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                  Radio is not available.
-                </div>
+                {!appSettings || health === null ? (
+                  <LoadingIndicator label="Loading radio settings..." className="py-12 text-sm" />
+                ) : (
+                  <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                    Radio is not available.
+                  </div>
+                )}
               </div>
             ))}
         </section>

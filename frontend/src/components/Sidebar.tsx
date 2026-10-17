@@ -39,6 +39,7 @@ import { handleKeyboardActivate } from '../utils/a11y';
 import { ContactAvatar } from './ContactAvatar';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { LoadingIndicator } from './LoadingIndicator';
 import { cn } from '@/lib/utils';
 
 type FavoriteItem = { type: 'channel'; channel: Channel } | { type: 'contact'; contact: Contact };
@@ -150,6 +151,8 @@ function loadCollapsedState(): CollapseState {
 interface SidebarProps {
   contacts: Contact[];
   channels: Channel[];
+  /** False until the initial contacts and channels fetch settles. */
+  loaded?: boolean;
   activeConversation: Conversation | null;
   onSelectConversation: (conversation: Conversation) => void;
   onNewMessage: (event?: React.MouseEvent<HTMLButtonElement>) => void;
@@ -179,6 +182,7 @@ function loadInitialSectionSortOrders(): SidebarSectionSortOrders {
 export function Sidebar({
   contacts,
   channels,
+  loaded = true,
   activeConversation,
   onSelectConversation,
   onNewMessage,
@@ -1048,11 +1052,14 @@ export function Sidebar({
           nonFavoriteRooms.length === 0 &&
           nonFavoriteChannels.length === 0 &&
           nonFavoriteRepeaters.length === 0 &&
-          favoriteItems.length === 0 && (
+          favoriteItems.length === 0 &&
+          (loaded || query ? (
             <div className="p-5 text-center text-muted-foreground">
               {query ? 'No matches found' : 'No conversations yet'}
             </div>
-          )}
+          ) : (
+            <LoadingIndicator label="Loading conversations..." className="p-5" />
+          ))}
       </div>
     </nav>
   );

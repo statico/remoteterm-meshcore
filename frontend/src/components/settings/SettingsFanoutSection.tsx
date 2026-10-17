@@ -96,6 +96,11 @@ const DEFAULT_BOT_CODE = `def bot(**kwargs) -> str | list[str] | None:
                 When scoped, it's the decoded region name, or None if the
                 scope matched none of your known_regions. region alone can't
                 distinguish unscoped from unrecognized — use scoped.
+            message_id: Database id of the message
+            paths: Every path heard for the message, as dicts with path,
+                path_len, received_at, snr and rssi (None if none recorded)
+            is_room: True for room server posts; sender_name/sender_key
+                are the post's author and replies go to the room
 
     Returns:
         None for no reply, a string for a single reply,

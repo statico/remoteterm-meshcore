@@ -850,6 +850,19 @@ class TestBotCodeValidation:
 
         _validate_bot_config({"code": "def bot(**kwargs):\n    return kwargs.get('message_text')"})
 
+    def test_timeout_must_be_in_range(self):
+        """timeout is optional; when set it must be 1-120 seconds."""
+        from fastapi import HTTPException
+
+        from app.routers.fanout import _validate_bot_config
+
+        code = "def bot(**kwargs):\n    return None"
+        for ok in (None, "", 1, 30, 120):
+            _validate_bot_config({"code": code, "timeout": ok})
+        for bad in (0, 121, "30", True):
+            with pytest.raises(HTTPException):
+                _validate_bot_config({"code": code, "timeout": bad})
+
     def test_syntax_error_raises(self):
         """Syntax error in code raises HTTPException."""
         from fastapi import HTTPException

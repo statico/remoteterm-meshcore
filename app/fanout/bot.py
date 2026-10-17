@@ -189,7 +189,7 @@ class BotModule(FanoutModule):
                         paths,
                         is_room,
                     ),
-                    timeout=BOT_EXECUTION_TIMEOUT,
+                    timeout=self.config.get("timeout") or BOT_EXECUTION_TIMEOUT,
                 )
             except TimeoutError:
                 logger.warning("Bot '%s' execution timed out", self.name)

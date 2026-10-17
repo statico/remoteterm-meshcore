@@ -117,6 +117,7 @@ Wraps `CommunityMqttPublisher` from `app/fanout/community_mqtt.py`. Config blob:
 ### bot (bot.py)
 Wraps bot code execution via `app/fanout/bot_exec.py`. Config blob:
 - `code` — Python bot function source code
+- `timeout` — optional execution timeout in seconds (1-120, default 10 = `BOT_EXECUTION_TIMEOUT`); a timed-out bot's thread is abandoned, not killed
 - Executes in a thread pool with timeout and semaphore concurrency control
 - Rate-limits outgoing messages for repeater compatibility
 - Channel `message_text` passed to bot code is normalized for human readability by stripping a leading `"{sender_name}: "` prefix when it matches the payload sender.

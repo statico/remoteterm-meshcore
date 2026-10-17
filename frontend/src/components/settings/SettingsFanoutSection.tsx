@@ -1882,9 +1882,22 @@ function BotConfigEditor({
           <strong>Available:</strong> Standard Python libraries and any modules installed in the
           server environment.
         </p>
-        <p>
-          <strong>Limits:</strong> 10 second timeout per bot.
-        </p>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="fanout-bot-timeout">
+            <strong>Timeout</strong> (seconds, 1-120)
+          </Label>
+          <Input
+            id="fanout-bot-timeout"
+            type="number"
+            min="1"
+            max="120"
+            className="h-8 w-20"
+            value={getNumberInputValue(config.timeout, 10)}
+            onChange={(e) =>
+              onChange({ ...config, timeout: parseIntegerInputValue(e.target.value) })
+            }
+          />
+        </div>
         <p>
           <strong>Note:</strong> Bots respond to all messages, including your own. For channel
           messages, <code>sender_key</code> is <code>None</code>. Multiple enabled bots run

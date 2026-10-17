@@ -28,8 +28,10 @@ _bot_semaphore = asyncio.Semaphore(100)
 # Dedicated thread pool for bot execution (separate from default executor)
 _bot_executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bot_")
 
-# Timeout for bot code execution (seconds)
+# Timeout for bot code execution (seconds); a bot's config "timeout" overrides it
+# up to the max. A timed-out bot's thread is abandoned, not killed.
 BOT_EXECUTION_TIMEOUT = 10
+MAX_BOT_EXECUTION_TIMEOUT = 120
 
 # Minimum spacing between bot message sends (seconds)
 # This ensures repeaters have time to return to listening mode

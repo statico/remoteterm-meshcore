@@ -554,6 +554,40 @@ class TestForwardPagination:
         for msg in forward:
             assert msg.conversation_key == CHAN_KEY
 
+    @pytest.mark.asyncio
+    async def test_after_id_alone_is_an_id_cursor(self, test_db):
+        """after_id without after used to be silently ignored (returning the latest page)."""
+        ids = []
+        for i in range(4):
+            ids.append(
+                await MessageRepository.create(
+                    msg_type="CHAN",
+                    text=f"msg{i}",
+                    conversation_key=CHAN_KEY,
+                    sender_timestamp=100 + i,
+                    received_at=100 + i,
+                )
+            )
+
+        forward = await MessageRepository.get_all(after_id=ids[1], limit=10)
+
+        assert [m.id for m in forward] == ids[2:]
+
+    @pytest.mark.asyncio
+    async def test_after_alone_is_a_received_at_cursor(self, test_db):
+        for i in range(4):
+            await MessageRepository.create(
+                msg_type="CHAN",
+                text=f"msg{i}",
+                conversation_key=CHAN_KEY,
+                sender_timestamp=100 + i,
+                received_at=100 + i,
+            )
+
+        forward = await MessageRepository.get_all(after=101, limit=10)
+
+        assert [m.received_at for m in forward] == [102, 103]
+
 
 class TestSearchLikeEscaping:
     """Tests for LIKE wildcard escaping in search."""

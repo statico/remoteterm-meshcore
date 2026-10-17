@@ -460,13 +460,24 @@ class MessageRepository:
             query += " AND messages.text LIKE ? ESCAPE '\\' COLLATE NOCASE"
             params.append(f"%{escaped_q}%")
 
-        # Forward cursor (after/after_id) — mutually exclusive with before/before_id
-        if after is not None and after_id is not None:
-            query += (
-                " AND (messages.received_at > ? OR (messages.received_at = ? AND messages.id > ?))"
-            )
-            params.extend([after, after, after_id])
-            query += " ORDER BY messages.received_at ASC, messages.id ASC LIMIT ?"
+        # Forward cursor (after/after_id) — mutually exclusive with before/before_id.
+        # Either half works alone: after_id is a plain id cursor (ids only grow),
+        # after a plain received_at cursor.
+        if after is not None or after_id is not None:
+            if after is not None and after_id is not None:
+                query += (
+                    " AND (messages.received_at > ?"
+                    " OR (messages.received_at = ? AND messages.id > ?))"
+                )
+                params.extend([after, after, after_id])
+                query += " ORDER BY messages.received_at ASC, messages.id ASC LIMIT ?"
+            elif after_id is not None:
+                query += " AND messages.id > ? ORDER BY messages.id ASC LIMIT ?"
+                params.append(after_id)
+            else:
+                query += " AND messages.received_at > ?"
+                params.append(after)
+                query += " ORDER BY messages.received_at ASC, messages.id ASC LIMIT ?"
             params.append(limit)
         else:
             if before is not None and before_id is not None:

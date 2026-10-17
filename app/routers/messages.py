@@ -63,7 +63,8 @@ async def list_messages(
         default=None, description="Forward cursor: received_at of last seen message"
     ),
     after_id: int | None = Query(
-        default=None, description="Forward cursor: id of last seen message"
+        default=None,
+        description="Forward cursor: id of last seen message (alone: return ids greater than it)",
     ),
     q: str | None = Query(default=None, description="Full-text search query"),
 ) -> list[Message]:

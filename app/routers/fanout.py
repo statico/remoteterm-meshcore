@@ -181,6 +181,19 @@ def _validate_mqtt_community_config(config: dict) -> None:
 
 def _validate_bot_config(config: dict) -> None:
     """Validate bot config blob (syntax-check the code and supported signature)."""
+    from app.fanout.bot_exec import MAX_BOT_EXECUTION_TIMEOUT
+
+    timeout = config.get("timeout")
+    if timeout not in (None, "") and (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not 1 <= timeout <= MAX_BOT_EXECUTION_TIMEOUT
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bot timeout must be between 1 and {MAX_BOT_EXECUTION_TIMEOUT} seconds",
+        )
+
     code = config.get("code", "")
     if not code or not code.strip():
         raise HTTPException(status_code=400, detail="Bot code cannot be empty")

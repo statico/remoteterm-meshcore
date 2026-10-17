@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { KeyRound, Loader2, RefreshCw, Wrench } from 'lucide-react';
 
 import { api } from '../api';
 import { cn } from '../lib/utils';
@@ -27,6 +29,11 @@ interface RoomServerPanelProps {
   contact: Contact;
   /** received_at (epoch seconds) of the newest incoming post in this room. */
   lastPostAt?: number;
+  /**
+   * Header slot to render the sync/tools controls into. Omitted renders them
+   * inline; null (slot not mounted yet) renders nothing.
+   */
+  toolbarTarget?: HTMLElement | null;
   onAuthenticatedChange?: (authenticated: boolean) => void;
 }
 
@@ -153,6 +160,7 @@ export function resetRoomCacheForTests() {
 export function RoomServerPanel({
   contact,
   lastPostAt = 0,
+  toolbarTarget,
   onAuthenticatedChange,
 }: RoomServerPanelProps) {
   const {
@@ -247,10 +255,15 @@ export function RoomServerPanel({
     []
   );
 
+  // Bumped by Cancel so a login still in flight lands on deaf ears.
+  // ponytail: the backend request is not aborted; it holds the radio until its
+  // own timeout. Add an abortable endpoint if that wait starts to bite.
+  const loginAttemptRef = useRef(0);
   const performLogin = useCallback(
     async (nextPassword: string, method: 'password' | 'blank') => {
       if (loginLoading) return;
 
+      const attempt = ++loginAttemptRef.current;
       setLoginLoading(true);
       setLoginError(null);
       // Stamped with the send time so posts the login itself triggers (which
@@ -258,17 +271,21 @@ export function RoomServerPanel({
       const sentAt = Date.now();
       try {
         const result = await api.roomLogin(contact.public_key, nextPassword);
-        setLastLoginAttempt({
-          ...buildServerLoginAttemptFromResponse(method, result, 'room server'),
-          at: sentAt,
-        });
+        if (attempt !== loginAttemptRef.current) return;
+        const loginAttempt = buildServerLoginAttemptFromResponse(method, result, 'room server');
+        setLastLoginAttempt({ ...loginAttempt, at: sentAt });
+        if (!result.authenticated && result.status !== 'timeout') {
+          // The room answered and said no: back to the form with its reason.
+          setAuthenticated(false);
+          setLoginError(loginAttempt.details ?? loginAttempt.summary);
+          return;
+        }
         setAuthenticated(true);
         // A lost reply is the usual timeout on a busy mesh; remember the room
         // so a reload opens to chat instead of the login form.
-        if (result.authenticated || result.status === 'timeout') {
-          saveLastSync(contact.public_key, sentAt);
-        }
+        saveLastSync(contact.public_key, sentAt);
       } catch (err) {
+        if (attempt !== loginAttemptRef.current) return;
         const message = err instanceof Error ? err.message : 'Unknown error';
         setLastLoginAttempt({
           ...buildServerLoginAttemptFromError(method, message, 'room server'),
@@ -277,11 +294,17 @@ export function RoomServerPanel({
         setAuthenticated(true);
         setLoginError(message);
       } finally {
-        setLoginLoading(false);
+        if (attempt === loginAttemptRef.current) setLoginLoading(false);
       }
     },
     [contact.public_key, loginLoading]
   );
+
+  const handleCancelLogin = useCallback(() => {
+    loginAttemptRef.current++;
+    setLoginLoading(false);
+    setAuthenticated(false);
+  }, []);
 
   const handleLogin = useCallback(
     async (nextPassword: string) => {
@@ -291,21 +314,19 @@ export function RoomServerPanel({
     [performLogin, persistAfterLogin]
   );
 
-  // Re-sync quietly on open for a room we have joined before (or know the
-  // password for), at most once per AUTO_SYNC_INTERVAL_MS. A blank login is how
-  // an existing member reconnects. The attempt is stamped before it is sent and
-  // the ref guards the mount: a failed login must never retry on its own,
-  // because every login is mesh traffic.
+  // Connect on open with the remembered password, or a blank login (how an
+  // existing member or guest gets in), at most once per AUTO_SYNC_INTERVAL_MS.
+  // The ref guards the mount and a room left at the login form this session
+  // (cancelled or refused) waits for the user: every login is mesh traffic.
   const autoSyncFiredRef = useRef(false);
   useEffect(() => {
     if (autoSyncFiredRef.current) return;
     autoSyncFiredRef.current = true;
+    if (cached && !cached.authenticated) return;
     const lastSync = loadLastSync(contact.public_key);
-    if (lastSync === null && !storedPassword) return;
     if (lastSync !== null && Date.now() - lastSync < AUTO_SYNC_INTERVAL_MS) return;
-    saveLastSync(contact.public_key, Date.now());
     void performLogin(storedPassword, storedPassword ? 'password' : 'blank');
-  }, [contact.public_key, storedPassword, performLogin]);
+  }, [cached, contact.public_key, storedPassword, performLogin]);
 
   // Posts only reach logged-in members, so one arriving after an unconfirmed
   // attempt proves the login landed even though its reply did not.
@@ -384,10 +405,25 @@ export function RoomServerPanel({
     : lastLoginAttempt === null
       ? null
       : loginUnanswered
-        ? 'No login reply yet; new posts will confirm it'
+        ? 'No login reply yet'
         : loginFailed
           ? lastLoginAttempt.summary
           : `Synced ${new Date(lastLoginAttempt.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  const syncStatusTitle = loginUnanswered
+    ? 'The room has not answered the login yet. New posts from the room will confirm it.'
+    : (lastLoginAttempt?.details ?? undefined);
+
+  if (!authenticated && loginLoading) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4" role="status">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+        <p className="text-sm text-muted-foreground">Connecting to {panelTitle}...</p>
+        <Button type="button" variant="outline" size="sm" onClick={handleCancelLogin}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
 
   if (!authenticated) {
     return (
@@ -412,46 +448,77 @@ export function RoomServerPanel({
     );
   }
 
+  const iconButtonClass =
+    'p-1 rounded hover:bg-accent text-muted-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  const toolbar = (
+    <>
+      {syncStatus && (
+        <span
+          className={cn(
+            'mr-1 flex min-w-0 items-center gap-1.5 text-xs',
+            loginFailed && !loginUnanswered && !loginLoading
+              ? 'text-warning'
+              : 'text-muted-foreground'
+          )}
+          title={syncStatusTitle}
+          role="status"
+        >
+          {loginLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <span
+              className={cn(
+                'h-1.5 w-1.5 flex-shrink-0 rounded-full',
+                loginFailed ? 'bg-warning' : 'bg-status-connected'
+              )}
+              aria-hidden="true"
+            />
+          )}
+          <span className="hidden truncate sm:inline">{syncStatus}</span>
+        </span>
+      )}
+      {loginFailed && (
+        <button
+          type="button"
+          className={iconButtonClass}
+          onClick={handleReenterPassword}
+          title="Change password"
+          aria-label="Change Password"
+        >
+          <KeyRound className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+      <button
+        type="button"
+        className={iconButtonClass}
+        disabled={loginLoading}
+        onClick={() => performLogin(password, password.trim() ? 'password' : 'blank')}
+        title="Sync now: re-login to ask the room server to resend recent messages"
+        aria-label="Sync Now"
+      >
+        <RefreshCw className={cn('h-4 w-4', loginLoading && 'animate-spin')} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className={iconButtonClass}
+        onClick={() => setAdvancedOpen((prev) => !prev)}
+        title="Room server tools"
+        aria-label="Show Tools"
+      >
+        <Wrench className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </>
+  );
+
   return (
-    <section className="border-b border-border bg-muted/20 px-4 py-1.5">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {syncStatus && (
-          <p
-            className={cn(
-              'mr-auto min-w-0 truncate text-xs',
-              loginFailed && !loginUnanswered && !loginLoading
-                ? 'text-warning'
-                : 'text-muted-foreground'
-            )}
-            title={lastLoginAttempt?.details ?? undefined}
-          >
-            {syncStatus}
-          </p>
-        )}
-        {loginFailed && (
-          <Button type="button" variant="ghost" size="sm" onClick={handleReenterPassword}>
-            Change Password
-          </Button>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={loginLoading}
-          title="Re-login to ask the room server to resend recent messages"
-          onClick={() => performLogin(password, password.trim() ? 'password' : 'blank')}
-        >
-          {loginLoading ? 'Syncing...' : 'Sync Now'}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setAdvancedOpen((prev) => !prev)}
-        >
-          {advancedOpen ? 'Hide Tools' : 'Show Tools'}
-        </Button>
-      </div>
+    <>
+      {toolbarTarget === undefined ? (
+        <section className="flex items-center justify-end gap-0.5 border-b border-border px-4 py-1.5">
+          {toolbar}
+        </section>
+      ) : (
+        toolbarTarget && createPortal(toolbar, toolbarTarget)
+      )}
       <Sheet open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col">
           <SheetHeader className="sr-only">
@@ -496,6 +563,6 @@ export function RoomServerPanel({
           </div>
         </SheetContent>
       </Sheet>
-    </section>
+    </>
   );
 }

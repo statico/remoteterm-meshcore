@@ -179,6 +179,7 @@ export function ConversationPane({
   blockedNames,
 }: ConversationPaneProps) {
   const [roomAuthenticated, setRoomAuthenticated] = useState(false);
+  const [roomToolbarEl, setRoomToolbarEl] = useState<HTMLDivElement | null>(null);
   const activeContactIsRepeater = useMemo(() => {
     if (!activeConversation || activeConversation.type !== 'contact') return false;
     const contact = contacts.find((candidate) => candidate.public_key === activeConversation.id);
@@ -327,6 +328,7 @@ export function ConversationPane({
         onDeleteContact={onDeleteContact}
         onOpenContactInfo={onOpenContactInfo}
         onOpenChannelInfo={onOpenChannelInfo}
+        actionsSlotRef={activeContactIsRoom ? setRoomToolbarEl : undefined}
       />
       {activeConversation.type === 'contact' && isPrefixOnlyActiveContact && (
         <ContactResolutionBanner variant="prefix-only" />
@@ -347,6 +349,7 @@ export function ConversationPane({
           key={`room-${activeContact.public_key}`}
           contact={activeContact}
           lastPostAt={lastRoomPostAt}
+          toolbarTarget={roomToolbarEl}
           onAuthenticatedChange={setRoomAuthenticated}
         />
       )}

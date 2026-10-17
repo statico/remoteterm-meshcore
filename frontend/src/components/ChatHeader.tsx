@@ -40,6 +40,8 @@ interface ChatHeaderProps {
   onDeleteContact: (publicKey: string) => void;
   onOpenContactInfo?: (publicKey: string) => void;
   onOpenChannelInfo?: (channelKey: string) => void;
+  /** Mount point for conversation-specific controls (room sync/tools). */
+  actionsSlotRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function ChatHeader({
@@ -67,6 +69,7 @@ export function ChatHeader({
   onDeleteContact,
   onOpenContactInfo,
   onOpenChannelInfo,
+  actionsSlotRef,
 }: ChatHeaderProps) {
   const [showKey, setShowKey] = useState(false);
   const [pathDiscoveryOpen, setPathDiscoveryOpen] = useState(false);
@@ -299,6 +302,12 @@ export function ChatHeader({
         </div>
       )}
       <div className="flex items-center justify-end gap-0.5">
+        {actionsSlotRef && (
+          <div
+            ref={actionsSlotRef}
+            className="mr-1 flex items-center gap-0.5 border-r border-border pr-1 empty:hidden"
+          />
+        )}
         {conversation.type === 'contact' && !activeContactIsRoomServer && (
           <button
             className="p-1 rounded hover:bg-accent text-lg leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

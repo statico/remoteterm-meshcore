@@ -1,3 +1,18 @@
+## [3.24.0] - 2026-10-16
+
+* Feature: Opening a room logs in automatically with the saved password or guest access, with a Cancel button while it connects
+* Feature: Room status and controls (Sync Now, Change Password, Tools) move into the chat header, replacing the separate toolbar row
+* Feature: Spinners while conversations, messages, radio status and settings load on startup
+* Feature: Bots can opt into `message_id`, every heard `paths` entry (with SNR/RSSI/time) and `is_room` kwargs
+* Feature: Bot dict replies can route elsewhere with `"dm": <public key>` or `"channel": <key>`
+* Feature: Per-bot execution timeout (1-120 seconds) in the bot editor
+* Feature: Bot replies too long for one radio message are split on word boundaries
+* Bug: Room logins no longer report a timeout while the room is working; an incoming room post now confirms the login
+* Bug: The send endpoints return 422 for text over the radio's byte limit instead of it being silently dropped or truncated
+* Bug: Bot replies to room posts go to the room instead of a DM to the post's author
+* Bug: `after_id` works as a forward cursor on its own in `GET /api/messages`
+* Misc: Chat header status line is vertically centered and matches the room status font
+
 ## [3.23.1] - 2026-10-13
 
 * Misc: Bump source-map-js and multidict for Dependabot alerts

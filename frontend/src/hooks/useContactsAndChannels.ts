@@ -22,6 +22,7 @@ export function useContactsAndChannels({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoaded, setContactsLoaded] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelsLoaded, setChannelsLoaded] = useState(false);
   const [undecryptedCount, setUndecryptedCount] = useState(0);
 
   const fetchUndecryptedCountInternal = useCallback(async () => {
@@ -198,6 +199,8 @@ export function useContactsAndChannels({
   return {
     contacts,
     contactsLoaded,
+    channelsLoaded,
+    setChannelsLoaded,
     channels,
     undecryptedCount,
     setContacts,

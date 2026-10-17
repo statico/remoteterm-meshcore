@@ -36,6 +36,7 @@ import { handleKeyboardActivate } from '../utils/a11y';
 import { Smile } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
+import { LoadingIndicator } from './LoadingIndicator';
 
 interface MessageListProps {
   messages: Message[];
@@ -1109,11 +1110,7 @@ export function MessageList({
   };
 
   if (loading) {
-    return (
-      <div className="flex-1 overflow-y-auto p-5 text-center text-muted-foreground" role="status">
-        Loading messages...
-      </div>
-    );
+    return <LoadingIndicator label="Loading messages..." className="flex-1 overflow-y-auto p-5" />;
   }
 
   if (messages.length === 0) {
@@ -1151,9 +1148,7 @@ export function MessageList({
         onKeyDown={cancelBottomScroll}
       >
         {loadingOlder && (
-          <div className="text-center py-2 text-muted-foreground text-sm" role="status">
-            Loading older messages...
-          </div>
+          <LoadingIndicator label="Loading older messages..." className="py-2 text-sm" />
         )}
         {!loadingOlder && hasOlderMessages && (
           <div className="text-center py-2 text-muted-foreground text-xs">
@@ -1494,9 +1489,7 @@ export function MessageList({
           })}
         </div>
         {loadingNewer && (
-          <div className="text-center py-2 text-muted-foreground text-sm" role="status">
-            Loading newer messages...
-          </div>
+          <LoadingIndicator label="Loading newer messages..." className="py-2 text-sm" />
         )}
         {!loadingNewer && hasNewerMessages && (
           <div className="text-center py-2 text-muted-foreground text-xs">

@@ -190,10 +190,12 @@ export function App() {
     contacts,
     contactsLoaded,
     channels,
+    channelsLoaded,
     undecryptedCount,
     setContacts,
     setContactsLoaded,
     setChannels,
+    setChannelsLoaded,
     fetchAllContacts,
     fetchUndecryptedCount,
     handleCreateContact,
@@ -542,6 +544,7 @@ export function App() {
   const sidebarProps = {
     contacts,
     channels,
+    loaded: contactsLoaded && channelsLoaded,
     activeConversation,
     onSelectConversation: handleSelectConversationWithTargetReset,
     onNewMessage: handleOpenNewMessage,
@@ -565,6 +568,8 @@ export function App() {
     activeConversation,
     contacts,
     channels,
+    contactsLoaded,
+    dataLoaded: contactsLoaded && channelsLoaded,
     config,
     health,
     messages: sortedMessages,
@@ -758,7 +763,10 @@ export function App() {
     fetchUndecryptedCount();
 
     // Fetch contacts and channels via REST (parallel, faster than WS serial push)
-    takePrefetchOrFetch('channels', api.getChannels).then(setChannels).catch(console.error);
+    takePrefetchOrFetch('channels', api.getChannels)
+      .then(setChannels)
+      .catch(console.error)
+      .finally(() => setChannelsLoaded(true));
     fetchAllContacts()
       .then((data) => {
         setContacts(data);
@@ -776,6 +784,7 @@ export function App() {
     setChannels,
     setContacts,
     setContactsLoaded,
+    setChannelsLoaded,
   ]);
   return (
     <DistanceUnitProvider distanceUnit={distanceUnit} setDistanceUnit={setDistanceUnit}>

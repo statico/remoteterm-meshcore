@@ -4,6 +4,7 @@ import {
   BatteryLow,
   BatteryMedium,
   BatteryWarning,
+  Loader2,
   Menu,
   Moon,
   Sun,
@@ -81,8 +82,11 @@ export function StatusBar({
         ? 'connected'
         : 'disconnected');
   const connected = health?.radio_connected ?? false;
-  const statusLabel =
-    radioState === 'paused'
+  // No health message yet means "not known", not "disconnected".
+  const healthPending = health === null;
+  const statusLabel = healthPending
+    ? 'Connecting...'
+    : radioState === 'paused'
       ? 'Radio Paused'
       : radioState === 'connecting'
         ? 'Radio Connecting'
@@ -210,20 +214,26 @@ export function StatusBar({
       </h1>
 
       <div className="flex items-center gap-1.5" role="status" aria-label={statusLabel}>
-        <div
-          className={cn(
-            'w-2 h-2 rounded-full transition-colors',
-            radioState === 'initializing' || radioState === 'connecting'
-              ? 'bg-warning'
-              : connected
-                ? pulseKind
-                  ? ''
-                  : 'bg-status-connected shadow-[0_0_6px_hsl(var(--status-connected)/0.5)]'
-                : 'bg-status-disconnected'
-          )}
-          style={connected && pulseKind ? { backgroundColor: pulseColorFor(pulseKind) } : undefined}
-          aria-hidden="true"
-        />
+        {healthPending ? (
+          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <div
+            className={cn(
+              'w-2 h-2 rounded-full transition-colors',
+              radioState === 'initializing' || radioState === 'connecting'
+                ? 'bg-warning'
+                : connected
+                  ? pulseKind
+                    ? ''
+                    : 'bg-status-connected shadow-[0_0_6px_hsl(var(--status-connected)/0.5)]'
+                  : 'bg-status-disconnected'
+            )}
+            style={
+              connected && pulseKind ? { backgroundColor: pulseColorFor(pulseKind) } : undefined
+            }
+            aria-hidden="true"
+          />
+        )}
         <span className="hidden lg:inline text-muted-foreground">{statusLabel}</span>
       </div>
 
@@ -259,7 +269,7 @@ export function StatusBar({
         </div>
       )}
 
-      {(radioState === 'disconnected' || radioState === 'paused') && (
+      {!healthPending && (radioState === 'disconnected' || radioState === 'paused') && (
         <button
           onClick={handleReconnect}
           disabled={reconnecting}

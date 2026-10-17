@@ -19,6 +19,7 @@ import type {
   RadioTraceResponse,
 } from '../types';
 import { CONTACT_TYPE_REPEATER, CONTACT_TYPE_ROOM } from '../types';
+import { LoadingIndicator } from './LoadingIndicator';
 import {
   getContactDisplayName,
   isPrefixOnlyContact,
@@ -36,6 +37,9 @@ const VisualizerView = lazy(() =>
 interface ConversationPaneProps {
   activeConversation: Conversation | null;
   contacts: Contact[];
+  contactsLoaded?: boolean;
+  /** False until the initial contacts and channels fetch settles. */
+  dataLoaded?: boolean;
   channels: Channel[];
   config: RadioConfig | null;
   health: HealthStatus | null;
@@ -98,9 +102,7 @@ interface ConversationPaneProps {
 }
 
 function LoadingPane({ label }: { label: string }) {
-  return (
-    <div className="flex-1 flex items-center justify-center text-muted-foreground">{label}</div>
-  );
+  return <LoadingIndicator label={label} className="flex-1" />;
 }
 
 function ContactResolutionBanner({ variant }: { variant: 'unknown-full-key' | 'prefix-only' }) {
@@ -125,6 +127,8 @@ function ContactResolutionBanner({ variant }: { variant: 'unknown-full-key' | 'p
 export function ConversationPane({
   activeConversation,
   contacts,
+  contactsLoaded = true,
+  dataLoaded = true,
   channels,
   config,
   health,
@@ -212,6 +216,8 @@ export function ConversationPane({
     isUnknownFullKeyContact(activeContact.public_key, activeContact.last_advert);
 
   if (!activeConversation) {
+    // The router can't restore a conversation until contacts and channels land.
+    if (!dataLoaded) return <LoadingPane label="Loading..." />;
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
         Select a conversation or start a new one
@@ -227,24 +233,29 @@ export function ConversationPane({
         </h2>
         <div className="flex-1 overflow-hidden">
           <Suspense fallback={<LoadingPane label="Loading map..." />}>
-            <MapView
-              contacts={contacts}
-              focusedKey={activeConversation.mapFocusKey}
-              config={config}
-              blockedKeys={blockedKeys}
-              blockedNames={blockedNames}
-              onSelectContact={(contact) =>
-                onSelectConversation({
-                  type: 'contact',
-                  id: contact.public_key,
-                  name: getContactDisplayName(
-                    contact.name,
-                    contact.public_key,
-                    contact.last_advert
-                  ),
-                })
-              }
-            />
+            {/* MapView fits its bounds once on mount, so wait for the contacts. */}
+            {!contactsLoaded ? (
+              <LoadingPane label="Loading map..." />
+            ) : (
+              <MapView
+                contacts={contacts}
+                focusedKey={activeConversation.mapFocusKey}
+                config={config}
+                blockedKeys={blockedKeys}
+                blockedNames={blockedNames}
+                onSelectContact={(contact) =>
+                  onSelectConversation({
+                    type: 'contact',
+                    id: contact.public_key,
+                    name: getContactDisplayName(
+                      contact.name,
+                      contact.public_key,
+                      contact.last_advert
+                    ),
+                  })
+                }
+              />
+            )}
           </Suspense>
         </div>
       </>

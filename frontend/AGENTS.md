@@ -137,7 +137,7 @@ frontend/src/
 │   ├── ContactRoutingOverrideModal.tsx # Manual direct-route override editor
 │   ├── RepeaterDashboard.tsx   # Layout shell — delegates to repeater/ panes
 │   ├── RepeaterLogin.tsx       # Repeater login form (password + guest)
-│   ├── RoomServerPanel.tsx     # Room-server auth gate + status banner ahead of room chat
+│   ├── RoomServerPanel.tsx     # Room-server auth gate, auto-connect, header sync controls
 │   ├── ServerLoginStatusBanner.tsx # Shared repeater/room login state banner
 │   ├── ChannelInfoPane.tsx     # Channel detail sheet (stats, top senders)
 │   ├── FloodScopeOverrideModal.tsx # Per-channel/per-contact flood-scope override editor
@@ -453,7 +453,10 @@ All state is managed by `useRepeaterDashboard` hook. State resets on conversatio
 
 ## Room Server Panel
 
-For room contacts (`type=3`), `ConversationPane.tsx` keeps the normal chat surface but inserts `RoomServerPanel` above it. That panel handles room-server login/status messaging and gates room chat behind the room-authenticated state when required.
+For room contacts (`type=3`), `ConversationPane.tsx` keeps the normal chat surface and mounts `RoomServerPanel` alongside it. The panel gates room chat behind the room-authenticated state and portals its sync status, Sync Now, Change Password and Tools controls into a slot in `ChatHeader` (`actionsSlotRef` / `toolbarTarget`), so rooms keep a single header row.
+
+- **Auto-connect**: opening a room logs in with the remembered password, or a blank (existing access / guest) login, unless the room synced within the last 15 minutes. A first-time connect shows a spinner with Cancel; cancelling ignores the in-flight reply and leaves the room at the login form for the rest of the session. A refused login returns to the form with the reason.
+- **Unanswered logins**: a timeout keeps the chat open (reads as "No login reply yet") and is remembered like a sync. Any room post received after the login was sent counts as confirmation, since rooms only push posts to logged-in members (`lastPostAt` from `ConversationPane`).
 
 `ServerLoginStatusBanner` is shared between repeater and room login surfaces for inline status/error display.
 

@@ -60,7 +60,7 @@ export function ContactStatusInfo({ contact, ourLat, ourLon }: ContactStatusInfo
     parts.push(
       <span key="coords">
         <span
-          className="font-mono cursor-pointer hover:text-primary hover:underline"
+          className="tabular-nums cursor-pointer hover:text-primary hover:underline"
           role="button"
           tabIndex={0}
           onKeyDown={handleKeyboardActivate}
@@ -85,7 +85,7 @@ export function ContactStatusInfo({ contact, ourLat, ourLon }: ContactStatusInfo
 
   return (
     <>
-      <span className="font-normal text-sm text-muted-foreground flex-shrink-0">
+      <span className="font-normal text-xs text-muted-foreground flex-shrink-0">
         (
         {parts.map((part, i) => (
           <span key={i}>

@@ -577,6 +577,30 @@ class TestOutgoingChannelBroadcast:
         assert data["channel_name"] == "#general"
 
     @pytest.mark.asyncio
+    async def test_send_channel_msg_rejects_text_past_byte_limit(self, test_db):
+        """Text the firmware would truncate after the name prefix is refused, not sent."""
+        mc = _make_mc(name="MyNode")
+        chan_key = "aa" * 16
+        await ChannelRepository.upsert(key=chan_key, name="#general")
+        limit = 156 - len("MyNode") - 2
+
+        with (
+            patch("app.routers.messages.radio_manager.require_connected", return_value=mc),
+            patch.object(radio_manager, "_meshcore", mc),
+            patch("app.routers.messages.broadcast_event"),
+        ):
+            await send_channel_message(
+                SendChannelMessageRequest(channel_key=chan_key, text="x" * limit)
+            )
+            with pytest.raises(HTTPException) as exc:
+                await send_channel_message(
+                    SendChannelMessageRequest(channel_key=chan_key, text="x" * (limit + 1))
+                )
+
+        assert exc.value.status_code == 422
+        assert mc.commands.send_chan_msg.await_count == 1
+
+    @pytest.mark.asyncio
     async def test_send_channel_same_second_duplicate_bumps_timestamp(self, test_db):
         mc = _make_mc(name="MyNode")
         chan_key = "ac" * 16

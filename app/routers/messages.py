@@ -14,6 +14,7 @@ from app.models import (
 from app.repository import AmbiguousPublicKeyPrefixError, AppSettingsRepository, MessageRepository
 from app.services.message_send import (
     SCOPE_UNSET,
+    max_text_bytes,
     resend_channel_message_record,
     send_channel_message_to_channel,
     send_direct_message_to_contact,
@@ -87,10 +88,26 @@ async def list_messages(
     )
 
 
+def current_radio_name() -> str:
+    mc = radio_manager.meshcore
+    return (mc.self_info.get("name") or "") if mc and mc.self_info else ""
+
+
+def _require_text_fits(text: str, limit: int) -> None:
+    """Reject text the firmware would refuse or silently truncate."""
+    size = len(text.encode())
+    if size > limit:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Message is {size} bytes; the limit is {limit} bytes",
+        )
+
+
 @router.post("/direct", response_model=Message)
 async def send_direct_message(request: SendDirectMessageRequest) -> Message:
     """Send a direct message to a contact."""
     radio_manager.require_connected()
+    _require_text_fits(request.text, max_text_bytes())
 
     # First check our database for the contact
     from app.repository import ContactRepository
@@ -139,6 +156,7 @@ TEMP_RADIO_SLOT = 0
 async def send_channel_message(request: SendChannelMessageRequest) -> Message:
     """Send a message to a channel."""
     radio_manager.require_connected()
+    _require_text_fits(request.text, max_text_bytes(current_radio_name()))
 
     # Get channel info from our database
     from app.repository import ChannelRepository

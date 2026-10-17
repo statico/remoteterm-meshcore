@@ -370,8 +370,8 @@ All endpoints are prefixed with `/api` (e.g., `/api/health`).
 | POST | `/api/channels/{key}/summarize-unread` | Summarize unread channel messages via the configured Ollama server |
 | GET | `/api/messages` | List with filters (`q`, `after`/`after_id` for forward pagination) |
 | GET | `/api/messages/around/{id}` | Get messages around a specific message (for jump-to-message) |
-| POST | `/api/messages/direct` | Send direct message |
-| POST | `/api/messages/channel` | Send channel message |
+| POST | `/api/messages/direct` | Send direct message (422 over 156 UTF-8 bytes) |
+| POST | `/api/messages/channel` | Send channel message (422 over 156 bytes minus `len(radio name) + 2`) |
 | POST | `/api/messages/channel/{message_id}/resend` | Resend channel message (default: byte-perfect within 30s; `?new_timestamp=true`: fresh timestamp, no time limit, creates new message row) |
 | GET | `/api/packets/undecrypted/count` | Count of undecrypted packets |
 | GET | `/api/packets/{packet_id}` | Fetch one stored raw packet by row ID for on-demand inspection |

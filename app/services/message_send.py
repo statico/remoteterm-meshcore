@@ -31,6 +31,34 @@ from app.services.messages import (
 
 logger = logging.getLogger(__name__)
 
+# Firmware MAX_TEXT_LEN is 160 bytes; DMs over it are refused and channel text is
+# silently truncated after the "name: " prefix. 156 leaves the same margin as the
+# frontend composer.
+TEXT_BYTE_LIMIT = 156
+
+
+def max_text_bytes(radio_name: str | None = None) -> int:
+    """UTF-8 byte budget for one message. Pass the radio name for channel sends."""
+    if radio_name is None:
+        return TEXT_BYTE_LIMIT
+    return max(1, TEXT_BYTE_LIMIT - len(radio_name.encode()) - 2)
+
+
+def split_text(text: str, limit: int) -> list[str]:
+    """Split text into chunks of at most ``limit`` UTF-8 bytes, on spaces where possible."""
+    chunks: list[str] = []
+    rest = text.strip()
+    while len(rest.encode()) > limit:
+        cut = len(rest.encode()[:limit].decode(errors="ignore"))
+        space = rest.rfind(" ", 0, cut + 1)
+        if space > 0:
+            cut = space
+        chunks.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    if rest:
+        chunks.append(rest)
+    return chunks
+
 
 class _ScopeUnset:
     """Sentinel for "no per-send flood-scope override supplied".

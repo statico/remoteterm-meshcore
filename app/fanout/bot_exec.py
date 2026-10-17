@@ -416,7 +416,8 @@ async def process_bot_response(
     For channel messages, sends to the same channel.
 
     Bot messages are rate-limited to ensure at least BOT_MESSAGE_SPACING seconds
-    between sends, giving repeaters time to return to listening mode.
+    between sends, giving repeaters time to return to listening mode. Messages
+    longer than the radio's byte limit are split on word boundaries.
 
     Args:
         response: The response to send — a string, a list of messages to send in
@@ -435,6 +436,13 @@ async def process_bot_response(
     else:
         messages = response
         flood_scope_override = None
+
+    from app.routers.messages import current_radio_name
+    from app.services.message_send import max_text_bytes, split_text
+
+    # Long replies are split rather than refused by the send endpoint's byte limit.
+    limit = max_text_bytes() if is_dm else max_text_bytes(current_radio_name())
+    messages = [chunk for text in messages for chunk in split_text(text, limit)]
 
     for message_text in messages:
         await _send_single_bot_message(

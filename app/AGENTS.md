@@ -296,6 +296,7 @@ Web Push is a standalone subsystem in `app/push/`, separate from the fanout modu
 - `GET /messages/around/{message_id}` — context messages around a target (for jump-to-message navigation)
 - `POST /messages/direct`
 - `POST /messages/channel`
+  - Both return 422 for text the firmware would refuse or truncate: over 156 UTF-8 bytes for DMs, or 156 minus `len(radio name) + 2` for channels (`max_text_bytes` in `services/message_send.py`, matching the frontend composer).
 - `POST /messages/channel/{message_id}/resend`
 
 ### Packets

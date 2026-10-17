@@ -25,6 +25,8 @@ import {
 
 interface RoomServerPanelProps {
   contact: Contact;
+  /** received_at (epoch seconds) of the newest incoming post in this room. */
+  lastPostAt?: number;
   onAuthenticatedChange?: (authenticated: boolean) => void;
 }
 
@@ -148,7 +150,11 @@ export function resetRoomCacheForTests() {
   roomCache.clear();
 }
 
-export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPanelProps) {
+export function RoomServerPanel({
+  contact,
+  lastPostAt = 0,
+  onAuthenticatedChange,
+}: RoomServerPanelProps) {
   const {
     password,
     storedPassword,
@@ -247,14 +253,27 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
 
       setLoginLoading(true);
       setLoginError(null);
+      // Stamped with the send time so posts the login itself triggers (which
+      // land while we wait) count as confirmation below.
+      const sentAt = Date.now();
       try {
         const result = await api.roomLogin(contact.public_key, nextPassword);
-        setLastLoginAttempt(buildServerLoginAttemptFromResponse(method, result, 'room server'));
+        setLastLoginAttempt({
+          ...buildServerLoginAttemptFromResponse(method, result, 'room server'),
+          at: sentAt,
+        });
         setAuthenticated(true);
-        if (result.authenticated) saveLastSync(contact.public_key, Date.now());
+        // A lost reply is the usual timeout on a busy mesh; remember the room
+        // so a reload opens to chat instead of the login form.
+        if (result.authenticated || result.status === 'timeout') {
+          saveLastSync(contact.public_key, sentAt);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setLastLoginAttempt(buildServerLoginAttemptFromError(method, message, 'room server'));
+        setLastLoginAttempt({
+          ...buildServerLoginAttemptFromError(method, message, 'room server'),
+          at: sentAt,
+        });
         setAuthenticated(true);
         setLoginError(message);
       } finally {
@@ -284,9 +303,24 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
     const lastSync = loadLastSync(contact.public_key);
     if (lastSync === null && !storedPassword) return;
     if (lastSync !== null && Date.now() - lastSync < AUTO_SYNC_INTERVAL_MS) return;
-    if (lastSync !== null) saveLastSync(contact.public_key, Date.now());
+    saveLastSync(contact.public_key, Date.now());
     void performLogin(storedPassword, storedPassword ? 'password' : 'blank');
   }, [contact.public_key, storedPassword, performLogin]);
+
+  // Posts only reach logged-in members, so one arriving after an unconfirmed
+  // attempt proves the login landed even though its reply did not.
+  useEffect(() => {
+    if (!lastLoginAttempt || lastLoginAttempt.outcome === 'confirmed') return;
+    if (lastPostAt * 1000 < lastLoginAttempt.at) return;
+    setLastLoginAttempt({
+      ...lastLoginAttempt,
+      outcome: 'confirmed',
+      heardBack: true,
+      details: null,
+    });
+    setLoginError(null);
+    saveLastSync(contact.public_key, Date.now());
+  }, [contact.public_key, lastLoginAttempt, lastPostAt]);
 
   const handleLoginAsGuest = useCallback(async () => {
     await performLogin('', 'blank');
@@ -341,13 +375,19 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
 
   const panelTitle = useMemo(() => contact.name || contact.public_key.slice(0, 12), [contact]);
   const loginFailed = lastLoginAttempt !== null && lastLoginAttempt.outcome !== 'confirmed';
+  // No reply at all is usually a lost packet, so it reads as pending rather
+  // than an error. Change Password stays offered: rooms ignore a bad password
+  // silently, so a wrong one looks the same.
+  const loginUnanswered = loginFailed && !lastLoginAttempt.heardBack;
   const syncStatus = loginLoading
     ? 'Syncing...'
     : lastLoginAttempt === null
       ? null
-      : loginFailed
-        ? lastLoginAttempt.summary
-        : `Synced ${new Date(lastLoginAttempt.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      : loginUnanswered
+        ? 'No login reply yet; new posts will confirm it'
+        : loginFailed
+          ? lastLoginAttempt.summary
+          : `Synced ${new Date(lastLoginAttempt.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
   if (!authenticated) {
     return (
@@ -379,7 +419,9 @@ export function RoomServerPanel({ contact, onAuthenticatedChange }: RoomServerPa
           <p
             className={cn(
               'mr-auto min-w-0 truncate text-xs',
-              loginFailed && !loginLoading ? 'text-warning' : 'text-muted-foreground'
+              loginFailed && !loginUnanswered && !loginLoading
+                ? 'text-warning'
+                : 'text-muted-foreground'
             )}
             title={lastLoginAttempt?.details ?? undefined}
           >

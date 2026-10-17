@@ -1,5 +1,6 @@
 """Tests for repeater-specific contacts routes (telemetry, command, trace)."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -816,6 +817,36 @@ class TestPrepareRepeaterConnection:
         assert response.status == "timeout"
         assert response.authenticated is False
         assert "No login confirmation was heard from the repeater" in (response.message or "")
+
+    @pytest.mark.asyncio
+    async def test_waits_for_radio_suggested_timeout_beyond_floor(self):
+        """A reply that lands after the floor but within suggested_timeout still counts."""
+        mc = _mock_mc()
+        contact = _make_contact()
+        subscriptions: dict[EventType, object] = {}
+
+        def _subscribe(event_type, callback, attribute_filters=None):
+            subscriptions[event_type] = callback
+            return MagicMock(unsubscribe=MagicMock())
+
+        async def _send_login(*args, **kwargs):
+            loop = asyncio.get_running_loop()
+            loop.call_later(
+                0.05,
+                subscriptions[EventType.LOGIN_SUCCESS],
+                _radio_result(EventType.LOGIN_SUCCESS, {"pubkey_prefix": KEY_A[:12]}),
+            )
+            # 400ms / 800 = 0.5s wait, well past the 0s floor below.
+            return _radio_result(EventType.MSG_SENT, {"suggested_timeout": 400})
+
+        mc.subscribe = MagicMock(side_effect=_subscribe)
+        mc.commands.send_login = AsyncMock(side_effect=_send_login)
+
+        with patch("app.routers.repeaters.REPEATER_LOGIN_RESPONSE_TIMEOUT_SECONDS", 0):
+            response = await prepare_repeater_connection(mc, contact, "secret")
+
+        assert response.status == "ok"
+        assert response.authenticated is True
 
 
 def _make_routed_contact() -> Contact:

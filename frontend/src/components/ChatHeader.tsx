@@ -177,7 +177,7 @@ export function ChatHeader({
   return (
     <header
       className={cn(
-        'conversation-header grid items-start gap-x-2 gap-y-0.5 border-b border-border px-4 py-2.5',
+        'conversation-header grid items-start gap-x-2 min-[1100px]:items-center gap-y-0.5 border-b border-border px-4 py-2.5',
         conversation.type === 'contact' && activeContact
           ? 'grid-cols-[minmax(0,1fr)_auto] min-[1100px]:grid-cols-[minmax(0,1fr)_auto_auto]'
           : 'grid-cols-[minmax(0,1fr)_auto]'
@@ -293,7 +293,7 @@ export function ChatHeader({
         </span>
       </span>
       {conversation.type === 'contact' && activeContact && (
-        <div className="col-span-2 row-start-2 min-w-0 text-[0.6875rem] text-muted-foreground min-[1100px]:col-span-1 min-[1100px]:col-start-2 min-[1100px]:row-start-1 min-[1100px]:self-center">
+        <div className="col-span-2 row-start-2 flex min-w-0 items-center text-[0.6875rem] text-muted-foreground min-[1100px]:col-span-1 min-[1100px]:col-start-2 min-[1100px]:row-start-1">
           <ContactStatusInfo
             contact={activeContact}
             ourLat={config?.lat ?? null}

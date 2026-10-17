@@ -107,7 +107,9 @@ const DEFAULT_BOT_CODE = `def bot(**kwargs) -> str | list[str] | None:
         a list of strings to send multiple messages in order, or a dict
         {"region": <name or None>, "message": <str or list[str]>} to scope a
         channel reply to a region for that send only (None/"" = unscoped flood;
-        region is ignored for DM replies). Replies too long for one radio
+        region is ignored for DM replies). Add "dm": <public key> or
+        "channel": <channel key> to the dict to send the reply there instead
+        of back to the conversation. Replies too long for one radio
         message are split on word boundaries automatically.
     """
     sender_name = kwargs.get("sender_name")

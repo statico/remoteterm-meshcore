@@ -293,7 +293,7 @@ export function ChatHeader({
         </span>
       </span>
       {conversation.type === 'contact' && activeContact && (
-        <div className="col-span-2 row-start-2 min-w-0 text-[0.6875rem] text-muted-foreground min-[1100px]:col-span-1 min-[1100px]:col-start-2 min-[1100px]:row-start-1">
+        <div className="col-span-2 row-start-2 min-w-0 text-[0.6875rem] text-muted-foreground min-[1100px]:col-span-1 min-[1100px]:col-start-2 min-[1100px]:row-start-1 min-[1100px]:self-center">
           <ContactStatusInfo
             contact={activeContact}
             ourLat={config?.lat ?? null}

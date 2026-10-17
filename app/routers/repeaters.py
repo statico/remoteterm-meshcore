@@ -47,7 +47,7 @@ ACL_PERMISSION_NAMES = {
     3: "Admin",
 }
 router = APIRouter(prefix="/contacts", tags=["repeaters"])
-REPEATER_LOGIN_RESPONSE_TIMEOUT_SECONDS = 5.0
+REPEATER_LOGIN_RESPONSE_TIMEOUT_SECONDS = 10.0
 
 
 async def prepare_repeater_connection(mc, contact: Contact, password: str) -> RepeaterLoginResponse:

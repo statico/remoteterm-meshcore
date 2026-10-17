@@ -62,10 +62,51 @@ describe('RoomServerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Show Tools')).toBeInTheDocument();
     });
-    expect(screen.getByText("We couldn't confirm the login.")).toBeInTheDocument();
+    expect(screen.getByText(/No login reply yet/)).toBeInTheDocument();
     expect(screen.getByText('Change Password')).toBeInTheDocument();
     expect(onAuthenticatedChange).toHaveBeenLastCalledWith(true);
-    expect(localStorage.getItem(lastSyncKey)).toBe(null);
+    // Remembered so a reload opens to chat and the auto-sync stays gated.
+    expect(Number(localStorage.getItem(lastSyncKey))).toBeGreaterThan(0);
+  });
+
+  it('treats a room post after an unanswered login as confirmation', async () => {
+    mockApi.roomLogin.mockResolvedValueOnce({
+      status: 'timeout',
+      authenticated: false,
+      message: 'No reply heard',
+    });
+
+    const { rerender } = render(<RoomServerPanel contact={roomContact} lastPostAt={0} />);
+    fireEvent.click(screen.getByText('Login with Existing Access / Guest'));
+    await waitFor(() => {
+      expect(screen.getByText(/No login reply yet/)).toBeInTheDocument();
+    });
+
+    rerender(
+      <RoomServerPanel contact={roomContact} lastPostAt={Math.ceil(Date.now() / 1000) + 1} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/^Synced /)).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Change Password')).not.toBeInTheDocument();
+  });
+
+  it('ignores room posts older than the unanswered login', async () => {
+    mockApi.roomLogin.mockResolvedValueOnce({
+      status: 'timeout',
+      authenticated: false,
+      message: 'No reply heard',
+    });
+
+    render(
+      <RoomServerPanel contact={roomContact} lastPostAt={Math.floor(Date.now() / 1000) - 60} />
+    );
+    fireEvent.click(screen.getByText('Login with Existing Access / Guest'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No login reply yet/)).toBeInTheDocument();
+    });
   });
 
   it('retains the last password for one-click retry after unlocking the panel', async () => {

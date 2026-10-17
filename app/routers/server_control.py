@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SERVER_LOGIN_RESPONSE_TIMEOUT_SECONDS = 5.0
+# Floor only; the per-send wait also honours the radio's suggested_timeout.
+SERVER_LOGIN_RESPONSE_TIMEOUT_SECONDS = 10.0
 
 
 def _monotonic() -> float:
@@ -276,14 +277,19 @@ async def _attempt_server_login(
                 message=f"{_login_send_failed_message(contact_label)} ({login_result.payload})",
             )
 
+        # Multi-hop replies routinely outlast a fixed floor; honour the radio's
+        # airtime estimate with the same /800 margin as send_login_sync.
+        wait_timeout = max(
+            response_timeout, (login_result.payload or {}).get("suggested_timeout", 0) / 800
+        )
         try:
-            return await asyncio.wait_for(login_future, timeout=response_timeout)
+            return await asyncio.wait_for(login_future, timeout=wait_timeout)
         except TimeoutError:
             logger.warning(
                 "No login response from %s %s within %.1fs",
                 contact_label,
                 contact.public_key[:12],
-                response_timeout,
+                wait_timeout,
             )
             return RepeaterLoginResponse(
                 status="timeout",

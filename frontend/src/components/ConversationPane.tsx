@@ -189,6 +189,16 @@ export function ConversationPane({
     return contacts.find((candidate) => candidate.public_key === activeConversation.id) ?? null;
   }, [activeConversation, contacts]);
   const activeContactIsRoom = activeContact?.type === CONTACT_TYPE_ROOM;
+  // A room only pushes posts to logged-in members, so the newest one doubles
+  // as login confirmation when the login reply itself got lost.
+  const lastRoomPostAt = useMemo(() => {
+    if (!activeContactIsRoom) return 0;
+    let latest = 0;
+    for (const message of messages) {
+      if (!message.outgoing && message.received_at > latest) latest = message.received_at;
+    }
+    return latest;
+  }, [activeContactIsRoom, messages]);
   // No reset on conversation change: the room panel is keyed per room and
   // reports its own state on mount. A reset effect here would run after the
   // child's report (parent effects fire last) and hide an already-synced room.
@@ -336,6 +346,7 @@ export function ConversationPane({
           // Prefixed: MessageList below is a sibling keyed on the same id.
           key={`room-${activeContact.public_key}`}
           contact={activeContact}
+          lastPostAt={lastRoomPostAt}
           onAuthenticatedChange={setRoomAuthenticated}
         />
       )}

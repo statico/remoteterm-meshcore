@@ -40,6 +40,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { toast } from './ui/sonner';
 import { useDistanceUnit } from '../contexts/DistanceUnitContext';
 import { useEntranceSettled } from '../hooks/useEntranceSettled';
+import { DetailPaneSkeleton } from './LoadingSkeletons';
 import { CONTACT_TYPE_REPEATER } from '../types';
 import type {
   Contact,
@@ -310,9 +311,7 @@ export function ContactInfoPane({
             />
           </div>
         ) : loading && !analytics && !contact ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Loading...
-          </div>
+          <DetailPaneSkeleton label="Loading..." className="flex-1 overflow-hidden" />
         ) : contact ? (
           <div className="flex-1 overflow-y-auto">
             {/* Header */}

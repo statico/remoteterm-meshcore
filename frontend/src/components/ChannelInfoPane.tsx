@@ -6,6 +6,7 @@ import { formatTime } from '../utils/messageParser';
 import { handleKeyboardActivate } from '../utils/a11y';
 import { useEntranceSettled } from '../hooks/useEntranceSettled';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
+import { DetailPaneSkeleton } from './LoadingSkeletons';
 import { toast } from './ui/sonner';
 import type { Channel, ChannelDetail, PathHashWidthStats } from '../types';
 
@@ -73,9 +74,7 @@ export function ChannelInfoPane({
         </SheetHeader>
 
         {loading && !detail ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Loading...
-          </div>
+          <DetailPaneSkeleton label="Loading..." className="flex-1 overflow-hidden" />
         ) : channel ? (
           <div className="flex-1 overflow-y-auto">
             {/* Header */}

@@ -37,6 +37,7 @@ import { Smile } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { LoadingIndicator } from './LoadingIndicator';
+import { MessageListSkeleton } from './LoadingSkeletons';
 
 interface MessageListProps {
   messages: Message[];
@@ -1110,7 +1111,9 @@ export function MessageList({
   };
 
   if (loading) {
-    return <LoadingIndicator label="Loading messages..." className="flex-1 overflow-y-auto p-5" />;
+    return (
+      <MessageListSkeleton label="Loading messages..." className="flex-1 overflow-hidden p-4" />
+    );
   }
 
   if (messages.length === 0) {

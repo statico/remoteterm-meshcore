@@ -114,7 +114,8 @@ frontend/src/
 │   ├── Sidebar.tsx
 │   ├── ChatHeader.tsx          # Conversation header (trace, favorite, delete)
 │   ├── MessageList.tsx
-│   ├── LoadingIndicator.tsx    # Shared spinner + label; used while initial data (contactsLoaded/channelsLoaded, health) is pending
+│   ├── LoadingIndicator.tsx    # Spinner + label; only for message-list pagination now
+│   ├── LoadingSkeletons.tsx    # Skeleton placeholders (messages, lists, forms, info panes, lazy panes); prefer these over spinners for content loads
 │   ├── MessageInput.tsx
 │   ├── NewMessageModal.tsx
 │   ├── SearchView.tsx          # Full-text message search pane

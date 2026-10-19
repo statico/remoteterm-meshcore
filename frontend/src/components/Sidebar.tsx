@@ -39,7 +39,7 @@ import { handleKeyboardActivate } from '../utils/a11y';
 import { ContactAvatar } from './ContactAvatar';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { LoadingIndicator } from './LoadingIndicator';
+import { ListSkeleton } from './LoadingSkeletons';
 import { cn } from '@/lib/utils';
 
 type FavoriteItem = { type: 'channel'; channel: Channel } | { type: 'contact'; contact: Contact };
@@ -1060,7 +1060,7 @@ export function Sidebar({
               {query ? 'No matches found' : 'No conversations yet'}
             </div>
           ) : (
-            <LoadingIndicator label="Loading conversations..." className="p-5" />
+            <ListSkeleton label="Loading conversations..." className="p-2" />
           ))}
       </div>
     </nav>

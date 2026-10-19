@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { api } from '../api';
+import { TextSkeleton } from './LoadingSkeletons';
 import { Button } from './ui/button';
 
 interface ChannelUnreadSummaryBannerProps {
@@ -75,10 +76,7 @@ export function ChannelUnreadSummaryBanner({ channelKey, after }: ChannelUnreadS
             </Button>
           </div>
           {loading ? (
-            <p className="flex items-center gap-2 text-muted-foreground" role="status">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              Summarizing unread messages…
-            </p>
+            <TextSkeleton label="Summarizing unread messages…" />
           ) : (
             <p className="whitespace-pre-wrap text-foreground/90">{summary}</p>
           )}

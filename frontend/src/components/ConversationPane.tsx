@@ -19,7 +19,7 @@ import type {
   RadioTraceResponse,
 } from '../types';
 import { CONTACT_TYPE_REPEATER, CONTACT_TYPE_ROOM } from '../types';
-import { LoadingIndicator } from './LoadingIndicator';
+import { MessageListSkeleton, PaneSkeleton } from './LoadingSkeletons';
 import {
   getContactDisplayName,
   isPrefixOnlyContact,
@@ -102,7 +102,7 @@ interface ConversationPaneProps {
 }
 
 function LoadingPane({ label }: { label: string }) {
-  return <LoadingIndicator label={label} className="flex-1" />;
+  return <PaneSkeleton label={label} />;
 }
 
 function ContactResolutionBanner({ variant }: { variant: 'unknown-full-key' | 'prefix-only' }) {
@@ -217,7 +217,7 @@ export function ConversationPane({
 
   if (!activeConversation) {
     // The router can't restore a conversation until contacts and channels land.
-    if (!dataLoaded) return <LoadingPane label="Loading..." />;
+    if (!dataLoaded) return <MessageListSkeleton label="Loading..." className="flex-1 p-4" />;
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
         Select a conversation or start a new one

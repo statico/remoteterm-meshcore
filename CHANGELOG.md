@@ -1,3 +1,12 @@
+## [3.25.0] - 2026-10-19
+
+* Feature: Every outgoing message (UI, API, bots) waits for a repeat of the previous one plus 2 seconds of quiet air before sending, so back-to-back messages no longer collide at repeaters
+* Feature: "Max Gap Between Sent Messages" in Settings > Radio caps that wait (default 10 seconds, 0 turns it off)
+* Feature: Skeleton placeholders instead of spinners while messages, conversations, settings and info panes load
+* Bug: Channel auto-resend no longer fires while another message is waiting to send
+* Misc: Bot execution timeout defaults to 30 seconds (was 10)
+* Misc: Bump aiohttp to 3.14.4 for Dependabot alerts
+
 ## [3.24.1] - 2026-10-19
 
 * Bug: Room servers show a green unread badge for new posts, like channels; the badge turns red only when a post mentions you

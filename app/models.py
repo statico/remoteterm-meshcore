@@ -994,7 +994,7 @@ class UnreadCounts(BaseModel):
 
 
 # Default gap between outgoing sends; MAX bounds how long a queued send can wait.
-DEFAULT_SEND_GAP_SECONDS = 4.0
+DEFAULT_SEND_GAP_SECONDS = 10.0
 MAX_SEND_GAP_SECONDS = 30.0
 
 
@@ -1096,8 +1096,9 @@ class AppSettings(BaseModel):
     send_gap_seconds: float = Field(
         default=DEFAULT_SEND_GAP_SECONDS,
         description=(
-            "Minimum seconds between outgoing message sends, so repeaters finish "
-            "repeating one message before the next arrives (0 = no gap)"
+            "Longest wait between outgoing sends. The next send goes 1s after the "
+            "previous one's first echo/ACK, or after this many seconds if none is "
+            "heard, so repeaters finish one message before the next (0 = no wait)"
         ),
     )
 

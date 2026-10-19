@@ -456,7 +456,7 @@ describe('SettingsModal', () => {
     const { onSaveAppSettings } = renderModal();
     openRadioSection();
 
-    fireEvent.change(screen.getByLabelText('Gap Between Sent Messages'), {
+    fireEvent.change(screen.getByLabelText('Max Gap Between Sent Messages'), {
       target: { value: '6.5' },
     });
     fireEvent.click(screen.getAllByRole('button', { name: 'Save Messaging Settings' })[0]);

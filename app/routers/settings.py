@@ -102,7 +102,7 @@ class AppSettingsUpdate(BaseModel):
         default=None,
         ge=0,
         le=MAX_SEND_GAP_SECONDS,
-        description="Minimum seconds between outgoing message sends (0 = no gap)",
+        description="Longest wait between outgoing sends when no echo is heard (0 = no wait)",
     )
 
 

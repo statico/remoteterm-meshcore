@@ -1323,7 +1323,7 @@ export function SettingsRadioSection({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="send-gap">Gap Between Sent Messages</Label>
+        <Label htmlFor="send-gap">Max Gap Between Sent Messages</Label>
         <div className="flex items-center gap-2">
           <Input
             id="send-gap"
@@ -1338,9 +1338,10 @@ export function SettingsRadioSection({
           <span className="text-sm text-muted-foreground">seconds (0 = off)</span>
         </div>
         <p className="text-[0.8125rem] text-muted-foreground">
-          Minimum wait between messages this radio sends, from any source (UI, API, or bots). A
-          repeater cannot hear while it repeats, so messages sent too close together get lost. If a
-          repeat of the previous message is heard, the next one goes out 1 second later instead.
+          Messages this radio sends, from any source (UI, API, or bots), wait for a repeat of the
+          previous message to be heard, then go out 1 second later. A repeater cannot hear while it
+          repeats, so messages sent too close together get lost. This is the longest wait when no
+          repeat is heard.
         </p>
       </div>
 

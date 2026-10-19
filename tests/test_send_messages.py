@@ -1740,6 +1740,35 @@ class TestChannelEchoWatchdog:
         assert call_kwargs["timestamp"] == now.to_bytes(4, "little")
 
     @pytest.mark.asyncio
+    async def test_watchdog_skips_resend_while_a_send_is_queued(self, test_db):
+        """A queued send is waiting on this echo; resending would collide with it."""
+        chan_key = "e9" * 16
+        await ChannelRepository.upsert(key=chan_key, name="#queued")
+
+        now = int(time.time())
+        msg_id = await MessageRepository.create(
+            msg_type="CHAN",
+            text="MyNode: payload",
+            conversation_key=chan_key.upper(),
+            sender_timestamp=now,
+            received_at=now,
+            outgoing=True,
+        )
+
+        mc = _make_mc(name="MyNode")
+
+        with patch.object(radio_manager, "_meshcore", mc):
+            async with message_send_service._send_gap_lock:
+                await message_send_service._channel_echo_watchdog(
+                    message_id=msg_id,
+                    radio_manager=radio_manager,
+                    broadcast_fn=MagicMock(),
+                    error_broadcast_fn=MagicMock(),
+                )
+
+        mc.commands.send_chan_msg.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_watchdog_handles_radio_busy_gracefully(self, test_db):
         """RadioOperationBusyError is caught — no exception propagates."""
 

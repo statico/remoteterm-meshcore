@@ -454,9 +454,9 @@ class TestRoutedHourlySetting:
 
 class TestSendGapSeconds:
     @pytest.mark.asyncio
-    async def test_defaults_to_four_seconds(self, test_db):
+    async def test_defaults_to_ten_seconds(self, test_db):
         settings = await AppSettingsRepository.get()
-        assert settings.send_gap_seconds == 4.0
+        assert settings.send_gap_seconds == 10.0
 
     @pytest.mark.asyncio
     async def test_round_trip_via_patch(self, test_db):

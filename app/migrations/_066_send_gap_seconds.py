@@ -15,6 +15,6 @@ async def migrate(conn: aiosqlite.Connection) -> None:
     columns = {row[1] for row in await col_cursor.fetchall()}
     if "send_gap_seconds" not in columns:
         await conn.execute(
-            "ALTER TABLE app_settings ADD COLUMN send_gap_seconds REAL NOT NULL DEFAULT 4"
+            "ALTER TABLE app_settings ADD COLUMN send_gap_seconds REAL NOT NULL DEFAULT 10"
         )
     await conn.commit()

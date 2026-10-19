@@ -97,8 +97,9 @@ _outgoing_timestamp_reservations_lock = asyncio.Lock()
 
 # Shared pacing for every outgoing send (UI, API, bots). A repeater cannot hear
 # while it transmits, so a send that lands while it is still repeating the
-# previous one is lost. Once an echo/ACK of the previous send is heard, the next
-# goes out after a short settle instead of the full gap.
+# previous one is lost. Busy repeaters can take several seconds to repeat, so
+# the next send waits for the previous one's first echo/ACK plus a short
+# settle; the gap setting caps the wait when no echo is heard.
 SEND_GAP_ECHO_SETTLE_SECONDS = 1.0
 SEND_GAP_POLL_SECONDS = 0.25
 _send_gap_lock = asyncio.Lock()
@@ -821,6 +822,7 @@ async def _channel_echo_watchdog(
     Spawned as a fire-and-forget task after a channel send when auto_resend_channel is enabled.
     Uses non-blocking radio lock so it never stalls user actions.
     """
+    global _last_send_monotonic
     try:
         await asyncio.sleep(ECHO_WATCHDOG_DELAY_SECONDS)
 
@@ -859,8 +861,17 @@ async def _channel_echo_watchdog(
 
         timestamp_bytes = msg.sender_timestamp.to_bytes(4, "little")
 
+        # A queued send is already waiting on this message's echo; resending now
+        # would land in that window and collide with the repeater's late repeat.
+        if _send_gap_lock.locked():
+            logger.debug("Echo watchdog: send queued, skipping resend for message %d", message_id)
+            return
+
         # Strip sender name prefix to get the raw text for the radio
-        async with radio_manager.radio_operation("echo_watchdog_resend", blocking=False) as mc:
+        async with (
+            _send_gap_lock,
+            radio_manager.radio_operation("echo_watchdog_resend", blocking=False) as mc,
+        ):
             radio_name = mc.self_info.get("name", "") if mc.self_info else ""
             text_to_send = msg.text
             if radio_name and text_to_send.startswith(f"{radio_name}: "):
@@ -878,6 +889,7 @@ async def _channel_echo_watchdog(
                 temp_radio_slot=WATCHDOG_TEMP_RADIO_SLOT,
                 error_broadcast_fn=error_broadcast_fn,
             )
+            _last_send_monotonic = _time.monotonic()
             if result is not None and result.type != EventType.ERROR:
                 logger.info("Echo watchdog: resent message %d successfully", message_id)
             else:

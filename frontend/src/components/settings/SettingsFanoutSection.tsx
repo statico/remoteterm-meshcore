@@ -1892,7 +1892,7 @@ function BotConfigEditor({
             min="1"
             max="120"
             className="h-8 w-20"
-            value={getNumberInputValue(config.timeout, 10)}
+            value={getNumberInputValue(config.timeout, 30)}
             onChange={(e) =>
               onChange({ ...config, timeout: parseIntegerInputValue(e.target.value) })
             }
@@ -1901,7 +1901,7 @@ function BotConfigEditor({
         <p>
           <strong>Note:</strong> Bots respond to all messages, including your own. For channel
           messages, <code>sender_key</code> is <code>None</code>. Multiple enabled bots run
-          concurrently. Outgoing messages are serialized with a two-second delay between sends to
+          concurrently. Outgoing messages are spaced by the send gap in Settings &gt; Radio to
           prevent repeater collision. Replies too long for one radio message are split
           automatically.
         </p>

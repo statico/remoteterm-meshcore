@@ -401,6 +401,7 @@ Repository writes should prefer typed models such as `ContactUpsert` over ad hoc
 - `tracked_telemetry_repeaters`, `tracked_telemetry_contacts`
 - `auto_resend_channel`
 - `telemetry_interval_hours`
+- `send_gap_seconds`
 
 Note: MQTT, community MQTT, and bot configs were migrated to the `fanout_configs` table (migrations 36-38).
 

@@ -29,7 +29,7 @@ _bot_executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bot_")
 
 # Timeout for bot code execution (seconds); a bot's config "timeout" overrides it
 # up to the max. A timed-out bot's thread is abandoned, not killed.
-BOT_EXECUTION_TIMEOUT = 10
+BOT_EXECUTION_TIMEOUT = 30
 MAX_BOT_EXECUTION_TIMEOUT = 120
 
 # Delivered only to bots that take **kwargs or name the parameter; the

@@ -215,6 +215,45 @@ describe('Sidebar section summaries', () => {
     );
   });
 
+  it('keeps room badges green unless the room mentions you', () => {
+    const room = makeContact('33'.repeat(32), 'Ops Room', 3);
+    const roomKey = getStateKey('contact', room.public_key);
+    const renderRoom = (mentions: Record<string, boolean>) =>
+      render(
+        <Sidebar
+          contacts={[room]}
+          channels={[makeChannel(PUBLIC_CHANNEL_KEY, 'Public')]}
+          activeConversation={null}
+          onSelectConversation={vi.fn()}
+          onNewMessage={vi.fn()}
+          lastMessageTimes={{}}
+          unreadCounts={{ [roomKey]: 2 }}
+          mentions={mentions}
+          showCracker={false}
+          crackerRunning={false}
+          onToggleCracker={vi.fn()}
+          onMarkAllRead={vi.fn()}
+        />
+      );
+
+    const { unmount } = renderRoom({});
+    const roomRow = screen.getByText('Ops Room').closest('div');
+    if (!roomRow) throw new Error('Missing room row');
+    expect(within(roomRow).getByText('2')).toHaveClass('bg-badge-unread/90');
+    expect(within(getSectionHeaderContainer('Room Servers')).getByText('2')).not.toHaveClass(
+      'bg-badge-mention'
+    );
+    unmount();
+
+    renderRoom({ [roomKey]: true });
+    const mentionedRow = screen.getByText('Ops Room').closest('div');
+    if (!mentionedRow) throw new Error('Missing room row');
+    expect(within(mentionedRow).getByText('2')).toHaveClass('bg-badge-mention');
+    expect(within(getSectionHeaderContainer('Room Servers')).getByText('2')).toHaveClass(
+      'bg-badge-mention'
+    );
+  });
+
   it('keeps repeater row badges neutral', () => {
     renderSidebar();
 

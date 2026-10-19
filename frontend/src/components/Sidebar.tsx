@@ -632,6 +632,8 @@ export function Sidebar({
       row.isMention ||
       (row.type === 'contact' &&
         row.contact?.type !== CONTACT_TYPE_REPEATER &&
+        // Rooms are group chats: like channels, only mentions go red.
+        row.contact?.type !== CONTACT_TYPE_ROOM &&
         row.unreadCount > 0);
 
     return (
@@ -1041,7 +1043,7 @@ export function Sidebar({
               () => setRoomsCollapsed((prev) => !prev),
               'rooms',
               roomsUnreadCount,
-              roomsUnreadCount > 0
+              sectionHasMention(roomRows)
             )}
             {(isSearching || !roomsCollapsed) && roomRows.map((row) => renderConversationRow(row))}
           </>

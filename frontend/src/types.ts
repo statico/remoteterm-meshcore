@@ -397,6 +397,7 @@ export interface AppSettings {
   ollama_enabled: boolean;
   ollama_base_url: string;
   ollama_model: string;
+  send_gap_seconds: number;
 }
 
 export interface AppSettingsUpdate {
@@ -414,6 +415,7 @@ export interface AppSettingsUpdate {
   ollama_enabled?: boolean;
   ollama_base_url?: string;
   ollama_model?: string;
+  send_gap_seconds?: number;
 }
 
 export interface ChannelUnreadSummary {

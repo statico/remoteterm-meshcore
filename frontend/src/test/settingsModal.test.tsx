@@ -80,6 +80,7 @@ const baseSettings: AppSettings = {
   ollama_enabled: false,
   ollama_base_url: 'http://localhost:11434',
   ollama_model: '',
+  send_gap_seconds: 4,
 };
 
 function renderModal(overrides?: {
@@ -448,6 +449,20 @@ describe('SettingsModal', () => {
 
     await waitFor(() => {
       expect(onSaveAppSettings).toHaveBeenCalledWith({ max_radio_contacts: 250 });
+    });
+  });
+
+  it('saves changed send gap through onSaveAppSettings', async () => {
+    const { onSaveAppSettings } = renderModal();
+    openRadioSection();
+
+    fireEvent.change(screen.getByLabelText('Gap Between Sent Messages'), {
+      target: { value: '6.5' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save Messaging Settings' })[0]);
+
+    await waitFor(() => {
+      expect(onSaveAppSettings).toHaveBeenCalledWith({ send_gap_seconds: 6.5 });
     });
   });
 

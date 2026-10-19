@@ -117,6 +117,7 @@ beforeEach(() => {
     ollama_enabled: false,
     ollama_base_url: 'http://localhost:11434',
     ollama_model: '',
+    send_gap_seconds: 4,
   });
   mockedApi.getRadioConfig.mockResolvedValue({
     public_key: 'aa'.repeat(32),
@@ -1163,6 +1164,7 @@ describe('SettingsFanoutSection', () => {
       ollama_enabled: false,
       ollama_base_url: 'http://localhost:11434',
       ollama_model: '',
+      send_gap_seconds: 4,
     });
 
     renderSection();

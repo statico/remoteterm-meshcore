@@ -209,6 +209,7 @@ export function SettingsRadioSection({
   const [floodScope, setFloodScope] = useState('');
   const [knownRegions, setKnownRegions] = useState('');
   const [maxRadioContacts, setMaxRadioContacts] = useState('');
+  const [sendGapSeconds, setSendGapSeconds] = useState('');
   const [floodBusy, setFloodBusy] = useState(false);
   const [floodError, setFloodError] = useState<string | null>(null);
 
@@ -239,6 +240,7 @@ export function SettingsRadioSection({
     setFloodScope(stripRegionScopePrefix(appSettings.flood_scope));
     setKnownRegions((appSettings.known_regions ?? []).join('\n'));
     setMaxRadioContacts(String(appSettings.max_radio_contacts));
+    setSendGapSeconds(String(appSettings.send_gap_seconds));
   }, [appSettings]);
 
   const currentPreset = useMemo(() => {
@@ -434,6 +436,14 @@ export function SettingsRadioSection({
       const newMaxRadioContacts = parseInt(maxRadioContacts, 10);
       if (!isNaN(newMaxRadioContacts) && newMaxRadioContacts !== appSettings.max_radio_contacts) {
         update.max_radio_contacts = newMaxRadioContacts;
+      }
+      const newSendGap = parseFloat(sendGapSeconds);
+      if (!isNaN(newSendGap) && newSendGap !== appSettings.send_gap_seconds) {
+        if (newSendGap < 0 || newSendGap > 30) {
+          setFloodError('Send gap must be between 0 and 30 seconds');
+          return;
+        }
+        update.send_gap_seconds = newSendGap;
       }
       if (Object.keys(update).length > 0) {
         await onSaveAppSettings(update);
@@ -1310,6 +1320,28 @@ export function SettingsRadioSection({
               contacts. The effective cap will be limited to what the radio supports.
             </p>
           )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="send-gap">Gap Between Sent Messages</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="send-gap"
+            type="number"
+            min="0"
+            max="30"
+            step="0.5"
+            value={sendGapSeconds}
+            onChange={(e) => setSendGapSeconds(e.target.value)}
+            className="w-28"
+          />
+          <span className="text-sm text-muted-foreground">seconds (0 = off)</span>
+        </div>
+        <p className="text-[0.8125rem] text-muted-foreground">
+          Minimum wait between messages this radio sends, from any source (UI, API, or bots). A
+          repeater cannot hear while it repeats, so messages sent too close together get lost. If a
+          repeat of the previous message is heard, the next one goes out 1 second later instead.
+        </p>
       </div>
 
       {floodError && (

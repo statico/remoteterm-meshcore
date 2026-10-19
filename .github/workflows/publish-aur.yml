@@ -71,3 +71,6 @@ jobs:
           # minutes of CI time on every release).
           test: true
           test_flags: --clean --cleanbuild --nodeps --nobuild
+          # With assets set, the action commits via `git add --all`, which would
+          # sweep in the test build's src/ tree and the downloaded tarball.
+          post_process: rm -rf src pkg ./*.tar.gz

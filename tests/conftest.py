@@ -37,6 +37,7 @@ def no_send_gap(monkeypatch):
     monkeypatch.setattr(message_send, "_send_gap_seconds", zero_gap)
     monkeypatch.setattr(message_send, "_last_send_monotonic", 0.0)
     monkeypatch.setattr(message_send, "_last_send_message_id", None)
+    monkeypatch.setattr(message_send, "_last_rx_monotonic", 0.0)
     monkeypatch.setattr(message_send, "_send_gap_lock", asyncio.Lock())
 
 

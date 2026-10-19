@@ -9,7 +9,7 @@ from app.packet_processor import process_raw_packet
 from app.repository import (
     ContactRepository,
 )
-from app.services import dm_ack_tracker
+from app.services import dm_ack_tracker, message_send
 from app.services.contact_reconciliation import (
     promote_prefix_contacts_for_contact,
     record_contact_name_and_reconcile,
@@ -138,6 +138,7 @@ async def on_rx_log_data(event: "Event") -> None:
     This is the unified entry point for all RF packets. The packet processor
     handles channel messages (GROUP_TEXT) and advertisements (ADVERT).
     """
+    message_send.note_radio_rx()
     payload = event.payload
     logger.debug("Received RX log data packet")
 

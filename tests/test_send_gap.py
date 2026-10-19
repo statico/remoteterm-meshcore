@@ -67,12 +67,30 @@ async def test_back_to_back_sends_wait_the_full_gap(clock):
 
 
 @pytest.mark.asyncio
-async def test_echo_releases_next_send_after_settle(clock):
+async def test_echo_releases_next_send_once_air_is_quiet(clock, monkeypatch):
     repo = FakeRepo(clock, echo_at=101.0)
     await send(repo, 1)
+    # The echo itself was heard at 101.0; nothing heard since.
+    monkeypatch.setattr(message_send, "_last_rx_monotonic", 101.0)
     await send(repo, 2)
-    # Echo seen at 101.0, then a 1s settle instead of waiting until 104.0.
-    assert clock.now == pytest.approx(102.0)
+    # Released 2s of quiet after the echo instead of waiting until 104.0.
+    assert clock.now == pytest.approx(103.0)
+
+
+@pytest.mark.asyncio
+async def test_traffic_after_echo_holds_next_send(clock, monkeypatch):
+    repo = FakeRepo(clock, echo_at=100.5)
+    await send(repo, 1)
+
+    async def sleep_with_traffic(seconds):
+        await clock.sleep(seconds)
+        if clock.now <= 101.5:  # a farther repeater keeps repeating until 101.5
+            message_send._last_rx_monotonic = clock.now
+
+    monkeypatch.setattr(message_send.asyncio, "sleep", sleep_with_traffic)
+    await send(repo, 2)
+    # 2s of quiet after the last packet heard at 101.5, inside the 104.0 cap.
+    assert clock.now == pytest.approx(103.5)
 
 
 @pytest.mark.asyncio

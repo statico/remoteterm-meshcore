@@ -96,15 +96,22 @@ _pending_outgoing_timestamp_reservations: dict[OutgoingReservationKey, set[int]]
 _outgoing_timestamp_reservations_lock = asyncio.Lock()
 
 # Shared pacing for every outgoing send (UI, API, bots). A repeater cannot hear
-# while it transmits, so a send that lands while it is still repeating the
-# previous one is lost. Busy repeaters can take several seconds to repeat, so
-# the next send waits for the previous one's first echo/ACK plus a short
-# settle; the gap setting caps the wait when no echo is heard.
-SEND_GAP_ECHO_SETTLE_SECONDS = 1.0
+# while it transmits, so a send that lands while it, or a repeater further out
+# that it hears, is still repeating the previous one is lost. The next send
+# waits for the previous one's first echo/ACK and then for the radio to hear
+# nothing for SEND_GAP_QUIET_SECONDS; the gap setting caps the wait.
+SEND_GAP_QUIET_SECONDS = 2.0
 SEND_GAP_POLL_SECONDS = 0.25
 _send_gap_lock = asyncio.Lock()
 _last_send_monotonic = 0.0
 _last_send_message_id: int | None = None
+_last_rx_monotonic = 0.0
+
+
+def note_radio_rx() -> None:
+    """Record that the radio just heard a packet, for the send gap's quiet check."""
+    global _last_rx_monotonic
+    _last_rx_monotonic = _time.monotonic()
 
 
 async def _send_gap_seconds() -> float:
@@ -116,13 +123,14 @@ async def _wait_for_send_gap(message_repository) -> None:
     if gap <= 0 or _last_send_monotonic == 0:
         return
     deadline = _last_send_monotonic + gap
+    echoed = False
     # ponytail: polls the previous row for an echo; hook increment_ack if this gets hot
     while (now := _time.monotonic()) < deadline:
-        if _last_send_message_id is not None:
+        if not echoed and _last_send_message_id is not None:
             previous = await message_repository.get_by_id(_last_send_message_id)
-            if previous is not None and previous.acked > 0:
-                await asyncio.sleep(min(deadline - now, SEND_GAP_ECHO_SETTLE_SECONDS))
-                return
+            echoed = previous is not None and previous.acked > 0
+        if echoed and now - _last_rx_monotonic >= SEND_GAP_QUIET_SECONDS:
+            return
         await asyncio.sleep(min(deadline - now, SEND_GAP_POLL_SECONDS))
 
 
@@ -131,7 +139,7 @@ async def paced_send(message_repository=MessageRepository) -> AsyncIterator[list
     """Hold the shared send slot, waiting out the gap after the previous send.
 
     Append the stored message id to the yielded list so the next send can
-    release early when that message's echo or ACK is heard.
+    release early once that message's echo or ACK is heard and the air is quiet.
     """
     global _last_send_monotonic, _last_send_message_id
     async with _send_gap_lock:

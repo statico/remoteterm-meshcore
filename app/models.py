@@ -1096,9 +1096,10 @@ class AppSettings(BaseModel):
     send_gap_seconds: float = Field(
         default=DEFAULT_SEND_GAP_SECONDS,
         description=(
-            "Longest wait between outgoing sends. The next send goes 1s after the "
-            "previous one's first echo/ACK, or after this many seconds if none is "
-            "heard, so repeaters finish one message before the next (0 = no wait)"
+            "Longest wait between outgoing sends. The next send waits for the "
+            "previous one's first echo/ACK and 2s with no packets heard, or this "
+            "many seconds at most, so repeaters finish one message before the next "
+            "(0 = no wait)"
         ),
     )
 

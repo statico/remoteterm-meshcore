@@ -1338,10 +1338,10 @@ export function SettingsRadioSection({
           <span className="text-sm text-muted-foreground">seconds (0 = off)</span>
         </div>
         <p className="text-[0.8125rem] text-muted-foreground">
-          Messages this radio sends, from any source (UI, API, or bots), wait for a repeat of the
-          previous message to be heard, then go out 1 second later. A repeater cannot hear while it
-          repeats, so messages sent too close together get lost. This is the longest wait when no
-          repeat is heard.
+          Messages this radio sends, from any source (UI, API, or bots), wait until a repeat of the
+          previous message is heard and the radio then hears nothing for 2 seconds. A repeater
+          cannot hear while it repeats, so messages sent too close together get lost. This setting
+          is the longest wait.
         </p>
       </div>
 

@@ -3,7 +3,8 @@
 import asyncio
 import logging
 import time as _time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import HTTPException
@@ -93,6 +94,54 @@ WATCHDOG_TEMP_RADIO_SLOT = 0
 
 _pending_outgoing_timestamp_reservations: dict[OutgoingReservationKey, set[int]] = {}
 _outgoing_timestamp_reservations_lock = asyncio.Lock()
+
+# Shared pacing for every outgoing send (UI, API, bots). A repeater cannot hear
+# while it transmits, so a send that lands while it is still repeating the
+# previous one is lost. Once an echo/ACK of the previous send is heard, the next
+# goes out after a short settle instead of the full gap.
+SEND_GAP_ECHO_SETTLE_SECONDS = 1.0
+SEND_GAP_POLL_SECONDS = 0.25
+_send_gap_lock = asyncio.Lock()
+_last_send_monotonic = 0.0
+_last_send_message_id: int | None = None
+
+
+async def _send_gap_seconds() -> float:
+    return (await AppSettingsRepository.get()).send_gap_seconds
+
+
+async def _wait_for_send_gap(message_repository) -> None:
+    gap = await _send_gap_seconds()
+    if gap <= 0 or _last_send_monotonic == 0:
+        return
+    deadline = _last_send_monotonic + gap
+    # ponytail: polls the previous row for an echo; hook increment_ack if this gets hot
+    while (now := _time.monotonic()) < deadline:
+        if _last_send_message_id is not None:
+            previous = await message_repository.get_by_id(_last_send_message_id)
+            if previous is not None and previous.acked > 0:
+                await asyncio.sleep(min(deadline - now, SEND_GAP_ECHO_SETTLE_SECONDS))
+                return
+        await asyncio.sleep(min(deadline - now, SEND_GAP_POLL_SECONDS))
+
+
+@asynccontextmanager
+async def paced_send(message_repository=MessageRepository) -> AsyncIterator[list[int]]:
+    """Hold the shared send slot, waiting out the gap after the previous send.
+
+    Append the stored message id to the yielded list so the next send can
+    release early when that message's echo or ACK is heard.
+    """
+    global _last_send_monotonic, _last_send_message_id
+    async with _send_gap_lock:
+        await _wait_for_send_gap(message_repository)
+        sent_ids: list[int] = []
+        try:
+            yield sent_ids
+        finally:
+            _last_send_monotonic = _time.monotonic()
+            _last_send_message_id = sent_ids[0] if sent_ids else None
+
 
 DM_SEND_MAX_ATTEMPTS = 3
 DEFAULT_DM_ACK_TIMEOUT_MS = 10000

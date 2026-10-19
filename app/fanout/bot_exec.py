@@ -13,7 +13,6 @@ the security implications.
 import asyncio
 import inspect
 import logging
-import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
@@ -32,14 +31,6 @@ _bot_executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bot_")
 # up to the max. A timed-out bot's thread is abandoned, not killed.
 BOT_EXECUTION_TIMEOUT = 10
 MAX_BOT_EXECUTION_TIMEOUT = 120
-
-# Minimum spacing between bot message sends (seconds)
-# This ensures repeaters have time to return to listening mode
-BOT_MESSAGE_SPACING = 2.0
-
-# Global state for rate limiting bot sends
-_bot_send_lock = asyncio.Lock()
-_last_bot_send_time: float = 0.0
 
 # Delivered only to bots that take **kwargs or name the parameter; the
 # positional call styles never grow, so older signatures keep binding.
@@ -441,9 +432,9 @@ async def process_bot_response(
     For DMs, sends a direct message back to the sender.
     For channel messages, sends to the same channel.
 
-    Bot messages are rate-limited to ensure at least BOT_MESSAGE_SPACING seconds
-    between sends, giving repeaters time to return to listening mode. Messages
-    longer than the radio's byte limit are split on word boundaries.
+    Sends are spaced by the shared send gap in ``app.services.message_send``
+    (the ``send_gap_seconds`` setting). Messages longer than the radio's byte
+    limit are split on word boundaries.
 
     Args:
         response: The response to send — a string, a list of messages to send in
@@ -488,7 +479,7 @@ async def _send_single_bot_message(
     flood_scope_override: str | None = None,
 ) -> None:
     """
-    Send a single bot message with rate limiting.
+    Send a single bot message.
 
     Args:
         message_text: The message text to send
@@ -499,49 +490,30 @@ async def _send_single_bot_message(
             channel default, "" = unscoped, region name = scope to that region).
             Ignored for DMs, which are not region-scoped.
     """
-    global _last_bot_send_time
-
     from app.models import SendChannelMessageRequest, SendDirectMessageRequest
     from app.routers.messages import send_channel_message, send_direct_message
 
-    # Serialize bot sends and enforce minimum spacing
-    async with _bot_send_lock:
-        # Calculate how long since last bot send
-        now = time.monotonic()
-        time_since_last = now - _last_bot_send_time
-
-        if _last_bot_send_time > 0 and time_since_last < BOT_MESSAGE_SPACING:
-            wait_time = BOT_MESSAGE_SPACING - time_since_last
-            logger.debug("Rate limiting bot send, waiting %.2fs", wait_time)
-            await asyncio.sleep(wait_time)
-
-        try:
-            if is_dm:
-                if flood_scope_override is not None:
-                    logger.debug(
-                        "Ignoring bot region scope %r on DM reply (DMs are not region-scoped)",
-                        flood_scope_override,
-                    )
-                logger.info("Bot sending DM reply to %s", sender_key[:12])
-                request = SendDirectMessageRequest(destination=sender_key, text=message_text)
-                await send_direct_message(request)
-            elif channel_key:
-                logger.info("Bot sending channel reply to %s", channel_key[:8])
-                request = SendChannelMessageRequest(
-                    channel_key=channel_key,
-                    text=message_text,
-                    flood_scope_override=flood_scope_override,
+    try:
+        if is_dm:
+            if flood_scope_override is not None:
+                logger.debug(
+                    "Ignoring bot region scope %r on DM reply (DMs are not region-scoped)",
+                    flood_scope_override,
                 )
-                await send_channel_message(request)
-            else:
-                logger.warning("Cannot send bot response: no destination")
-                return  # Don't update timestamp if we didn't send
-        except HTTPException as e:
-            logger.error("Bot failed to send response: %s", e.detail, exc_info=True)
-            return  # Don't update timestamp on failure
-        except Exception:
-            logger.exception("Bot failed to send response")
-            return  # Don't update timestamp on failure
-
-        # Update last send time after successful send
-        _last_bot_send_time = time.monotonic()
+            logger.info("Bot sending DM reply to %s", sender_key[:12])
+            request = SendDirectMessageRequest(destination=sender_key, text=message_text)
+            await send_direct_message(request)
+        elif channel_key:
+            logger.info("Bot sending channel reply to %s", channel_key[:8])
+            request = SendChannelMessageRequest(
+                channel_key=channel_key,
+                text=message_text,
+                flood_scope_override=flood_scope_override,
+            )
+            await send_channel_message(request)
+        else:
+            logger.warning("Cannot send bot response: no destination")
+    except HTTPException as e:
+        logger.error("Bot failed to send response: %s", e.detail, exc_info=True)
+    except Exception:
+        logger.exception("Bot failed to send response")

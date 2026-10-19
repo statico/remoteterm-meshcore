@@ -1,13 +1,10 @@
 """Tests for the bot execution module."""
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import app.fanout.bot_exec as bot_module
 from app.fanout.bot_exec import (
-    BOT_MESSAGE_SPACING,
     execute_bot_code,
     process_bot_response,
 )
@@ -931,238 +928,8 @@ class TestBotCodeValidation:
         assert "signature is not supported" in exc_info.value.detail.lower()
 
 
-class TestBotMessageRateLimiting:
-    """Test bot message rate limiting for repeater compatibility."""
-
-    @pytest.fixture(autouse=True)
-    def reset_rate_limit_state(self):
-        """Reset rate limiting state between tests."""
-        bot_module._last_bot_send_time = 0.0
-        yield
-        bot_module._last_bot_send_time = 0.0
-
-    @pytest.mark.asyncio
-    async def test_first_send_does_not_wait(self):
-        """First bot send should not wait (no previous send)."""
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
-            patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
-            patch("app.routers.messages.send_direct_message", new_callable=AsyncMock) as mock_send,
-            patch("app.websocket.broadcast_event"),
-        ):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            mock_send.return_value = mock_message
-
-            await process_bot_response(
-                response="Hello!",
-                is_dm=True,
-                sender_key="abc123def456" * 4,  # 64 chars
-                channel_key=None,
-            )
-
-            # Should not have slept (first send, _last_bot_send_time was 0)
-            mock_sleep.assert_not_called()
-            mock_send.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_rapid_second_send_waits(self):
-        """Second send within spacing window should wait."""
-        # Previous send was at 100.0, current time is 100.5 (0.5 seconds later)
-        # So we need to wait 1.5 more seconds to reach 2.0 second spacing
-        bot_module._last_bot_send_time = 100.0
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.5),
-            patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
-            patch("app.routers.messages.send_direct_message", new_callable=AsyncMock) as mock_send,
-            patch("app.websocket.broadcast_event"),
-        ):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            mock_send.return_value = mock_message
-
-            await process_bot_response(
-                response="Hello again!",
-                is_dm=True,
-                sender_key="abc123def456" * 4,
-                channel_key=None,
-            )
-
-            # Should have waited 1.5 seconds (2.0 - 0.5 elapsed)
-            mock_sleep.assert_called_once()
-            wait_time = mock_sleep.call_args[0][0]
-            assert abs(wait_time - 1.5) < 0.01
-
-    @pytest.mark.asyncio
-    async def test_send_after_spacing_does_not_wait(self):
-        """Send after spacing window should not wait."""
-        # Simulate a previous send 3 seconds ago (> BOT_MESSAGE_SPACING)
-        bot_module._last_bot_send_time = 97.0
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
-            patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
-            patch("app.routers.messages.send_direct_message", new_callable=AsyncMock) as mock_send,
-            patch("app.websocket.broadcast_event"),
-        ):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            mock_send.return_value = mock_message
-
-            await process_bot_response(
-                response="Hello!",
-                is_dm=True,
-                sender_key="abc123def456" * 4,
-                channel_key=None,
-            )
-
-            # Should not have slept (3 seconds > 2 second spacing)
-            mock_sleep.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_timestamp_updated_after_successful_send(self):
-        """Last send timestamp should be updated after successful send."""
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=150.0),
-            patch("app.routers.messages.send_direct_message", new_callable=AsyncMock) as mock_send,
-            patch("app.websocket.broadcast_event"),
-        ):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            mock_send.return_value = mock_message
-
-            await process_bot_response(
-                response="Hello!",
-                is_dm=True,
-                sender_key="abc123def456" * 4,
-                channel_key=None,
-            )
-
-            assert bot_module._last_bot_send_time == 150.0
-
-    @pytest.mark.asyncio
-    async def test_timestamp_not_updated_on_failure(self):
-        """Last send timestamp should NOT be updated if send fails."""
-        from fastapi import HTTPException
-
-        bot_module._last_bot_send_time = 50.0  # Previous timestamp
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
-            patch(
-                "app.routers.messages.send_direct_message",
-                new_callable=AsyncMock,
-                side_effect=HTTPException(status_code=422, detail="Send failed"),
-            ),
-        ):
-            await process_bot_response(
-                response="Hello!",
-                is_dm=True,
-                sender_key="abc123def456" * 4,
-                channel_key=None,
-            )
-
-            # Timestamp should remain unchanged
-            assert bot_module._last_bot_send_time == 50.0
-
-    @pytest.mark.asyncio
-    async def test_timestamp_not_updated_on_no_destination(self):
-        """Last send timestamp should NOT be updated if no destination."""
-        bot_module._last_bot_send_time = 50.0
-
-        with patch("app.fanout.bot_exec.time.monotonic", return_value=100.0):
-            await process_bot_response(
-                response="Hello!",
-                is_dm=False,  # Not a DM
-                sender_key="",
-                channel_key=None,  # No channel either
-            )
-
-            # Timestamp should remain unchanged
-            assert bot_module._last_bot_send_time == 50.0
-
-    @pytest.mark.asyncio
-    async def test_concurrent_sends_are_serialized(self):
-        """Multiple concurrent sends should be serialized by the lock."""
-        send_order = []
-        send_times = []
-
-        async def mock_send(*args, **kwargs):
-            send_order.append(len(send_order))
-            send_times.append(bot_module.time.monotonic())
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            return mock_message
-
-        # Use a real monotonic-like counter for this test
-        time_counter = [100.0]
-
-        def mock_monotonic():
-            return time_counter[0]
-
-        async def mock_sleep(duration):
-            time_counter[0] += duration
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", side_effect=mock_monotonic),
-            patch("app.fanout.bot_exec.asyncio.sleep", side_effect=mock_sleep),
-            patch("app.routers.messages.send_direct_message", side_effect=mock_send),
-            patch("app.websocket.broadcast_event"),
-        ):
-            # Launch 3 concurrent sends
-            await asyncio.gather(
-                process_bot_response("Msg 1", True, "a" * 64, None),
-                process_bot_response("Msg 2", True, "b" * 64, None),
-                process_bot_response("Msg 3", True, "c" * 64, None),
-            )
-
-            # All 3 should have sent
-            assert len(send_order) == 3
-
-            # Each send should be at least BOT_MESSAGE_SPACING apart
-            # First send at 100, second at 102, third at 104
-            assert send_times[1] >= send_times[0] + BOT_MESSAGE_SPACING - 0.01
-            assert send_times[2] >= send_times[1] + BOT_MESSAGE_SPACING - 0.01
-
-    @pytest.mark.asyncio
-    async def test_channel_message_rate_limited(self):
-        """Channel message sends should also be rate limited."""
-        bot_module._last_bot_send_time = 99.0  # 1 second ago
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
-            patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
-            patch("app.routers.messages.send_channel_message", new_callable=AsyncMock) as mock_send,
-            patch("app.websocket.broadcast_event"),
-        ):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            mock_send.return_value = mock_message
-
-            await process_bot_response(
-                response="Channel hello!",
-                is_dm=False,
-                sender_key="",
-                channel_key="AABBCCDD" * 4,
-            )
-
-            # Should have waited 1 second (2.0 - 1.0 elapsed)
-            mock_sleep.assert_called_once()
-            wait_time = mock_sleep.call_args[0][0]
-            assert abs(wait_time - 1.0) < 0.01
-            mock_send.assert_called_once()
-
-
 class TestBotListResponses:
     """Test bot functionality for list responses."""
-
-    @pytest.fixture(autouse=True)
-    def reset_rate_limit_state(self):
-        """Reset rate limiting state between tests."""
-        bot_module._last_bot_send_time = 0.0
-        yield
-        bot_module._last_bot_send_time = 0.0
 
     @pytest.mark.asyncio
     async def test_list_response_sends_multiple_messages(self):
@@ -1176,7 +943,6 @@ class TestBotListResponses:
             return mock_message
 
         with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
             patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
             patch("app.routers.messages.send_direct_message", side_effect=mock_send),
             patch("app.websocket.broadcast_event"),
@@ -1213,43 +979,6 @@ class TestBotListResponses:
         assert " ".join(sent_messages) == long_text
 
     @pytest.mark.asyncio
-    async def test_list_response_rate_limited_between_messages(self):
-        """Each message in a list should be rate limited."""
-        sleep_calls = []
-
-        time_counter = [100.0]
-
-        def mock_monotonic():
-            return time_counter[0]
-
-        async def mock_sleep(duration):
-            sleep_calls.append(duration)
-            time_counter[0] += duration
-
-        async def mock_send(request):
-            mock_message = MagicMock()
-            mock_message.model_dump.return_value = {}
-            return mock_message
-
-        with (
-            patch("app.fanout.bot_exec.time.monotonic", side_effect=mock_monotonic),
-            patch("app.fanout.bot_exec.asyncio.sleep", side_effect=mock_sleep),
-            patch("app.routers.messages.send_direct_message", side_effect=mock_send),
-            patch("app.websocket.broadcast_event"),
-        ):
-            await process_bot_response(
-                response=["First", "Second", "Third"],
-                is_dm=True,
-                sender_key="a" * 64,
-                channel_key=None,
-            )
-
-            # Should have waited between messages (after first send)
-            # First message: no wait, Second: wait 2s, Third: wait 2s
-            assert len(sleep_calls) == 2
-            assert all(abs(w - BOT_MESSAGE_SPACING) < 0.01 for w in sleep_calls)
-
-    @pytest.mark.asyncio
     async def test_string_response_still_works(self):
         """Single string response should still work after list support added."""
         sent_messages = []
@@ -1261,7 +990,6 @@ class TestBotListResponses:
             return mock_message
 
         with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
             patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
             patch("app.routers.messages.send_direct_message", side_effect=mock_send),
             patch("app.websocket.broadcast_event"),
@@ -1292,7 +1020,6 @@ class TestBotReplyRouting:
             return mock_message
 
         with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
             patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
             patch("app.routers.messages.send_channel_message", side_effect=mock_send),
             patch("app.websocket.broadcast_event"),
@@ -1322,7 +1049,6 @@ class TestBotReplyRouting:
             return mock_message
 
         with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
             patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
             patch("app.routers.messages.send_channel_message", side_effect=mock_send),
             patch("app.websocket.broadcast_event"),
@@ -1349,7 +1075,6 @@ class TestBotReplyRouting:
             return mock_message
 
         with (
-            patch("app.fanout.bot_exec.time.monotonic", return_value=100.0),
             patch("app.fanout.bot_exec.asyncio.sleep", new_callable=AsyncMock),
             patch("app.routers.messages.send_direct_message", side_effect=mock_send),
             patch("app.websocket.broadcast_event"),

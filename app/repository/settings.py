@@ -6,7 +6,7 @@ from typing import Any
 import aiosqlite
 
 from app.database import db
-from app.models import AppSettings
+from app.models import DEFAULT_SEND_GAP_SECONDS, AppSettings
 from app.path_utils import bucket_path_hash_widths, bucket_region_scope, parse_packet_envelope
 from app.telemetry_interval import DEFAULT_TELEMETRY_INTERVAL_HOURS
 
@@ -44,7 +44,8 @@ class AppSettingsRepository:
                    tracked_telemetry_repeaters, tracked_telemetry_contacts,
                    auto_resend_channel,
                    telemetry_interval_hours, telemetry_routed_hourly,
-                   ollama_enabled, ollama_base_url, ollama_model
+                   ollama_enabled, ollama_base_url, ollama_model,
+                   send_gap_seconds
             FROM app_settings WHERE id = 1
             """
         ) as cursor:
@@ -148,6 +149,12 @@ class AppSettingsRepository:
             ollama_base_url = "http://localhost:11434"
             ollama_model = ""
 
+        try:
+            raw_gap = row["send_gap_seconds"]
+            send_gap_seconds = float(raw_gap) if raw_gap is not None else DEFAULT_SEND_GAP_SECONDS
+        except (KeyError, TypeError, ValueError):
+            send_gap_seconds = DEFAULT_SEND_GAP_SECONDS
+
         return AppSettings(
             max_radio_contacts=row["max_radio_contacts"],
             auto_decrypt_dm_on_advert=bool(row["auto_decrypt_dm_on_advert"]),
@@ -167,6 +174,7 @@ class AppSettingsRepository:
             ollama_enabled=ollama_enabled,
             ollama_base_url=ollama_base_url,
             ollama_model=ollama_model,
+            send_gap_seconds=send_gap_seconds,
         )
 
     @staticmethod
@@ -191,6 +199,7 @@ class AppSettingsRepository:
         ollama_enabled: bool | None = None,
         ollama_base_url: str | None = None,
         ollama_model: str | None = None,
+        send_gap_seconds: float | None = None,
     ) -> None:
         """Apply field updates using an already-acquired connection.
 
@@ -272,6 +281,10 @@ class AppSettingsRepository:
             updates.append("ollama_model = ?")
             params.append(ollama_model)
 
+        if send_gap_seconds is not None:
+            updates.append("send_gap_seconds = ?")
+            params.append(send_gap_seconds)
+
         if updates:
             query = f"UPDATE app_settings SET {', '.join(updates)} WHERE id = 1"
             async with conn.execute(query, params):
@@ -306,6 +319,7 @@ class AppSettingsRepository:
         ollama_enabled: bool | None = None,
         ollama_base_url: str | None = None,
         ollama_model: str | None = None,
+        send_gap_seconds: float | None = None,
     ) -> AppSettings:
         """Update app settings. Only provided fields are updated."""
         async with db.tx() as conn:
@@ -329,6 +343,7 @@ class AppSettingsRepository:
                 ollama_enabled=ollama_enabled,
                 ollama_base_url=ollama_base_url,
                 ollama_model=ollama_model,
+                send_gap_seconds=send_gap_seconds,
             )
             return await AppSettingsRepository._get_in_conn(conn)
 

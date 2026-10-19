@@ -993,6 +993,11 @@ class UnreadCounts(BaseModel):
     )
 
 
+# Default gap between outgoing sends; MAX bounds how long a queued send can wait.
+DEFAULT_SEND_GAP_SECONDS = 4.0
+MAX_SEND_GAP_SECONDS = 30.0
+
+
 class AppSettings(BaseModel):
     """Application settings stored in the database."""
 
@@ -1087,6 +1092,13 @@ class AppSettings(BaseModel):
     ollama_model: str = Field(
         default="",
         description="Ollama model used for unread channel summaries (e.g. phi3:mini)",
+    )
+    send_gap_seconds: float = Field(
+        default=DEFAULT_SEND_GAP_SECONDS,
+        description=(
+            "Minimum seconds between outgoing message sends, so repeaters finish "
+            "repeating one message before the next arrives (0 = no gap)"
+        ),
     )
 
 

@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.models import CONTACT_TYPE_REPEATER, AppSettings
+from app.models import CONTACT_TYPE_REPEATER, MAX_SEND_GAP_SECONDS, AppSettings
 from app.region_scope import normalize_region_scope
 from app.repository import AppSettingsRepository, ChannelRepository, ContactRepository
 from app.services.ollama_summary import OllamaConfigError, normalize_ollama_base_url
@@ -97,6 +97,12 @@ class AppSettingsUpdate(BaseModel):
     )
     ollama_model: str | None = Field(
         default=None, description="Ollama model for unread summaries (e.g. phi3:mini)"
+    )
+    send_gap_seconds: float | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SEND_GAP_SECONDS,
+        description="Minimum seconds between outgoing message sends (0 = no gap)",
     )
 
 
@@ -295,6 +301,10 @@ async def update_settings(update: AppSettingsUpdate) -> AppSettings:
     if update.ollama_model is not None:
         kwargs["ollama_model"] = update.ollama_model.strip()
         logger.info("Updating ollama_model to %r", kwargs["ollama_model"])
+
+    if update.send_gap_seconds is not None:
+        logger.info("Updating send_gap_seconds to %s", update.send_gap_seconds)
+        kwargs["send_gap_seconds"] = update.send_gap_seconds
 
     # Flood scope
     flood_scope_changed = False

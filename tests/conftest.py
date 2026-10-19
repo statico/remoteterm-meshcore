@@ -1,5 +1,6 @@
 """Pytest configuration and shared fixtures."""
 
+import asyncio
 import os
 import shutil
 import tempfile
@@ -23,6 +24,20 @@ def cleanup_test_db_dir():
     """Clean up temporary pytest DB directory after the test session."""
     yield
     shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def no_send_gap(monkeypatch):
+    """Turn off the shared send gap; pacing tests patch it back on."""
+    from app.services import message_send
+
+    async def zero_gap() -> float:
+        return 0.0
+
+    monkeypatch.setattr(message_send, "_send_gap_seconds", zero_gap)
+    monkeypatch.setattr(message_send, "_last_send_monotonic", 0.0)
+    monkeypatch.setattr(message_send, "_last_send_message_id", None)
+    monkeypatch.setattr(message_send, "_send_gap_lock", asyncio.Lock())
 
 
 @pytest.fixture

@@ -450,3 +450,23 @@ class TestRoutedHourlySetting:
 
         assert result.schedule.routed_hourly is True
         assert result.schedule.next_routed_run_at is not None
+
+
+class TestSendGapSeconds:
+    @pytest.mark.asyncio
+    async def test_defaults_to_four_seconds(self, test_db):
+        settings = await AppSettingsRepository.get()
+        assert settings.send_gap_seconds == 4.0
+
+    @pytest.mark.asyncio
+    async def test_round_trip_via_patch(self, test_db):
+        result = await update_settings(AppSettingsUpdate(send_gap_seconds=7.5))
+        assert result.send_gap_seconds == 7.5
+        assert (await AppSettingsRepository.get()).send_gap_seconds == 7.5
+
+    def test_rejects_out_of_range(self):
+        from pydantic import ValidationError
+
+        for bad in (-1, 31):
+            with pytest.raises(ValidationError):
+                AppSettingsUpdate(send_gap_seconds=bad)

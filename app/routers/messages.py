@@ -15,6 +15,7 @@ from app.repository import AmbiguousPublicKeyPrefixError, AppSettingsRepository,
 from app.services.message_send import (
     SCOPE_UNSET,
     max_text_bytes,
+    paced_send,
     resend_channel_message_record,
     send_channel_message_to_channel,
     send_direct_message_to_contact,
@@ -133,17 +134,20 @@ async def send_direct_message(request: SendDirectMessageRequest) -> Message:
             detail="Cannot send to an unresolved prefix-only contact until a full key is known",
         )
 
-    return await send_direct_message_to_contact(
-        contact=db_contact,
-        text=request.text,
-        radio_manager=radio_manager,
-        broadcast_fn=broadcast_event,
-        track_pending_ack_fn=track_pending_ack,
-        now_fn=time.time,
-        error_broadcast_fn=broadcast_error,
-        message_repository=MessageRepository,
-        contact_repository=ContactRepository,
-    )
+    async with paced_send() as sent_ids:
+        message = await send_direct_message_to_contact(
+            contact=db_contact,
+            text=request.text,
+            radio_manager=radio_manager,
+            broadcast_fn=broadcast_event,
+            track_pending_ack_fn=track_pending_ack,
+            now_fn=time.time,
+            error_broadcast_fn=broadcast_error,
+            message_repository=MessageRepository,
+            contact_repository=ContactRepository,
+        )
+        sent_ids.append(message.id)
+    return message
 
 
 # Preferred first radio slot used for sending channel messages.
@@ -181,19 +185,22 @@ async def send_channel_message(request: SendChannelMessageRequest) -> Message:
         SCOPE_UNSET if request.flood_scope_override is None else request.flood_scope_override
     )
 
-    return await send_channel_message_to_channel(
-        channel=db_channel,
-        channel_key_upper=request.channel_key.upper(),
-        key_bytes=key_bytes,
-        text=request.text,
-        radio_manager=radio_manager,
-        broadcast_fn=broadcast_event,
-        error_broadcast_fn=broadcast_error,
-        now_fn=time.time,
-        temp_radio_slot=TEMP_RADIO_SLOT,
-        flood_scope_override=flood_scope_override,
-        message_repository=MessageRepository,
-    )
+    async with paced_send() as sent_ids:
+        message = await send_channel_message_to_channel(
+            channel=db_channel,
+            channel_key_upper=request.channel_key.upper(),
+            key_bytes=key_bytes,
+            text=request.text,
+            radio_manager=radio_manager,
+            broadcast_fn=broadcast_event,
+            error_broadcast_fn=broadcast_error,
+            now_fn=time.time,
+            temp_radio_slot=TEMP_RADIO_SLOT,
+            flood_scope_override=flood_scope_override,
+            message_repository=MessageRepository,
+        )
+        sent_ids.append(message.id)
+    return message
 
 
 RESEND_WINDOW_SECONDS = 30
@@ -243,14 +250,16 @@ async def resend_channel_message(
     if not db_channel:
         raise HTTPException(status_code=404, detail=f"Channel {msg.conversation_key} not found")
 
-    return await resend_channel_message_record(
-        message=msg,
-        channel=db_channel,
-        new_timestamp=new_timestamp,
-        radio_manager=radio_manager,
-        broadcast_fn=broadcast_event,
-        error_broadcast_fn=broadcast_error,
-        now_fn=time.time,
-        temp_radio_slot=TEMP_RADIO_SLOT,
-        message_repository=MessageRepository,
-    )
+    # Paced by time only: a byte-perfect resend shares the original's echo count.
+    async with paced_send():
+        return await resend_channel_message_record(
+            message=msg,
+            channel=db_channel,
+            new_timestamp=new_timestamp,
+            radio_manager=radio_manager,
+            broadcast_fn=broadcast_event,
+            error_broadcast_fn=broadcast_error,
+            now_fn=time.time,
+            temp_radio_slot=TEMP_RADIO_SLOT,
+            message_repository=MessageRepository,
+        )

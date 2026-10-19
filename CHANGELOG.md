@@ -1,3 +1,9 @@
+## [3.24.1] - 2026-10-19
+
+* Bug: Room servers show a green unread badge for new posts, like channels; the badge turns red only when a post mentions you
+* Misc: Rewrite the README in plain English, with numbered install steps and one security section
+* Misc: Remove a stray pnpm lockfile that reopened dismissed Dependabot alerts
+
 ## [3.24.0] - 2026-10-16
 
 * Feature: Opening a room logs in automatically with the saved password or guest access, with a Cancel button while it connects

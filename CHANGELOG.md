@@ -1,3 +1,8 @@
+## [3.25.1] - 2026-10-20
+
+* Bug: Channel auto-resend waits 6 seconds (was 2) and for quiet air before resending; it used to resend before repeaters had time to repeat, so every message went out twice and collided
+* Bug: Every send, including a bot's first reply, waits for 3 seconds of quiet air (was 2, and only between back-to-back sends), so replies no longer land on the flood of the command they answer
+
 ## [3.25.0] - 2026-10-19
 
 * Feature: Every outgoing message (UI, API, bots) waits for a repeat of the previous one plus 2 seconds of quiet air before sending, so back-to-back messages no longer collide at repeaters

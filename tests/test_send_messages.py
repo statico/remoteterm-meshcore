@@ -1740,6 +1740,43 @@ class TestChannelEchoWatchdog:
         assert call_kwargs["timestamp"] == now.to_bytes(4, "little")
 
     @pytest.mark.asyncio
+    async def test_watchdog_waits_for_quiet_air_and_rechecks_echo(self, test_db, monkeypatch):
+        """An echo heard while waiting for quiet air cancels the resend."""
+        monkeypatch.setattr(message_send_service, "SEND_GAP_QUIET_SECONDS", 0.2)
+        monkeypatch.setattr(message_send_service, "SEND_GAP_POLL_SECONDS", 0.02)
+        chan_key = "ea" * 16
+        await ChannelRepository.upsert(key=chan_key, name="#quiet")
+
+        now = int(time.time())
+        msg_id = await MessageRepository.create(
+            msg_type="CHAN",
+            text="MyNode: payload",
+            conversation_key=chan_key.upper(),
+            sender_timestamp=now,
+            received_at=now,
+            outgoing=True,
+        )
+
+        mc = _make_mc(name="MyNode")
+
+        with patch.object(radio_manager, "_meshcore", mc):
+            message_send_service.note_radio_rx()
+            task = asyncio.create_task(
+                message_send_service._channel_echo_watchdog(
+                    message_id=msg_id,
+                    radio_manager=radio_manager,
+                    broadcast_fn=MagicMock(),
+                    error_broadcast_fn=MagicMock(),
+                )
+            )
+            await asyncio.sleep(0.05)
+            assert not task.done()
+            await MessageRepository.increment_ack_count(msg_id)
+            await task
+
+        mc.commands.send_chan_msg.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_watchdog_skips_resend_while_a_send_is_queued(self, test_db):
         """A queued send is waiting on this echo; resending would collide with it."""
         chan_key = "e9" * 16

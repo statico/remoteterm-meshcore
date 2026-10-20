@@ -1188,7 +1188,7 @@ export function SettingsRadioSection({
           <div className="space-y-1">
             <Label htmlFor="auto-resend-channel">Auto-Resend Unheard Channel Messages</Label>
             <p className="text-[0.8125rem] text-muted-foreground">
-              When enabled, outgoing channel messages that receive no echo within 2 seconds are
+              When enabled, outgoing channel messages that receive no echo within 6 seconds are
               automatically resent once (byte-perfect, within the 30-second dedup window). Repeaters
               that already heard the original will ignore the duplicate. This functionality will NOT
               create double-sent/duplicate messages.

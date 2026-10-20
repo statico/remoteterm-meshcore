@@ -83,8 +83,9 @@ NowFn = Callable[[], float]
 OutgoingReservationKey = tuple[str, str, str]
 RetryTaskScheduler = Callable[[Any], Any]
 
-# Channel echo watchdog: delay before checking for echoes
-ECHO_WATCHDOG_DELAY_SECONDS = 2.0
+# Channel echo watchdog: delay before checking for echoes. Repeaters take 2-5s
+# to repeat; a resend before then collides with the repeat it is waiting for.
+ECHO_WATCHDOG_DELAY_SECONDS = 6.0
 
 # Byte-perfect resend window (must match router's RESEND_WINDOW_SECONDS)
 RESEND_WINDOW_SECONDS = 30
@@ -833,6 +834,12 @@ async def _channel_echo_watchdog(
     global _last_send_monotonic
     try:
         await asyncio.sleep(ECHO_WATCHDOG_DELAY_SECONDS)
+        # Resend only into quiet air, so it does not land on another packet.
+        quiet_deadline = _time.monotonic() + RESEND_WINDOW_SECONDS
+        while (now := _time.monotonic()) < quiet_deadline:
+            if now - _last_rx_monotonic >= SEND_GAP_QUIET_SECONDS:
+                break
+            await asyncio.sleep(SEND_GAP_POLL_SECONDS)
 
         msg = await MessageRepository.get_by_id(message_id)
         if not msg:
@@ -857,9 +864,9 @@ async def _channel_echo_watchdog(
             return
 
         logger.info(
-            "Echo watchdog: no echo for message %d after %.0fs, attempting byte-perfect resend",
+            "Echo watchdog: no echo for message %d after %ds, attempting byte-perfect resend",
             message_id,
-            ECHO_WATCHDOG_DELAY_SECONDS,
+            elapsed,
         )
 
         try:

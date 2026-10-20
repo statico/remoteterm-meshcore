@@ -99,9 +99,10 @@ _outgoing_timestamp_reservations_lock = asyncio.Lock()
 # Shared pacing for every outgoing send (UI, API, bots). A repeater cannot hear
 # while it transmits, so a send that lands while it, or a repeater further out
 # that it hears, is still repeating the previous one is lost. The next send
-# waits for the previous one's first echo/ACK and then for the radio to hear
-# nothing for SEND_GAP_QUIET_SECONDS; the gap setting caps the wait.
-SEND_GAP_QUIET_SECONDS = 2.0
+# waits for the previous one's first echo/ACK, and every send waits for the
+# radio to hear nothing for SEND_GAP_QUIET_SECONDS; the gap setting caps the
+# wait. Repeaters further out keep repeating for a while after we hear a flood.
+SEND_GAP_QUIET_SECONDS = 3.0
 SEND_GAP_POLL_SECONDS = 0.25
 _send_gap_lock = asyncio.Lock()
 _last_send_monotonic = 0.0
@@ -121,10 +122,17 @@ async def _send_gap_seconds() -> float:
 
 async def _wait_for_send_gap(message_repository) -> None:
     gap = await _send_gap_seconds()
-    if gap <= 0 or _last_send_monotonic == 0:
+    if gap <= 0:
         return
-    deadline = _last_send_monotonic + gap
-    echoed = False
+    now = _time.monotonic()
+    if _last_send_monotonic and now < _last_send_monotonic + gap:
+        deadline = _last_send_monotonic + gap
+        echoed = False
+    else:
+        # Nothing of ours in flight, but still let the air clear first, for
+        # example the flood of the command that a bot is replying to.
+        deadline = now + gap
+        echoed = True
     # ponytail: polls the previous row for an echo; hook increment_ack if this gets hot
     while (now := _time.monotonic()) < deadline:
         if not echoed and _last_send_message_id is not None:

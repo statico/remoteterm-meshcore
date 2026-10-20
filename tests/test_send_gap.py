@@ -40,6 +40,7 @@ def clock(monkeypatch):
         return 4.0
 
     monkeypatch.setattr(message_send, "_send_gap_seconds", gap)
+    monkeypatch.setattr(message_send, "SEND_GAP_QUIET_SECONDS", 2.0)
     monkeypatch.setattr(message_send._time, "monotonic", clock.monotonic)
     monkeypatch.setattr(message_send.asyncio, "sleep", clock.sleep)
     return clock
@@ -55,6 +56,14 @@ async def send(repo, message_id=None):
 async def test_first_send_does_not_wait(clock):
     await send(FakeRepo(clock), 1)
     assert clock.sleeps == []
+
+
+@pytest.mark.asyncio
+async def test_first_send_waits_for_quiet_air(clock, monkeypatch):
+    # A command was just heard; its flood is still being repeated.
+    monkeypatch.setattr(message_send, "_last_rx_monotonic", 99.0)
+    await send(FakeRepo(clock), 1)
+    assert clock.now == pytest.approx(99.0 + message_send.SEND_GAP_QUIET_SECONDS)
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,7 @@
+## [3.25.2] - 2026-10-22
+
+* Misc: Bump vite to 8.3.5 for launch-editor Dependabot alerts
+
 ## [3.25.1] - 2026-10-20
 
 * Bug: Channel auto-resend waits 6 seconds (was 2) and for quiet air before resending; it used to resend before repeaters had time to repeat, so every message went out twice and collided

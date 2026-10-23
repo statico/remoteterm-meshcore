@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, isAbortError } from '../api';
 import type { Channel, Contact, Message } from '../types';
 import { getStateKey } from '../utils/conversationState';
-import { formatTime } from '../utils/messageParser';
+import { formatShortAgo, formatTime } from '../utils/messageParser';
 import { ListSkeleton } from './LoadingSkeletons';
+import { renderTextWithMentions } from './MessageList';
 import type { SearchNavigateTarget } from './SearchView';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -20,25 +21,6 @@ export interface MentionsViewProps {
   /** Bumps when a new mention arrives, to refetch. */
   refreshNonce: number;
   onNavigateToMessage: (target: SearchNavigateTarget) => void;
-}
-
-function highlightMention(text: string, token: string | null): React.ReactNode[] {
-  if (!token) return [text];
-  const lower = text.toLowerCase();
-  const needle = token.toLowerCase();
-  const parts: React.ReactNode[] = [];
-  let start = 0;
-  for (let i = lower.indexOf(needle); i !== -1; i = lower.indexOf(needle, start)) {
-    parts.push(text.slice(start, i));
-    parts.push(
-      <mark key={i} className="bg-badge-mention/20 text-foreground rounded-sm px-0.5">
-        {text.slice(i, i + token.length)}
-      </mark>
-    );
-    start = i + token.length;
-  }
-  parts.push(text.slice(start));
-  return parts;
 }
 
 export function MentionsView({
@@ -166,29 +148,34 @@ export function MentionsView({
                 }
               }}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <span
-                  className={cn(
-                    'text-xs truncate',
-                    unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'
-                  )}
-                >
-                  {getConversationName(msg)}
+              <div className="flex items-baseline gap-2 mb-0.5">
+                <span className="text-[0.8125rem] font-semibold text-foreground truncate">
+                  {msg.sender_name || getConversationName(msg)}
                 </span>
                 {msg.sender_name && (
-                  <span className="text-xs text-muted-foreground truncate">{msg.sender_name}</span>
+                  <span className="text-[0.6875rem] text-muted-foreground truncate">
+                    in {getConversationName(msg)}
+                  </span>
                 )}
-                <span className="text-[0.6875rem] text-muted-foreground ml-auto flex-shrink-0">
-                  {formatTime(msg.received_at)}
+                <span
+                  className="text-[0.6875rem] text-muted-foreground ml-auto flex-shrink-0"
+                  title={formatTime(msg.received_at)}
+                >
+                  {formatShortAgo(msg.received_at)}
                 </span>
               </div>
               <div
                 className={cn(
-                  'text-[0.8125rem] line-clamp-3 break-words',
-                  unread ? 'text-foreground' : 'text-foreground/70'
+                  'break-words whitespace-pre-wrap line-clamp-3',
+                  !unread && 'text-foreground/80'
                 )}
               >
-                {highlightMention(body, token)}
+                {body.split('\n').map((line, i, arr) => (
+                  <span key={i}>
+                    {renderTextWithMentions(line, myName ?? undefined)}
+                    {i < arr.length - 1 && <br />}
+                  </span>
+                ))}
               </div>
             </div>
           );

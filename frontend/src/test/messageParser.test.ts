@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   findLinkedChannelReferences,
+  formatShortAgo,
   formatTime,
   HASHTAG_CHANNEL_NAME_PATTERN,
   parseSenderFromText,
@@ -138,5 +139,17 @@ describe('linked channel references', () => {
     );
 
     expect(references.map((reference) => reference.label)).toEqual(['#good-room']);
+  });
+});
+
+describe('formatShortAgo', () => {
+  const now = 1_800_000_000_000;
+  const ago = (s: number) => formatShortAgo(now / 1000 - s, now);
+  it('uses compact units', () => {
+    expect(ago(10)).toBe('now');
+    expect(ago(5 * 60)).toBe('5m');
+    expect(ago(3 * 3600)).toBe('3h');
+    expect(ago(2 * 86400)).toBe('2d');
+    expect(ago(30 * 86400)).not.toMatch(/d$/);
   });
 });

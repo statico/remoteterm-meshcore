@@ -342,7 +342,7 @@ function linkifyText(
 }
 
 // Helper to render text with highlighted @[Name] mentions and clickable URLs
-function renderTextWithMentions(
+export function renderTextWithMentions(
   text: string,
   radioName?: string,
   onChannelReferenceClick?: (channelName: string) => void

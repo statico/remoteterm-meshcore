@@ -65,6 +65,16 @@ export function formatTime(timestamp: number): string {
   return `${dateStr} ${time}`;
 }
 
+/** Twitter-style age of a Unix timestamp: "now", "5m", "3h", "2d", then "Mar 4". */
+export function formatShortAgo(timestamp: number, nowMs: number = Date.now()): string {
+  const seconds = Math.max(0, Math.floor(nowMs / 1000 - timestamp));
+  if (seconds < 60) return 'now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 7 * 86400) return `${Math.floor(seconds / 86400)}d`;
+  return new Date(timestamp * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 /** Check if a message text contains a mention of the given name in @[name] format. */
 export function messageContainsMention(text: string, name: string | null): boolean {
   if (!name) return false;

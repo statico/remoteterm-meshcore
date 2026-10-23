@@ -701,14 +701,12 @@ export function Sidebar({
     active = false,
     icon,
     label,
-    badge,
     onClick,
   }: {
     key: string;
     active?: boolean;
     icon: React.ReactNode;
     label: React.ReactNode;
-    badge?: React.ReactNode;
     onClick: () => void;
   }) => (
     <div
@@ -728,7 +726,6 @@ export function Sidebar({
         {icon}
       </span>
       <span className="sidebar-tool-label flex-1 truncate">{label}</span>
-      {badge}
     </div>
   );
 
@@ -953,23 +950,32 @@ export function Sidebar({
         </div>
 
         {/* Mentions inbox */}
-        {!query &&
-          renderSidebarActionRow({
-            key: 'mentions',
-            active: isActive('mentions', 'mentions'),
-            icon: <AtSign className="h-4 w-4" />,
-            label: 'Mentions',
-            badge: mentionConversationCount > 0 && (
+        {!query && (
+          <div
+            className={cn(
+              'px-3 py-2 cursor-pointer flex items-center gap-2 border-l-2 border-transparent hover:bg-accent transition-colors text-[0.8125rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              isActive('mentions', 'mentions') && 'bg-accent border-l-primary'
+            )}
+            role="button"
+            tabIndex={0}
+            aria-current={isActive('mentions', 'mentions') ? 'page' : undefined}
+            onKeyDown={handleKeyboardActivate}
+            onClick={() =>
+              handleSelectConversation({ type: 'mentions', id: 'mentions', name: 'Mentions' })
+            }
+          >
+            <AtSign className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="flex-1 truncate text-muted-foreground">Mentions</span>
+            {mentionConversationCount > 0 && (
               <span
                 className="text-[0.625rem] font-medium px-1.5 py-0.5 rounded-full bg-badge-mention text-badge-mention-foreground"
                 aria-label={`${mentionConversationCount} conversations with unread mentions`}
               >
                 {mentionConversationCount}
               </span>
-            ),
-            onClick: () =>
-              handleSelectConversation({ type: 'mentions', id: 'mentions', name: 'Mentions' }),
-          })}
+            )}
+          </div>
+        )}
 
         {/* Tools */}
         {toolRows.length > 0 && (

@@ -1,3 +1,8 @@
+## [3.26.0] - 2026-10-23
+
+* Feature: A Mentions list in the sidebar shows every message that mentions you, newest first, so you can find them after many newer messages arrive
+* Feature: Unread mentions are marked in the list and counted with a red badge; click one to jump to that message
+
 ## [3.25.3] - 2026-10-23
 
 * Security: Bump certifi to 2026.10.23, which removes the emSign root certificates whose intermediate keys were compromised

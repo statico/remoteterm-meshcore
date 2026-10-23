@@ -160,6 +160,13 @@ function createProps(overrides: Partial<React.ComponentProps<typeof Conversation
     onLoadOlder: vi.fn(async () => {}),
     onResendChannelMessage: vi.fn(async () => {}),
     onTargetReached: vi.fn(),
+    mentionsViewProps: {
+      myName: null,
+      mentions: {},
+      lastReadAts: {},
+      refreshNonce: 0,
+      onNavigateToMessage: vi.fn(),
+    },
     onLoadNewer: vi.fn(async () => {}),
     onJumpToBottom: vi.fn(),
     onDismissUnreadMarker: vi.fn(),

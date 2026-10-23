@@ -343,7 +343,8 @@ export interface ResendChannelMessageResponse {
   message?: Message;
 }
 
-type ConversationType = 'contact' | 'channel' | 'raw' | 'map' | 'visualizer' | 'search' | 'trace';
+type ConversationType =
+  'contact' | 'channel' | 'raw' | 'map' | 'visualizer' | 'search' | 'mentions' | 'trace';
 
 export interface Conversation {
   type: ConversationType;

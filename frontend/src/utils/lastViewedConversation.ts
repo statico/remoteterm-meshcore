@@ -10,6 +10,7 @@ const SUPPORTED_TYPES: Conversation['type'][] = [
   'raw',
   'map',
   'visualizer',
+  'mentions',
   'trace',
 ];
 

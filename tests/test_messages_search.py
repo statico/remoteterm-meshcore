@@ -786,3 +786,34 @@ class TestSearchEndpoint:
         # Forward results should be ASC
         for i in range(len(results) - 1):
             assert results[i]["received_at"] <= results[i + 1]["received_at"]
+
+
+class TestMentionFilter:
+    """Tests for the mention_name filter behind GET /messages?mentions=true."""
+
+    @pytest.mark.asyncio
+    async def test_returns_only_incoming_mentions_across_conversations(self, test_db):
+        for i, (key, msg_type, text, outgoing) in enumerate(
+            [
+                (CHAN_KEY, "CHAN", "Bob: hey @[MyNode] look", False),
+                (OTHER_CHAN_KEY, "CHAN", "Ann: @[mynode] ping", False),
+                (DM_KEY, "PRIV", "@[MyNode] in a room post", False),
+                (CHAN_KEY, "CHAN", "Bob: MyNode without brackets", False),
+                (CHAN_KEY, "CHAN", "MyNode: @[MyNode] talking to myself", True),
+            ]
+        ):
+            await MessageRepository.create(
+                msg_type=msg_type,
+                text=text,
+                conversation_key=key,
+                sender_timestamp=100 + i,
+                received_at=100 + i,
+                outgoing=outgoing,
+            )
+
+        results = await MessageRepository.get_all(mention_name="MyNode")
+        assert [r.text for r in results] == [
+            "@[MyNode] in a room post",
+            "Ann: @[mynode] ping",
+            "Bob: hey @[MyNode] look",
+        ]

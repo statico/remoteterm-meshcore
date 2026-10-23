@@ -261,6 +261,7 @@ export const api = {
       after?: number;
       after_id?: number;
       q?: string;
+      mentions?: boolean;
     },
     signal?: AbortSignal
   ) => {
@@ -274,6 +275,7 @@ export const api = {
     if (params?.after !== undefined) searchParams.set('after', params.after.toString());
     if (params?.after_id !== undefined) searchParams.set('after_id', params.after_id.toString());
     if (params?.q) searchParams.set('q', params.q);
+    if (params?.mentions) searchParams.set('mentions', 'true');
     const query = searchParams.toString();
     return fetchJson<Message[]>(`/messages${query ? `?${query}` : ''}`, { signal });
   },

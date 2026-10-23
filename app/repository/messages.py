@@ -412,6 +412,7 @@ class MessageRepository:
         q: str | None = None,
         blocked_keys: list[str] | None = None,
         blocked_names: list[str] | None = None,
+        mention_name: str | None = None,
     ) -> list[Message]:
         search_query = MessageRepository._parse_search_query(q) if q else None
         query = (
@@ -454,6 +455,11 @@ class MessageRepository:
                 scope_clauses.append(clause)
                 params.extend(clause_params)
             query += f" AND ({' OR '.join(scope_clauses)})"
+
+        if mention_name:
+            # Same @[name] match as get_unread_counts' mention flag.
+            query += " AND messages.outgoing = 0 AND INSTR(LOWER(messages.text), LOWER(?)) > 0"
+            params.append(f"@[{mention_name}]")
 
         if search_query and search_query.free_text:
             escaped_q = MessageRepository._escape_like(search_query.free_text)

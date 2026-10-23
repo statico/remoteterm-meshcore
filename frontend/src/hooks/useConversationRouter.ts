@@ -40,6 +40,8 @@ function resolveConversationFromHash(
       return { type: 'visualizer', id: 'visualizer', name: 'Mesh Visualizer' };
     case 'search':
       return { type: 'search', id: 'search', name: 'Message Search' };
+    case 'mentions':
+      return { type: 'mentions', id: 'mentions', name: 'Mentions' };
     case 'trace':
       return { type: 'trace', id: 'trace', name: 'Trace' };
     case 'channel': {
@@ -143,6 +145,11 @@ export function useConversationRouter({
       hasSetDefaultConversation.current = true;
       return;
     }
+    if (hashConv?.type === 'mentions') {
+      setActiveConversationState({ type: 'mentions', id: 'mentions', name: 'Mentions' });
+      hasSetDefaultConversation.current = true;
+      return;
+    }
     if (hashConv?.type === 'trace') {
       setActiveConversationState({ type: 'trace', id: 'trace', name: 'Trace' });
       hasSetDefaultConversation.current = true;
@@ -157,6 +164,7 @@ export function useConversationRouter({
         (lastViewed.type === 'raw' ||
           lastViewed.type === 'map' ||
           lastViewed.type === 'visualizer' ||
+          lastViewed.type === 'mentions' ||
           lastViewed.type === 'trace')
       ) {
         setActiveConversationState(lastViewed);

@@ -119,6 +119,7 @@ frontend/src/
 │   ├── MessageInput.tsx
 │   ├── NewMessageModal.tsx
 │   ├── SearchView.tsx          # Full-text message search pane
+│   ├── MentionsView.tsx        # Mentions inbox: every incoming @[name] message, newest first
 │   ├── SettingsModal.tsx       # Layout shell — delegates to settings/ sections
 │   ├── SecurityWarningModal.tsx # Startup warning for trusted-network / bot execution posture
 │   ├── RawPacketList.tsx
@@ -214,6 +215,7 @@ frontend/src/
     ├── channelInfoKeyVisibility.test.tsx
     ├── chatHeaderKeyVisibility.test.tsx
     ├── searchView.test.tsx
+    ├── mentionsView.test.tsx
     ├── useConversationActions.test.ts
     ├── useConversationMessages.test.ts
     ├── useConversationMessages.race.test.ts
@@ -344,6 +346,7 @@ Supported routes:
 - `#map/focus/{pubkey_or_prefix}`
 - `#visualizer`
 - `#search`
+- `#mentions`
 - `#trace`
 - `#settings/{section}`
 - `#channel/{channelKey}`
@@ -473,6 +476,15 @@ The `SearchView` component (`components/SearchView.tsx`) provides full-text sear
 - **Jump-to-message**: `useConversationMessages` handles optional `targetMessageId` by calling `api.getMessagesAround()` instead of the normal latest-page fetch, loading context around the target message. `MessageList` resolves the target to an index and calls `virtualizer.scrollToIndex(...)`, then applies a `message-highlight` CSS animation. A pending target suppresses the bottom-pin (see Virtualization below), since the around-load clears the list first and would otherwise be yanked to the newest message.
 - **Bidirectional pagination**: After jumping mid-history, `hasNewerMessages` enables forward pagination via `fetchNewerMessages`. The scroll-to-bottom button calls `jumpToBottom` (re-fetches latest page) instead of just scrolling.
 - **WS message suppression**: When `hasNewerMessages` is true, incoming WS messages for the active conversation are not added to the message list (the user is viewing historical context, not the latest page).
+
+## Mentions Pane
+
+`MentionsView` (`components/MentionsView.tsx`, route `#mentions`, sidebar row above Tools) lists every incoming message that contains `@[radio name]`, newest first, from `GET /api/messages?mentions=true`. It is an inbox, like the Slack "Mentions" and Discord "Inbox" views:
+
+- **Unread**: a mention is unread while its conversation still has a mention flag (`useUnreadCounts.mentions`) and it is newer than that conversation's `last_read_at`. Opening the conversation clears both, so no separate read state is stored.
+- **Badge**: the sidebar row shows the number of conversations with an unread mention. Muted channels never set the flag, so their mentions are listed but never unread.
+- **Jump**: a click calls the same `handleNavigateToMessage` as search, so the target loads with `getMessagesAround()` and is highlighted.
+- **Refresh**: `checkMention` in `App.tsx` bumps `refreshNonce` on every live mention, and the view refetches the first page.
 
 ## Web Push Notifications
 

@@ -31,6 +31,7 @@ RemoteTerm is a server and web interface for MeshCore mesh radio networks. It co
 Connect your radio over serial, TCP, or BLE. Then you can:
 
 - Send and receive direct messages (DMs) and channel messages.
+- Find every message that mentions you in one Mentions list, even after many newer messages arrive.
 - Keep every packet that the radio receives. RemoteTerm decrypts old packets when you add new keys.
 - Monitor any number of contacts and channels. The server decrypts packets, so the limits of the radio do not apply.
 - Run Python bots that read messages and reply in DMs and channels.

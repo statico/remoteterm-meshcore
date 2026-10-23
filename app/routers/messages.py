@@ -69,8 +69,16 @@ async def list_messages(
         description="Forward cursor: id of last seen message (alone: return ids greater than it)",
     ),
     q: str | None = Query(default=None, description="Full-text search query"),
+    mentions: bool = Query(
+        default=False, description="Only incoming messages that @[mention] this radio's name"
+    ),
 ) -> list[Message]:
     """List messages from the database."""
+    mention_name: str | None = None
+    if mentions:
+        mention_name = current_radio_name()
+        if not mention_name:
+            return []
     settings = await AppSettingsRepository.get()
     blocked_keys = settings.blocked_keys or None
     blocked_names = settings.blocked_names or None
@@ -86,6 +94,7 @@ async def list_messages(
         q=q,
         blocked_keys=blocked_keys,
         blocked_names=blocked_names,
+        mention_name=mention_name,
     )
 
 

@@ -7,6 +7,7 @@ import { MessageList } from './MessageList';
 import { RawPacketFeedView } from './RawPacketFeedView';
 import { RoomServerPanel } from './RoomServerPanel';
 import { TracePane } from './TracePane';
+import { MentionsView, type MentionsViewProps } from './MentionsView';
 import type {
   Channel,
   Contact,
@@ -83,6 +84,7 @@ interface ConversationPaneProps {
   onLoadOlder: () => Promise<void>;
   onResendChannelMessage: (messageId: number, newTimestamp?: boolean) => Promise<void>;
   onTargetReached: () => void;
+  mentionsViewProps: Omit<MentionsViewProps, 'contacts' | 'channels'>;
   onLoadNewer: () => Promise<void>;
   onJumpToBottom: () => void;
   onDismissUnreadMarker: () => void;
@@ -165,6 +167,7 @@ export function ConversationPane({
   onLoadOlder,
   onResendChannelMessage,
   onTargetReached,
+  mentionsViewProps,
   onLoadNewer,
   onJumpToBottom,
   onDismissUnreadMarker,
@@ -276,6 +279,10 @@ export function ConversationPane({
 
   if (activeConversation.type === 'search') {
     return null;
+  }
+
+  if (activeConversation.type === 'mentions') {
+    return <MentionsView contacts={contacts} channels={channels} {...mentionsViewProps} />;
   }
 
   if (activeConversation.type === 'trace') {

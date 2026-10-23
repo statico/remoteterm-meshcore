@@ -179,11 +179,13 @@ export function App() {
     blockedNamesRef.current = appSettings?.blocked_names ?? [];
   }, [appSettings?.blocked_keys, appSettings?.blocked_names]);
 
-  // Check if a message mentions the user
-  const checkMention = useCallback(
-    (text: string): boolean => messageContainsMention(text, myNameRef.current),
-    []
-  );
+  // Check if a message mentions the user; a hit also refreshes the Mentions view.
+  const [mentionNonce, setMentionNonce] = useState(0);
+  const checkMention = useCallback((text: string): boolean => {
+    const hit = messageContainsMention(text, myNameRef.current);
+    if (hit) setMentionNonce((n) => n + 1);
+    return hit;
+  }, []);
 
   // useContactsAndChannels is called first — it uses the ref bridge for setActiveConversation
   const {
@@ -615,6 +617,13 @@ export function App() {
     onLoadOlder: fetchOlderMessages,
     onResendChannelMessage: handleResendChannelMessage,
     onTargetReached: () => setTargetMessageId(null),
+    mentionsViewProps: {
+      myName: config?.name ?? null,
+      mentions,
+      lastReadAts: unreadLastReadAts,
+      refreshNonce: mentionNonce,
+      onNavigateToMessage: handleNavigateToMessage,
+    },
     onLoadNewer: fetchNewerMessages,
     onJumpToBottom: jumpToBottom,
     onSendMessage: handleSendMessage,

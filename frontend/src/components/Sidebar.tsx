@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AtSign,
   Bell,
   BellOff,
   Cable,
@@ -230,10 +231,8 @@ export function Sidebar({
     onSelectConversation(conversation);
   };
 
-  const isActive = (
-    type: 'contact' | 'channel' | 'raw' | 'map' | 'visualizer' | 'search' | 'trace',
-    id: string
-  ) => activeConversation?.type === type && activeConversation?.id === id;
+  const isActive = (type: Conversation['type'], id: string) =>
+    activeConversation?.type === type && activeConversation?.id === id;
 
   // Get unread count for a conversation
   const getUnreadCount = (type: 'channel' | 'contact', id: string): number => {
@@ -702,12 +701,14 @@ export function Sidebar({
     active = false,
     icon,
     label,
+    badge,
     onClick,
   }: {
     key: string;
     active?: boolean;
     icon: React.ReactNode;
     label: React.ReactNode;
+    badge?: React.ReactNode;
     onClick: () => void;
   }) => (
     <div
@@ -727,6 +728,7 @@ export function Sidebar({
         {icon}
       </span>
       <span className="sidebar-tool-label flex-1 truncate">{label}</span>
+      {badge}
     </div>
   );
 
@@ -745,6 +747,7 @@ export function Sidebar({
   const roomRows = nonFavoriteRooms.map((contact) => buildContactRow(contact, 'room'));
   const repeaterRows = nonFavoriteRepeaters.map((contact) => buildContactRow(contact, 'repeater'));
 
+  const mentionConversationCount = Object.values(mentions).filter(Boolean).length;
   const favoritesUnreadCount = getSectionUnreadCount(favoriteRows);
   const channelsUnreadCount = getSectionUnreadCount(channelRows);
   const contactsUnreadCount = getSectionUnreadCount(contactRows);
@@ -948,6 +951,25 @@ export function Sidebar({
             )}
           </div>
         </div>
+
+        {/* Mentions inbox */}
+        {!query &&
+          renderSidebarActionRow({
+            key: 'mentions',
+            active: isActive('mentions', 'mentions'),
+            icon: <AtSign className="h-4 w-4" />,
+            label: 'Mentions',
+            badge: mentionConversationCount > 0 && (
+              <span
+                className="text-[0.625rem] font-medium px-1.5 py-0.5 rounded-full bg-badge-mention text-badge-mention-foreground"
+                aria-label={`${mentionConversationCount} conversations with unread mentions`}
+              >
+                {mentionConversationCount}
+              </span>
+            ),
+            onClick: () =>
+              handleSelectConversation({ type: 'mentions', id: 'mentions', name: 'Mentions' }),
+          })}
 
         {/* Tools */}
         {toolRows.length > 0 && (

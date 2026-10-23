@@ -1,3 +1,8 @@
+## [3.25.3] - 2026-10-23
+
+* Security: Bump certifi to 2026.10.23, which removes the emSign root certificates whose intermediate keys were compromised
+* Misc: Bump vitest to 4.1.12 for @vitest/mocker Dependabot alerts
+
 ## [3.25.2] - 2026-10-22
 
 * Misc: Bump vite to 8.3.5 for launch-editor Dependabot alerts

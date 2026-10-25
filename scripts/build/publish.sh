@@ -95,6 +95,11 @@ release_sed_i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 echo -e "${YELLOW}Updating frontend/package.json...${NC}"
 release_sed_i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
 
+# Update PKGBUILD so Arch users can build the release straight from this repo
+echo -e "${YELLOW}Updating pkg/aur/PKGBUILD...${NC}"
+release_sed_i "s/^pkgver=.*/pkgver=$VERSION/" pkg/aur/PKGBUILD
+release_sed_i "s/^pkgrel=.*/pkgrel=1/" pkg/aur/PKGBUILD
+
 # Update uv.lock with new version
 echo -e "${YELLOW}Updating uv.lock...${NC}"
 uv sync

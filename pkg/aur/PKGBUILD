@@ -1,8 +1,8 @@
 # Maintainer: statico <https://github.com/statico>
 
 pkgname=remoteterm-meshcore-statico
-# pkgver is rewritten by .github/workflows/publish-aur.yml on each release.
-pkgver=3.9.0
+# pkgver is rewritten by scripts/build/publish.sh on each release.
+pkgver=3.26.1
 pkgrel=1
 pkgdesc='Web interface for MeshCore mesh radio networks'
 arch=(x86_64 aarch64)

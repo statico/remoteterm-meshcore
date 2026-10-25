@@ -5,7 +5,6 @@
 [![CodeQL](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml/badge.svg)](https://github.com/statico/remoteterm-meshcore/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/statico/remoteterm-meshcore?logo=github)](https://github.com/statico/remoteterm-meshcore/releases)
 [![Container](https://img.shields.io/badge/ghcr.io-statico%2Fremoteterm--meshcore-blue?logo=docker)](https://github.com/statico/remoteterm-meshcore/pkgs/container/remoteterm-meshcore)
-[![AUR](https://img.shields.io/aur/version/remoteterm-meshcore-statico?logo=archlinux)](https://aur.archlinux.org/packages/remoteterm-meshcore-statico)
 [![License](https://img.shields.io/github/license/statico/remoteterm-meshcore)](LICENSE.md)
 
 > [!NOTE]
@@ -108,7 +107,7 @@ There are three ways to install RemoteTerm:
 |--------|----------|
 | [Clone and build](#option-1-clone-and-build) | Most users. This is the most reliable method for serial radios. |
 | [Docker](#option-2-docker) | Users who already run their services in Docker. |
-| [Arch Linux (AUR)](#option-3-arch-linux-aur) | Arch Linux users who want a system package. |
+| [Arch Linux (PKGBUILD)](#option-3-arch-linux-pkgbuild) | Arch Linux users who want a system package. |
 
 ### Option 1: Clone and build
 
@@ -225,20 +224,32 @@ Then build and start the container:
 sudo docker compose up -d --build
 ```
 
-### Option 3: Arch Linux (AUR)
+### Option 3: Arch Linux (PKGBUILD)
 
-The AUR has a [`remoteterm-meshcore-statico`](https://aur.archlinux.org/packages/remoteterm-meshcore-statico) package. It conflicts with the upstream `remoteterm-meshcore` package. If you have the upstream package, remove it first.
+This repo has a PKGBUILD in [`pkg/aur/`](pkg/aur/). It builds the `remoteterm-meshcore-statico` package from the latest release. The package is not on the AUR yet, because AUR registration is closed. The package conflicts with the upstream `remoteterm-meshcore` AUR package. If you have the upstream package, remove it first.
 
-1. Install the package with an AUR helper, or build it manually:
+1. Build and install the package with `makepkg`, or with paru:
 
    ```bash
-   # with an AUR helper
-   yay -S remoteterm-meshcore-statico
-
-   # or manually
-   git clone https://aur.archlinux.org/remoteterm-meshcore-statico.git
-   cd remoteterm-meshcore-statico
+   # with makepkg
+   git clone https://github.com/statico/remoteterm-meshcore.git
+   cd remoteterm-meshcore/pkg/aur
    makepkg -si
+   ```
+
+   To use paru, add this repo as a PKGBUILD repo in `/etc/paru.conf` or `~/.config/paru/paru.conf`:
+
+   ```ini
+   [remoteterm]
+   Url = https://github.com/statico/remoteterm-meshcore
+   Path = pkg/aur
+   ```
+
+   Then install the package:
+
+   ```bash
+   paru -Sya
+   paru -S remoteterm-meshcore-statico
    ```
 
 2. Configure the radio connection:
@@ -307,7 +318,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Update RemoteTerm in place. Do not reinstall it from the start.
 
-Your data is in one SQLite file at `MESHCORE_DATABASE_PATH`. By default this is `data/meshcore.db`. For the AUR package, it is `/var/lib/remoteterm-meshcore/meshcore.db`. The app upgrades the database schema automatically when it starts.
+Your data is in one SQLite file at `MESHCORE_DATABASE_PATH`. By default this is `data/meshcore.db`. For the Arch package, it is `/var/lib/remoteterm-meshcore/meshcore.db`. The app upgrades the database schema automatically when it starts.
 
 1. Stop the app.
 2. Make a backup copy of the database file.
@@ -333,13 +344,13 @@ sudo docker compose up -d
 
 The `./data` bind mount stays, so the database is safe. If you build the image yourself (`build: .`), run `sudo docker compose up -d --build` instead. The `pull` command only gets published images.
 
-**Arch Linux (AUR):**
+**Arch Linux (PKGBUILD):**
 
 ```bash
-# with an AUR helper
-yay -Syu remoteterm-meshcore-statico
+# with paru
+paru -Syu
 
-# or manually, from your checkout of the AUR repo
+# or manually, from pkg/aur/ in your checkout of this repo
 git pull
 makepkg -si
 sudo systemctl restart remoteterm-meshcore

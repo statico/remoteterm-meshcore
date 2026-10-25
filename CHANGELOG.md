@@ -1,3 +1,7 @@
+## [3.26.1] - 2026-10-25
+
+* Bug: Web push notifications now work in Microsoft Edge; Edge's push service rejected them because they were sent with a zero time-to-live
+
 ## [3.26.0] - 2026-10-23
 
 * Feature: A Mentions list in the sidebar shows every message that mentions you, newest first, so you can find them after many newer messages arrive

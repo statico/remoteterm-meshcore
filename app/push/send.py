@@ -24,6 +24,8 @@ DEFAULT_TIMEOUT = object()
 DEFAULT_PUSH_CONNECT_TIMEOUT_SECONDS = 3
 IPV4_FALLBACK_CONNECT_TIMEOUT_SECONDS = 10
 DEFAULT_PUSH_READ_TIMEOUT_SECONDS = 10
+# pywebpush defaults to TTL 0, which WNS (Edge) rejects with 400.
+PUSH_TTL_SECONDS = 60
 
 
 def _create_ipv4_connection(
@@ -160,6 +162,7 @@ def _send_push_with_session(
         vapid_private_key=vapid_private_key,
         vapid_claims=vapid_claims,
         content_encoding="aes128gcm",
+        ttl=PUSH_TTL_SECONDS,
         timeout=cast(Any, (connect_timeout_seconds, DEFAULT_PUSH_READ_TIMEOUT_SECONDS)),
         requests_session=session,
     )

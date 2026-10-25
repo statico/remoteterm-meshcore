@@ -40,6 +40,8 @@ async def test_send_push_prefers_default_dual_stack_session_before_any_ipv4_fall
         DEFAULT_PUSH_CONNECT_TIMEOUT_SECONDS,
         DEFAULT_PUSH_READ_TIMEOUT_SECONDS,
     )
+    # WNS (Edge) rejects TTL 0
+    assert captured_kwargs["ttl"] > 0
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@
 
 pkgname=remoteterm-meshcore-statico
 # pkgver is rewritten by scripts/build/publish.sh on each release.
-pkgver=3.26.1
+pkgver=3.26.2
 pkgrel=1
 pkgdesc='Web interface for MeshCore mesh radio networks'
 arch=(x86_64 aarch64)

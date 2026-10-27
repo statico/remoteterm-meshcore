@@ -1,3 +1,8 @@
+## [3.26.2] - 2026-10-26
+
+* Feature: Repeaters with telemetry monitoring can show their latest battery reading (volts or percent) and its age in the sidebar; turn it on in Local Configuration
+* Feature: Optionally show the repeater's temperature sensor reading next to it as well
+
 ## [3.26.1] - 2026-10-25
 
 * Bug: Web push notifications now work in Microsoft Edge; Edge's push service rejected them because they were sent with a zero time-to-live

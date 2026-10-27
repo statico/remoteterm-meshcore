@@ -21,6 +21,7 @@ import {
   type Contact,
   type Channel,
   type Conversation,
+  type TelemetryHistoryEntry,
 } from '../types';
 import {
   buildSidebarSectionSortOrders,
@@ -37,6 +38,16 @@ import {
 import { isPublicChannelKey } from '../utils/publicChannel';
 import { getContactDisplayName } from '../utils/pubkey';
 import { handleKeyboardActivate } from '../utils/a11y';
+import { formatShortAgo } from '../utils/messageParser';
+import {
+  REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT,
+  formatRepeaterPower,
+  formatRepeaterTemperature,
+  getRepeaterPowerMode,
+  getShowRepeaterTemperature,
+} from '../utils/repeaterSidebarTelemetry';
+import { useDistanceUnit } from '../contexts/DistanceUnitContext';
+import { api } from '../api';
 import { ContactAvatar } from './ContactAvatar';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -603,6 +614,66 @@ export function Sidebar({
     sortFavoriteItemsByOrder,
   ]);
 
+  const [repeaterPowerMode, setRepeaterPowerMode] = useState(getRepeaterPowerMode);
+  const [showRepeaterTemperature, setShowRepeaterTemperature] = useState(
+    getShowRepeaterTemperature
+  );
+  const [repeaterTelemetry, setRepeaterTelemetry] = useState<Record<string, TelemetryHistoryEntry>>(
+    {}
+  );
+  const { distanceUnit } = useDistanceUnit();
+  const repeaterTelemetryEnabled = repeaterPowerMode !== 'off' || showRepeaterTemperature;
+
+  useEffect(() => {
+    const handler = () => {
+      setRepeaterPowerMode(getRepeaterPowerMode());
+      setShowRepeaterTemperature(getShowRepeaterTemperature());
+    };
+    window.addEventListener(REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
+    if (!repeaterTelemetryEnabled) return;
+    let cancelled = false;
+    const load = () =>
+      api
+        .getTrackedTelemetryLatest()
+        .then((latest) => {
+          if (!cancelled) setRepeaterTelemetry(latest);
+        })
+        .catch(() => {});
+    load();
+    // ponytail: polls (also refreshes the age text); telemetry is collected at most
+    // hourly, so push it over the WebSocket only if collection gets much more frequent.
+    const interval = window.setInterval(load, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [repeaterTelemetryEnabled]);
+
+  const renderRepeaterTelemetry = (publicKey: string) => {
+    const entry = repeaterTelemetryEnabled ? repeaterTelemetry[publicKey] : undefined;
+    if (!entry) return null;
+    const reading = [
+      formatRepeaterPower(entry.data.battery_volts, repeaterPowerMode),
+      showRepeaterTemperature ? formatRepeaterTemperature(entry, distanceUnit) : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (!reading) return null;
+    return (
+      <span
+        className="flex flex-col items-end text-[0.625rem] leading-tight tabular-nums text-success"
+        title={`Telemetry from ${new Date(entry.timestamp * 1000).toLocaleString()}`}
+      >
+        <span>{reading}</span>
+        <span>{formatShortAgo(entry.timestamp)}</span>
+      </span>
+    );
+  };
+
   const buildChannelRow = (channel: Channel, keyPrefix: string): ConversationRow => ({
     key: `${keyPrefix}-${channel.key}`,
     type: 'channel',
@@ -664,6 +735,7 @@ export function Sidebar({
           />
         )}
         <span className="name flex-1 truncate text-[0.8125rem]">{row.name}</span>
+        {row.type === 'contact' && renderRepeaterTelemetry(row.id)}
         <span className="ml-auto flex items-center gap-1">
           {row.muted ? (
             <span aria-label="Channel muted" title="Channel muted">

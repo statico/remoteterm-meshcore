@@ -1,5 +1,6 @@
 """Tests for settings router endpoints and validation behavior."""
 
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,12 +8,13 @@ from fastapi import HTTPException
 from meshcore import EventType
 
 from app.models import CONTACT_TYPE_REPEATER, AppSettings, ContactUpsert
-from app.repository import AppSettingsRepository, ContactRepository
+from app.repository import AppSettingsRepository, ContactRepository, RepeaterTelemetryRepository
 from app.routers.settings import (
     AppSettingsUpdate,
     FavoriteRequest,
     TrackedTelemetryRequest,
     get_telemetry_schedule,
+    get_tracked_telemetry_latest,
     toggle_favorite,
     toggle_tracked_telemetry,
     update_settings,
@@ -316,6 +318,23 @@ class TestToggleTrackedTelemetry:
         # N=1 unlocks the full menu including 1h
         assert 1 in result.schedule.options
         assert result.schedule.max_tracked == 8
+
+    @pytest.mark.asyncio
+    async def test_latest_returns_newest_snapshot_per_tracked_repeater(self, test_db):
+        with_data, without_data, untracked = "aa" * 32, "bb" * 32, "cc" * 32
+        for key in (with_data, without_data, untracked):
+            await self._create_repeater(key)
+        await AppSettingsRepository.update(tracked_telemetry_repeaters=[with_data, without_data])
+        now = int(time.time())
+        await RepeaterTelemetryRepository.record(with_data, now - 7200, {"battery_volts": 12.1})
+        await RepeaterTelemetryRepository.record(with_data, now - 3600, {"battery_volts": 12.4})
+        await RepeaterTelemetryRepository.record(untracked, now, {"battery_volts": 4.0})
+
+        result = await get_tracked_telemetry_latest()
+
+        assert list(result) == [with_data]
+        assert result[with_data].timestamp == now - 3600
+        assert result[with_data].data["battery_volts"] == 12.4
 
 
 class TestTelemetryIntervalValidation:

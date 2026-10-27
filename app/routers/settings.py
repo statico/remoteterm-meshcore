@@ -5,9 +5,19 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.models import CONTACT_TYPE_REPEATER, MAX_SEND_GAP_SECONDS, AppSettings
+from app.models import (
+    CONTACT_TYPE_REPEATER,
+    MAX_SEND_GAP_SECONDS,
+    AppSettings,
+    TelemetryHistoryEntry,
+)
 from app.region_scope import normalize_region_scope
-from app.repository import AppSettingsRepository, ChannelRepository, ContactRepository
+from app.repository import (
+    AppSettingsRepository,
+    ChannelRepository,
+    ContactRepository,
+    RepeaterTelemetryRepository,
+)
 from app.services.ollama_summary import OllamaConfigError, normalize_ollama_base_url
 from app.telemetry_interval import (
     DEFAULT_TELEMETRY_INTERVAL_HOURS,
@@ -484,6 +494,21 @@ async def get_telemetry_schedule() -> TelemetrySchedule:
         app_settings.telemetry_interval_hours,
         app_settings.telemetry_routed_hourly,
     )
+
+
+@router.get("/tracked-telemetry/latest", response_model=dict[str, TelemetryHistoryEntry])
+async def get_tracked_telemetry_latest() -> dict[str, TelemetryHistoryEntry]:
+    """Return the newest stored telemetry snapshot for each tracked repeater.
+
+    Keyed by public key. Repeaters with no recorded snapshot are omitted.
+    """
+    app_settings = await AppSettingsRepository.get()
+    latest: dict[str, TelemetryHistoryEntry] = {}
+    for key in app_settings.tracked_telemetry_repeaters:
+        row = await RepeaterTelemetryRepository.get_latest(key)
+        if row is not None:
+            latest[key] = TelemetryHistoryEntry(**row)
+    return latest
 
 
 # ---------------------------------------------------------------------------

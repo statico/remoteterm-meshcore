@@ -52,6 +52,15 @@ import {
   setShowBatteryVoltage as saveBatteryVoltage,
 } from '../../utils/batteryDisplay';
 import {
+  REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT,
+  REPEATER_POWER_MODES,
+  type RepeaterPowerMode,
+  getRepeaterPowerMode,
+  setRepeaterPowerMode as saveRepeaterPowerMode,
+  getShowRepeaterTemperature,
+  setShowRepeaterTemperature as saveRepeaterTemperature,
+} from '../../utils/repeaterSidebarTelemetry';
+import {
   STATUS_DOT_PULSE_CHANGE_EVENT,
   getStatusDotPulseEnabled,
   setStatusDotPulseEnabled as saveStatusDotPulse,
@@ -222,6 +231,11 @@ function PushDeviceManagement({
   );
 }
 
+const REPEATER_POWER_MODE_LABELS: Record<RepeaterPowerMode, string> = {
+  off: 'Off',
+  volts: 'Voltage',
+  percent: 'Percentage',
+};
 export function SettingsLocalSection({
   onLocalLabelChange,
   contacts,
@@ -244,6 +258,8 @@ export function SettingsLocalSection({
   const [autoFocusInput, setAutoFocusInput] = useState(getAutoFocusInputEnabled);
   const [batteryPercent, setBatteryPercent] = useState(getShowBatteryPercent);
   const [batteryVoltage, setBatteryVoltage] = useState(getShowBatteryVoltage);
+  const [repeaterPowerMode, setRepeaterPowerMode] = useState(getRepeaterPowerMode);
+  const [repeaterTemperature, setRepeaterTemperature] = useState(getShowRepeaterTemperature);
   const [statusDotPulse, setStatusDotPulse] = useState(getStatusDotPulseEnabled);
   const [textReplaceEnabled, setTextReplaceEnabled] = useState(getTextReplaceEnabled);
   const [textReplaceJson, setTextReplaceJson] = useState(getTextReplaceMapJson);
@@ -431,6 +447,53 @@ export function SettingsLocalSection({
               <p className="text-[0.8125rem] text-muted-foreground">
                 Display the radio&apos;s battery voltage in the status bar (in mV). Data updates
                 every 60 seconds and may take up to a minute to appear after connecting.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-md border border-border/60 p-3">
+            <Label htmlFor="repeater-sidebar-power">Repeater Power in Sidebar</Label>
+            <select
+              id="repeater-sidebar-power"
+              value={repeaterPowerMode}
+              onChange={(event) => {
+                const mode = event.target.value as RepeaterPowerMode;
+                setRepeaterPowerMode(mode);
+                saveRepeaterPowerMode(mode);
+                window.dispatchEvent(new Event(REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT));
+              }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {REPEATER_POWER_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {REPEATER_POWER_MODE_LABELS[mode]}
+                </option>
+              ))}
+            </select>
+            <p className="text-[0.8125rem] text-muted-foreground">
+              Show the latest battery reading and its age next to repeaters that have telemetry
+              monitoring turned on. Percentage applies to single-cell batteries; larger packs always
+              show volts.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border border-border/60 p-3">
+            <Checkbox
+              id="repeater-sidebar-temperature"
+              checked={repeaterTemperature}
+              onCheckedChange={(checked) => {
+                const v = checked === true;
+                setRepeaterTemperature(v);
+                saveRepeaterTemperature(v);
+                window.dispatchEvent(new Event(REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT));
+              }}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="repeater-sidebar-temperature">Repeater Temperature in Sidebar</Label>
+              <p className="text-[0.8125rem] text-muted-foreground">
+                Show the temperature sensor reading next to monitored repeaters, when the repeater
+                reports one. Uses your distance unit setting for °C or °F.
               </p>
             </div>
           </div>

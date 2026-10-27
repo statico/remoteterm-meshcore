@@ -318,6 +318,7 @@ Web Push is a standalone subsystem in `app/push/`, separate from the fanout modu
 - `POST /settings/blocked-names/toggle`
 - `POST /settings/tracked-telemetry/toggle`
 - `GET /settings/tracked-telemetry/schedule` — current telemetry scheduling derivation, interval options, and next-run-at timestamp
+- `GET /settings/tracked-telemetry/latest` — newest stored telemetry snapshot per tracked repeater, keyed by public key (sidebar power/temperature display)
 - `POST /settings/tracked-telemetry-contacts/toggle` — toggle tracked LPP telemetry for any contact (max 8)
 - `GET /settings/tracked-telemetry-contacts/schedule` — contact telemetry scheduling (shared ceiling with repeaters)
 - `POST /settings/muted-channels/toggle`

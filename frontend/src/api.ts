@@ -371,6 +371,9 @@ export const api = {
 
   getTelemetrySchedule: () => fetchJson<TelemetrySchedule>('/settings/tracked-telemetry/schedule'),
 
+  getTrackedTelemetryLatest: () =>
+    fetchJson<Record<string, TelemetryHistoryEntry>>('/settings/tracked-telemetry/latest'),
+
   // Tracked contact telemetry
   toggleTrackedTelemetryContact: (publicKey: string) =>
     fetchJson<TrackedTelemetryContactsResponse>('/settings/tracked-telemetry-contacts/toggle', {

@@ -1,3 +1,7 @@
+## [3.26.3] - 2026-10-30
+
+* Feature: Telemetry checks on monitored repeaters retry up to 3 times (30s apart) when the radio is busy or the repeater doesn't answer, so distant repeaters on weak links still get logged
+
 ## [3.26.2] - 2026-10-26
 
 * Feature: Repeaters with telemetry monitoring can show their latest battery reading (volts or percent) and its age in the sidebar; turn it on in Local Configuration

@@ -13,7 +13,7 @@ from meshcore import EventType
 from meshcore.events import Event
 
 import app.radio_sync as radio_sync
-from app.radio import RadioManager, radio_manager
+from app.radio import RadioManager, RadioOperationBusyError, radio_manager
 from app.radio_sync import (
     _enable_autoevict_on_radio,
     _message_poll_loop,
@@ -2978,3 +2978,59 @@ class TestContactSelectionDmActive:
 
         keys = [c.public_key for c in selected]
         assert repeater_key not in keys
+
+
+@pytest.mark.asyncio
+async def test_telemetry_cycle_retries_busy_and_failed_attempts():
+    """A target that is busy, then silent, then answers is retried and counted once."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.models import AppSettings, Contact
+    from app.radio_sync import TELEMETRY_COLLECT_ATTEMPTS, _run_telemetry_cycle
+
+    key = "cc" * 32
+    contact = Contact(public_key=key, name="Solar", type=2)
+    results = iter([False, True])
+    attempts: list[str] = []
+
+    async def fake_collect(mc, c):
+        attempts.append(c.public_key)
+        return next(results)
+
+    fake_radio_manager = MagicMock()
+    fake_radio_manager.is_connected = True
+    ops = iter([RadioOperationBusyError("busy"), None, None])
+
+    class FakeRadioOp:
+        async def __aenter__(self):
+            err = next(ops)
+            if err:
+                raise err
+            return MagicMock()
+
+        async def __aexit__(self, *args):
+            pass
+
+    fake_radio_manager.radio_operation.side_effect = lambda *a, **k: FakeRadioOp()
+    sleep = AsyncMock()
+
+    with (
+        patch(
+            "app.radio_sync.AppSettingsRepository.get",
+            new_callable=AsyncMock,
+            return_value=AppSettings(tracked_telemetry_repeaters=[key]),
+        ),
+        patch(
+            "app.radio_sync.ContactRepository.get_by_key",
+            new_callable=AsyncMock,
+            return_value=contact,
+        ),
+        patch("app.radio_sync._collect_repeater_telemetry", new=fake_collect),
+        patch("app.radio_sync.radio_manager", fake_radio_manager),
+        patch("app.radio_sync.asyncio.sleep", new=sleep),
+    ):
+        await _run_telemetry_cycle()
+
+    assert TELEMETRY_COLLECT_ATTEMPTS >= 3
+    assert attempts == [key, key]
+    assert sleep.await_count == 2

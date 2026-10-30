@@ -200,6 +200,11 @@ _telemetry_collect_task: asyncio.Task | None = None
 # the shortest-legal interval for the current tracked-repeater count.
 TELEMETRY_COLLECT_INITIAL_DELAY = 60
 
+# Per-target attempts within one cycle (radio busy or no response), spaced out
+# so a marginal RF link or a briefly-busy radio still gets a sample.
+TELEMETRY_COLLECT_ATTEMPTS = 3
+TELEMETRY_COLLECT_RETRY_DELAY = 30
+
 # Counter to pause polling during repeater operations (supports nested pauses)
 _polling_pause_count: int = 0
 
@@ -2034,22 +2039,35 @@ async def _run_telemetry_cycle(
     collected = 0
 
     for _pub_key, contact, is_repeater in candidates:
-        try:
-            async with radio_manager.radio_operation(
-                "telemetry_collect",
-                blocking=False,
-                suspend_auto_fetch=True,
-            ) as mc:
-                if is_repeater:
-                    success = await _collect_repeater_telemetry(mc, contact)
-                else:
-                    success = await _collect_contact_telemetry(mc, contact)
-                if success:
-                    collected += 1
-        except RadioOperationBusyError:
-            logger.debug(
-                "Telemetry collect: radio busy, skipping %s",
+        for attempt in range(1, TELEMETRY_COLLECT_ATTEMPTS + 1):
+            if attempt > 1:
+                await asyncio.sleep(TELEMETRY_COLLECT_RETRY_DELAY)
+            success = False
+            try:
+                async with radio_manager.radio_operation(
+                    "telemetry_collect",
+                    blocking=False,
+                    suspend_auto_fetch=True,
+                ) as mc:
+                    if is_repeater:
+                        success = await _collect_repeater_telemetry(mc, contact)
+                    else:
+                        success = await _collect_contact_telemetry(mc, contact)
+            except RadioOperationBusyError:
+                logger.debug(
+                    "Telemetry collect: radio busy for %s (attempt %d/%d)",
+                    contact.public_key[:12],
+                    attempt,
+                    TELEMETRY_COLLECT_ATTEMPTS,
+                )
+            if success:
+                collected += 1
+                break
+        else:
+            logger.info(
+                "Telemetry collect: no sample from %s after %d attempts",
                 contact.public_key[:12],
+                TELEMETRY_COLLECT_ATTEMPTS,
             )
 
     logger.info(

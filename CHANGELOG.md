@@ -1,3 +1,7 @@
+## [3.26.4] - 2026-10-30
+
+* Bugfix: Radio contact sync no longer stalls on large message databases (could hang post-connect setup for 5+ minutes and stop bots from replying)
+
 ## [3.26.3] - 2026-10-30
 
 * Feature: Telemetry checks on monitored repeaters retry up to 3 times (30s apart) when the radio is busy or the repeater doesn't answer, so distant repeaters on weak links still get logged

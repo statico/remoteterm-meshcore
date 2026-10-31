@@ -164,6 +164,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_incoming_priv_dedup
     ON messages(type, conversation_key, text, COALESCE(sender_timestamp, 0), COALESCE(sender_key, ''))
     WHERE type = 'PRIV' AND outgoing = 0;
 CREATE INDEX IF NOT EXISTS idx_messages_sender_key ON messages(sender_key);
+CREATE INDEX IF NOT EXISTS idx_messages_chan_sender_name_unkeyed
+    ON messages(sender_name) WHERE type = 'CHAN' AND sender_key IS NULL;
 CREATE INDEX IF NOT EXISTS idx_messages_pagination
     ON messages(type, conversation_key, received_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_unread_covering

@@ -449,6 +449,7 @@ export function App() {
     [handleToggleBlockedName, handleVisibilityPolicyChanged]
   );
   const {
+    pendingMessages,
     handleSendMessage,
     handleResendChannelMessage,
     handleSetChannelFloodScopeOverride,
@@ -464,6 +465,7 @@ export function App() {
     setChannels,
     observeMessage,
     messageInputRef,
+    senderName: config?.name,
   });
   const handleCreateCrackedChannel = useCallback(
     async (name: string, key: string) => {
@@ -566,6 +568,11 @@ export function App() {
   const bulkAddChannelResultModalProps = {
     result: bulkAddResult,
   };
+  const activePendingMessages = pendingMessages.filter(
+    (m) =>
+      m.conversation_key === activeConversation?.id &&
+      m.type === (activeConversation?.type === 'channel' ? 'CHAN' : 'PRIV')
+  );
   const conversationPaneProps = {
     activeConversation,
     contacts,
@@ -574,7 +581,9 @@ export function App() {
     dataLoaded: contactsLoaded && channelsLoaded,
     config,
     health,
-    messages: sortedMessages,
+    messages: activePendingMessages.length
+      ? [...sortedMessages, ...activePendingMessages]
+      : sortedMessages,
     preSorted: activeContactIsRoom,
     messagesLoading,
     loadingOlder,

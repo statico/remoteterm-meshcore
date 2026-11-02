@@ -59,7 +59,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   ref
 ) {
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   /** Resize textarea to fit content, clamped between 1 row and ~6 rows. */
@@ -132,20 +131,19 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const remaining = limits ? limits.hardLimit - textByteLen : 0;
 
   const handleSubmit = useCallback(
-    async (e: FormEvent) => {
+    (e: FormEvent) => {
       e.preventDefault();
       const trimmed = text.trim();
-      if (!trimmed || sending || disabled) return;
+      if (!trimmed || disabled) return;
       // A pasted Giphy link goes out as the short "g:<id>" payload MeshCore Open
       // clients render as a GIF — and which fits in a mesh message.
       const gifId = gifIdFromInput(trimmed);
       const payload = gifId ? `g:${gifId}` : trimmed;
 
-      setSending(true);
-      try {
-        await onSend(payload);
-        setText('');
-      } catch (err) {
+      // Clear right away and keep typing; the message shows as queued until
+      // the radio takes it. On failure, put the text back for a retry.
+      setText('');
+      onSend(payload).catch((err: unknown) => {
         console.error('Failed to send message:', err);
         const description = err instanceof Error ? err.message : 'Check radio connection';
         const isRadioNoResponse =
@@ -153,14 +151,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         toast.error(isRadioNoResponse ? 'Radio did not confirm send' : 'Failed to send message', {
           description,
         });
-        return;
-      } finally {
-        setSending(false);
-      }
-      // Refocus after React re-enables the textarea
-      setTimeout(() => textareaRef.current?.focus(), 0);
+        setText((prev) => prev || payload);
+      });
     },
-    [text, sending, disabled, onSend]
+    [text, disabled, onSend]
   );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -225,7 +219,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || 'Type a message...'}
-          disabled={disabled || sending}
+          disabled={disabled}
           className={cn(
             'flex-1 min-w-0 resize-none overflow-y-auto',
             'rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background',
@@ -236,10 +230,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         />
         <Button
           type="submit"
-          disabled={disabled || sending || !canSubmit}
+          disabled={disabled || !canSubmit}
           className="flex-shrink-0"
         >
-          {sending ? 'Sending...' : 'Send'}
+          Send
         </Button>
       </div>
       {showCharCounter && (

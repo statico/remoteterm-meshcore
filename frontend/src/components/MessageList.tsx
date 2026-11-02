@@ -1349,6 +1349,7 @@ export function MessageList({
                     className={cn(
                       'py-1.5 px-3 rounded-lg min-w-0',
                       msg.outgoing ? 'bg-msg-outgoing' : 'bg-msg-incoming',
+                      msg.pending && 'opacity-60',
                       highlightedMessageId === msg.id && 'message-highlight'
                     )}
                   >
@@ -1423,7 +1424,14 @@ export function MessageList({
                           {msg.region && <RegionBadge region={msg.region} />}
                         </>
                       )}
+                      {msg.pending && (
+                        <span className="text-muted-foreground" title="Queued, waiting for the radio">
+                          {' '}
+                          …
+                        </span>
+                      )}
                       {msg.outgoing &&
+                        !msg.pending &&
                         (msg.acked > 0 ? (
                           msg.paths && msg.paths.length > 0 ? (
                             <span

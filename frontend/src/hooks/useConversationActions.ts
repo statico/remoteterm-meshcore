@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject, type RefObject } from 'react';
+import { useCallback, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { api } from '../api';
 import { toast } from '../components/ui/sonner';
 import type { MessageInputHandle } from '../components/MessageInput';
@@ -12,9 +12,12 @@ interface UseConversationActionsArgs {
   setChannels: React.Dispatch<React.SetStateAction<Channel[]>>;
   observeMessage: (msg: Message) => { added: boolean; activeConversation: boolean };
   messageInputRef: RefObject<MessageInputHandle | null>;
+  senderName?: string;
 }
 
 interface UseConversationActionsResult {
+  /** Sends accepted locally but not yet confirmed by the radio, oldest first. */
+  pendingMessages: Message[];
   handleSendMessage: (text: string) => Promise<void>;
   handleResendChannelMessage: (messageId: number, newTimestamp?: boolean) => Promise<void>;
   handleSetChannelFloodScopeOverride: (
@@ -41,7 +44,15 @@ export function useConversationActions({
   setChannels,
   observeMessage,
   messageInputRef,
+  senderName,
 }: UseConversationActionsArgs): UseConversationActionsResult {
+  const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+  // Sends go out one at a time, in the order typed; the backend paces the radio.
+  const sendChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  // Negative so they never collide with stored ids; increasing so ties on
+  // received_at keep send order.
+  const nextPendingIdRef = useRef(-1_000_000_000);
+
   const mergeChannelIntoList = useCallback(
     (updated: Channel) => {
       setChannels((prev) => {
@@ -62,16 +73,43 @@ export function useConversationActions({
       if (!activeConversation) return;
 
       const conversationId = activeConversation.id;
-      const sent =
-        activeConversation.type === 'channel'
-          ? await api.sendChannelMessage(activeConversation.id, text)
-          : await api.sendDirectMessage(activeConversation.id, text);
+      const isChannel = activeConversation.type === 'channel';
+      const pending: Message = {
+        id: nextPendingIdRef.current++,
+        type: isChannel ? 'CHAN' : 'PRIV',
+        conversation_key: conversationId,
+        // Stored channel messages carry a "name: " prefix the list strips off.
+        text: isChannel && senderName ? `${senderName}: ${text}` : text,
+        sender_timestamp: null,
+        received_at: Math.floor(Date.now() / 1000),
+        paths: null,
+        txt_type: 0,
+        signature: null,
+        sender_key: null,
+        outgoing: true,
+        acked: 0,
+        sender_name: null,
+        pending: true,
+      };
+      setPendingMessages((prev) => [...prev, pending]);
 
-      if (activeConversationRef.current?.id === conversationId) {
-        observeMessage(sent);
+      const send = sendChainRef.current.then(() =>
+        isChannel
+          ? api.sendChannelMessage(conversationId, text)
+          : api.sendDirectMessage(conversationId, text)
+      );
+      sendChainRef.current = send.catch(() => undefined);
+
+      try {
+        const sent = await send;
+        if (activeConversationRef.current?.id === conversationId) {
+          observeMessage(sent);
+        }
+      } finally {
+        setPendingMessages((prev) => prev.filter((m) => m.id !== pending.id));
       }
     },
-    [activeConversation, activeConversationRef, observeMessage]
+    [activeConversation, activeConversationRef, observeMessage, senderName]
   );
 
   const handleResendChannelMessage = useCallback(
@@ -184,6 +222,7 @@ export function useConversationActions({
   );
 
   return {
+    pendingMessages,
     handleSendMessage,
     handleResendChannelMessage,
     handleSetChannelFloodScopeOverride,

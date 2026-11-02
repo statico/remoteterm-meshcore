@@ -329,6 +329,8 @@ export interface Message {
   transport_code?: number | null;
   /** Resolved region name for the transport code, if it matched a known region. */
   region?: string | null;
+  /** Frontend-only: queued locally, not yet confirmed sent by the radio. */
+  pending?: boolean;
 }
 
 export interface MessagesAroundResponse {

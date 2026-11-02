@@ -109,11 +109,61 @@ describe('useConversationActions', () => {
         id: 'aa'.repeat(32),
         name: 'Alice',
       };
+      await vi.waitFor(() => expect(resolveSend).not.toBeNull());
       resolveSend?.(sentMessage);
       await sendPromise;
     });
 
     expect(args.observeMessage).not.toHaveBeenCalled();
+  });
+
+  it('shows queued sends as pending and sends them one at a time in order', async () => {
+    const resolvers: Array<(message: Message) => void> = [];
+    mocks.api.sendChannelMessage.mockImplementation(
+      () => new Promise<Message>((resolve) => resolvers.push(resolve))
+    );
+
+    const args = createArgs({ senderName: 'Radio' });
+    const { result } = renderHook(() => useConversationActions(args));
+
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    act(() => {
+      first = result.current.handleSendMessage('one');
+      second = result.current.handleSendMessage('two');
+    });
+
+    expect(result.current.pendingMessages.map((m) => [m.text, m.pending])).toEqual([
+      ['Radio: one', true],
+      ['Radio: two', true],
+    ]);
+    await vi.waitFor(() => expect(mocks.api.sendChannelMessage).toHaveBeenCalledTimes(1));
+    expect(mocks.api.sendChannelMessage).toHaveBeenLastCalledWith(publicChannel.key, 'one');
+
+    await act(async () => {
+      resolvers[0]({ ...sentMessage, id: 1, text: 'Radio: one' });
+      await first;
+    });
+    expect(result.current.pendingMessages.map((m) => m.text)).toEqual(['Radio: two']);
+    expect(mocks.api.sendChannelMessage).toHaveBeenLastCalledWith(publicChannel.key, 'two');
+
+    await act(async () => {
+      resolvers[1]({ ...sentMessage, id: 2, text: 'Radio: two' });
+      await second;
+    });
+    expect(result.current.pendingMessages).toEqual([]);
+    expect(args.observeMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops the pending entry and rethrows when a send fails', async () => {
+    mocks.api.sendChannelMessage.mockRejectedValue(new Error('radio busy'));
+    const args = createArgs();
+    const { result } = renderHook(() => useConversationActions(args));
+
+    await act(async () => {
+      await expect(result.current.handleSendMessage('nope')).rejects.toThrow('radio busy');
+    });
+    expect(result.current.pendingMessages).toEqual([]);
   });
 
   it('appends sender mentions into the message input', () => {

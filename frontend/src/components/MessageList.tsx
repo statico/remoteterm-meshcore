@@ -1425,7 +1425,10 @@ export function MessageList({
                         </>
                       )}
                       {msg.pending && (
-                        <span className="text-muted-foreground" title="Queued, waiting for the radio">
+                        <span
+                          className="text-muted-foreground"
+                          title="Queued, waiting for the radio"
+                        >
                           {' '}
                           …
                         </span>

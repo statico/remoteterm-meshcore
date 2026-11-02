@@ -228,11 +228,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           )}
           style={{ minHeight: '40px', maxHeight: '160px' }}
         />
-        <Button
-          type="submit"
-          disabled={disabled || !canSubmit}
-          className="flex-shrink-0"
-        >
+        <Button type="submit" disabled={disabled || !canSubmit} className="flex-shrink-0">
           Send
         </Button>
       </div>

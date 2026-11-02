@@ -1,3 +1,8 @@
+## [3.26.5] - 2026-11-02
+
+* Feature: Sending no longer locks the message box; messages queue (dimmed with a … status) and go out in order while you keep typing
+* Misc: Resolve Dependabot alerts for minimatch and postcss-selector-parser
+
 ## [3.26.4] - 2026-10-30
 
 * Bugfix: Radio contact sync no longer stalls on large message databases (could hang post-connect setup for 5+ minutes and stop bots from replying)

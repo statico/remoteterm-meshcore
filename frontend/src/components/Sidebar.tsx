@@ -191,6 +191,8 @@ function loadInitialSectionSortOrders(): SidebarSectionSortOrders {
   return orders;
 }
 
+const SECTION_ROW_PAGE_SIZE = 100;
+
 export function Sidebar({
   contacts,
   channels,
@@ -227,6 +229,9 @@ export function Sidebar({
   const [roomsCollapsed, setRoomsCollapsed] = useState(initialCollapsedState.rooms);
   const [repeatersCollapsed, setRepeatersCollapsed] = useState(initialCollapsedState.repeaters);
   const collapseSnapshotRef = useRef<CollapseState | null>(null);
+  // Thousands of rows make every layout (even a keystroke elsewhere) slow in
+  // WebKit, so big sections render in pages.
+  const [sectionRowLimits, setSectionRowLimits] = useState<Record<string, number>>({});
 
   const handleSortToggle = (section: SidebarSortableSection) => {
     setSectionSortOrders((prev) => {
@@ -697,6 +702,26 @@ export function Sidebar({
     contact,
   });
 
+  const renderSectionRows = (section: string, rows: ConversationRow[]) => {
+    const limit = sectionRowLimits[section] ?? SECTION_ROW_PAGE_SIZE;
+    const hidden = rows.length - limit;
+    return (
+      <>
+        {rows.slice(0, limit).map((row) => renderConversationRow(row))}
+        {hidden > 0 && (
+          <button
+            className="w-full px-3 py-1.5 text-left text-[0.75rem] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() =>
+              setSectionRowLimits((prev) => ({ ...prev, [section]: limit + SECTION_ROW_PAGE_SIZE }))
+            }
+          >
+            Show {Math.min(hidden, SECTION_ROW_PAGE_SIZE)} more ({hidden} hidden)
+          </button>
+        )}
+      </>
+    );
+  };
+
   const renderConversationRow = (row: ConversationRow) => {
     const highlightUnread =
       row.isMention ||
@@ -1082,8 +1107,7 @@ export function Sidebar({
               favoritesUnreadCount,
               favoritesHasMention
             )}
-            {(isSearching || !favoritesCollapsed) &&
-              favoriteRows.map((row) => renderConversationRow(row))}
+            {(isSearching || !favoritesCollapsed) && renderSectionRows('favorite', favoriteRows)}
           </>
         )}
 
@@ -1098,8 +1122,7 @@ export function Sidebar({
               channelsUnreadCount,
               channelsHasMention
             )}
-            {(isSearching || !channelsCollapsed) &&
-              channelRows.map((row) => renderConversationRow(row))}
+            {(isSearching || !channelsCollapsed) && renderSectionRows('channel', channelRows)}
           </>
         )}
 
@@ -1114,8 +1137,7 @@ export function Sidebar({
               contactsUnreadCount,
               contactsUnreadCount > 0
             )}
-            {(isSearching || !contactsCollapsed) &&
-              contactRows.map((row) => renderConversationRow(row))}
+            {(isSearching || !contactsCollapsed) && renderSectionRows('contact', contactRows)}
           </>
         )}
 
@@ -1129,8 +1151,7 @@ export function Sidebar({
               'repeaters',
               repeatersUnreadCount
             )}
-            {(isSearching || !repeatersCollapsed) &&
-              repeaterRows.map((row) => renderConversationRow(row))}
+            {(isSearching || !repeatersCollapsed) && renderSectionRows('repeater', repeaterRows)}
           </>
         )}
 
@@ -1145,7 +1166,7 @@ export function Sidebar({
               roomsUnreadCount,
               sectionHasMention(roomRows)
             )}
-            {(isSearching || !roomsCollapsed) && roomRows.map((row) => renderConversationRow(row))}
+            {(isSearching || !roomsCollapsed) && renderSectionRows('room', roomRows)}
           </>
         )}
 

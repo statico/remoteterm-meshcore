@@ -84,9 +84,9 @@ class TestMigration028:
             )
             assert await cursor.fetchone() is not None
 
-            # Verify message_id index exists
+            # Migration 068 replaces the message_id index with (message_id, timestamp)
             cursor = await conn.execute(
-                "SELECT name FROM sqlite_master WHERE name='idx_raw_packets_message_id'"
+                "SELECT name FROM sqlite_master WHERE name='idx_raw_packets_message_id_ts'"
             )
             assert await cursor.fetchone() is not None
         finally:

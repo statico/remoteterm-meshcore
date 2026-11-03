@@ -170,7 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_pagination
     ON messages(type, conversation_key, received_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_unread_covering
     ON messages(type, conversation_key, outgoing, received_at);
-CREATE INDEX IF NOT EXISTS idx_raw_packets_message_id ON raw_packets(message_id);
+CREATE INDEX IF NOT EXISTS idx_raw_packets_message_id_ts ON raw_packets(message_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_raw_packets_timestamp ON raw_packets(timestamp);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_packets_payload_hash ON raw_packets(payload_hash);
 CREATE INDEX IF NOT EXISTS idx_contacts_type_last_seen ON contacts(type, last_seen);

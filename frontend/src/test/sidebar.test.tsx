@@ -402,6 +402,35 @@ describe('Sidebar section summaries', () => {
     });
   });
 
+  it('renders large sections in pages of 100', () => {
+    const contacts = Array.from({ length: 250 }, (_, i) =>
+      makeContact(i.toString(16).padStart(64, '0'), `Peer ${String(i).padStart(3, '0')}`)
+    );
+    render(
+      <Sidebar
+        contacts={contacts}
+        channels={[makeChannel('AA'.repeat(16), 'Public')]}
+        activeConversation={null}
+        onSelectConversation={vi.fn()}
+        onNewMessage={vi.fn()}
+        lastMessageTimes={{}}
+        unreadCounts={{}}
+        mentions={{}}
+        showCracker={false}
+        crackerRunning={false}
+        onToggleCracker={vi.fn()}
+        onMarkAllRead={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText(/^Peer \d+$/)).toHaveLength(100);
+    fireEvent.click(screen.getByText('Show 100 more (150 hidden)'));
+    expect(screen.getAllByText(/^Peer \d+$/)).toHaveLength(200);
+    fireEvent.click(screen.getByText('Show 50 more (50 hidden)'));
+    expect(screen.getAllByText(/^Peer \d+$/)).toHaveLength(250);
+    expect(screen.queryByText(/more \(/)).toBeNull();
+  });
+
   it('sorts each section independently and persists per-section sort preferences', () => {
     const publicChannel = makeChannel('AA'.repeat(16), 'Public');
     const zebraChannel = makeChannel('BB'.repeat(16), '#zebra');

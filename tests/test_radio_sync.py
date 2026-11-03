@@ -76,7 +76,7 @@ async def _insert_contact(
     public_key=KEY_A,
     name="Alice",
     on_radio=False,
-    contact_type=0,
+    contact_type=1,
     flags=0,
     last_contacted=None,
     last_advert=None,
@@ -2926,6 +2926,31 @@ class TestContactSelectionDmActive:
         assert advert_only_key in keys
         # DM Sender should come before Advert Only (tier 2 before tier 3)
         assert keys.index(dm_sender_key) < keys.index(advert_only_key)
+
+    @pytest.mark.asyncio
+    async def test_unknown_type_contacts_never_selected(self, test_db):
+        """Firmware rejects type-0 adds with TABLE_FULL, which aborts the whole fill."""
+        from app.radio_sync import get_contacts_selected_for_radio_sync
+
+        unknown_key = "dd" * 32
+        await test_db.conn.execute(
+            "INSERT INTO contacts (public_key, name, type, favorite, last_advert) VALUES (?, ?, 0, 1, 100)",
+            (unknown_key, "Unknown"),
+        )
+        await test_db.conn.execute(
+            "INSERT INTO messages (type, conversation_key, text, received_at) VALUES ('PRIV', ?, 'hi', 300)",
+            (unknown_key,),
+        )
+        await test_db.conn.commit()
+
+        with patch(
+            "app.radio_sync.AppSettingsRepository.get",
+            new_callable=AsyncMock,
+            return_value=MagicMock(max_radio_contacts=200, tracked_telemetry_repeaters=[]),
+        ):
+            selected = await get_contacts_selected_for_radio_sync()
+
+        assert unknown_key not in [c.public_key for c in selected]
 
     @pytest.mark.asyncio
     async def test_outgoing_dm_contact_also_selected(self, test_db):

@@ -1546,12 +1546,14 @@ async def get_contacts_selected_for_radio_sync() -> list[Contact]:
     refill_target, _full_sync_trigger = _compute_radio_contact_limits(max_contacts)
     selected_contacts: list[Contact] = []
     selected_keys: set[str] = set()
+    # Type 0 (unknown) contacts only fit the firmware's transient slots; adding
+    # one returns TABLE_FULL and aborts the whole fill, so never select them.
 
     # Favorites first — always loaded up to max_contacts
     favorite_contacts_loaded = 0
     for contact in await ContactRepository.get_favorites():
         key = contact.public_key.lower()
-        if key in selected_keys:
+        if key in selected_keys or contact.type == 0:
             continue
         selected_keys.add(key)
         selected_contacts.append(contact)
@@ -1564,7 +1566,7 @@ async def get_contacts_selected_for_radio_sync() -> list[Contact]:
             limit=max_contacts
         ):
             key = contact.public_key.lower()
-            if key in selected_keys:
+            if key in selected_keys or contact.type == 0:
                 continue
             selected_keys.add(key)
             selected_contacts.append(contact)
@@ -1576,7 +1578,7 @@ async def get_contacts_selected_for_radio_sync() -> list[Contact]:
             limit=max_contacts
         ):
             key = contact.public_key.lower()
-            if key in selected_keys:
+            if key in selected_keys or contact.type == 0:
                 continue
             selected_keys.add(key)
             selected_contacts.append(contact)

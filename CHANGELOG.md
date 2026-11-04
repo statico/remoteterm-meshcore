@@ -1,3 +1,9 @@
+## [3.26.6] - 2026-11-03
+
+* Bugfix: Typing and scrolling are fast again in Safari with large contact lists; sidebar sections now show 100 rows at a time with a "Show more" button
+* Bugfix: Page load no longer waits seconds on the health check with many undecrypted packets
+* Bugfix: Contacts of unknown type are no longer loaded onto the radio, which stopped the "Could not load all desired contacts" error from repeating
+
 ## [3.26.5] - 2026-11-02
 
 * Feature: Sending no longer locks the message box; messages queue (dimmed with a … status) and go out in order while you keep typing

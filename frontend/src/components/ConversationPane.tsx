@@ -5,8 +5,6 @@ import { ChannelUnreadSummaryBanner } from './ChannelUnreadSummaryBanner';
 import { MessageInput, type MessageInputHandle } from './MessageInput';
 import { MessageList } from './MessageList';
 import { RawPacketFeedView } from './RawPacketFeedView';
-import { RoomServerPanel } from './RoomServerPanel';
-import { TracePane } from './TracePane';
 import { MentionsView, type MentionsViewProps } from './MentionsView';
 import type {
   Channel,
@@ -29,6 +27,10 @@ import {
 
 const RepeaterDashboard = lazy(() =>
   import('./RepeaterDashboard').then((m) => ({ default: m.RepeaterDashboard }))
+);
+const TracePane = lazy(() => import('./TracePane').then((m) => ({ default: m.TracePane })));
+const RoomServerPanel = lazy(() =>
+  import('./RoomServerPanel').then((m) => ({ default: m.RoomServerPanel }))
 );
 const MapView = lazy(() => import('./MapView').then((m) => ({ default: m.MapView })));
 const VisualizerView = lazy(() =>
@@ -286,7 +288,11 @@ export function ConversationPane({
   }
 
   if (activeConversation.type === 'trace') {
-    return <TracePane contacts={contacts} config={config} onRunTracePath={onRunTracePath} />;
+    return (
+      <Suspense fallback={<LoadingPane label="Loading trace..." />}>
+        <TracePane contacts={contacts} config={config} onRunTracePath={onRunTracePath} />
+      </Suspense>
+    );
   }
 
   if (activeContactIsRepeater) {
@@ -362,14 +368,16 @@ export function ConversationPane({
         />
       )}
       {activeContactIsRoom && activeContact && (
-        <RoomServerPanel
-          // Prefixed: MessageList below is a sibling keyed on the same id.
-          key={`room-${activeContact.public_key}`}
-          contact={activeContact}
-          lastPostAt={lastRoomPostAt}
-          toolbarTarget={roomToolbarEl}
-          onAuthenticatedChange={setRoomAuthenticated}
-        />
+        <Suspense fallback={null}>
+          <RoomServerPanel
+            // Prefixed: MessageList below is a sibling keyed on the same id.
+            key={`room-${activeContact.public_key}`}
+            contact={activeContact}
+            lastPostAt={lastRoomPostAt}
+            toolbarTarget={roomToolbarEl}
+            onAuthenticatedChange={setRoomAuthenticated}
+          />
+        </Suspense>
       )}
       {showRoomChat && <div data-toast-anchor="conversation" aria-hidden="true" />}
       {showRoomChat && (

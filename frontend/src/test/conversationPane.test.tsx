@@ -249,7 +249,7 @@ describe('ConversationPane', () => {
     });
   });
 
-  it('renders the trace tool pane for trace conversations', () => {
+  it('lazy-loads the trace tool pane for trace conversations', async () => {
     render(
       <ConversationPane
         {...createProps({
@@ -262,7 +262,7 @@ describe('ConversationPane', () => {
       />
     );
 
-    expect(screen.getByTestId('trace-pane')).toBeInTheDocument();
+    expect(await screen.findByTestId('trace-pane')).toBeInTheDocument();
     expect(screen.queryByTestId('message-list')).not.toBeInTheDocument();
   });
 

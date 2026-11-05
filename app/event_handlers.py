@@ -9,12 +9,16 @@ from app.packet_processor import process_raw_packet
 from app.repository import (
     ContactRepository,
 )
-from app.services import dm_ack_tracker, message_send
+from app.services import message_send
 from app.services.contact_reconciliation import (
     promote_prefix_contacts_for_contact,
     record_contact_name_and_reconcile,
 )
 from app.services.dm_ack_apply import apply_dm_ack_code
+from app.services.dm_ack_tracker import (  # noqa: F401 - re-exported for routers.messages
+    cleanup_expired_acks,
+    track_pending_ack,
+)
 from app.services.dm_ingest import (
     ingest_fallback_direct_message,
     resolve_direct_message_sender_metadata,
@@ -30,16 +34,6 @@ logger = logging.getLogger(__name__)
 # Track active subscriptions so we can unsubscribe before re-registering
 # This prevents handler duplication after reconnects
 _active_subscriptions: list["Subscription"] = []
-
-
-def track_pending_ack(expected_ack: str, message_id: int, timeout_ms: int) -> bool:
-    """Compatibility wrapper for pending DM ACK tracking."""
-    return dm_ack_tracker.track_pending_ack(expected_ack, message_id, timeout_ms)
-
-
-def cleanup_expired_acks() -> None:
-    """Compatibility wrapper for expiring stale DM ACK entries."""
-    dm_ack_tracker.cleanup_expired_acks()
 
 
 async def on_contact_message(event: "Event") -> None:

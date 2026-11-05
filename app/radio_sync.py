@@ -21,7 +21,7 @@ from meshcore import EventType, MeshCore
 
 from app.channel_constants import PUBLIC_CHANNEL_KEY, PUBLIC_CHANNEL_NAME
 from app.config import settings
-from app.event_handlers import cleanup_expired_acks, on_contact_message
+from app.event_handlers import on_contact_message
 from app.models import _VALID_CONTACT_TYPES, Contact, ContactUpsert
 from app.radio import RadioOperationBusyError
 from app.repository import (
@@ -36,6 +36,7 @@ from app.services.contact_reconciliation import (
     promote_prefix_contacts_for_contact,
     reconcile_contact_messages,
 )
+from app.services.dm_ack_tracker import cleanup_expired_acks
 from app.services.messages import create_fallback_channel_message
 from app.services.radio_runtime import radio_runtime as radio_manager
 from app.telemetry_interval import clamp_telemetry_interval

@@ -3,9 +3,12 @@ import { toast } from '../components/ui/sonner';
 import { api, isAbortError } from '../api';
 import type { Conversation, Message, MessagePath } from '../types';
 import { getMessageContentKey } from '../utils/messageIdentity';
+import { isMessageBlocked } from './useRealtimeAppState';
 
 const MAX_PENDING_ACKS = 500;
 const MESSAGE_PAGE_SIZE = 200;
+// Backend cap on /api/messages `limit`; the unblock refetch asks for the whole loaded window.
+const MAX_MESSAGE_FETCH = 1000;
 export const MAX_CACHED_CONVERSATIONS = 20;
 export const MAX_MESSAGES_PER_ENTRY = 200;
 
@@ -271,7 +274,11 @@ interface UseConversationMessagesResult {
   reconcileOnReconnect: () => void;
   renameConversationMessages: (oldId: string, newId: string) => void;
   removeConversationMessages: (conversationId: string) => void;
-  clearConversationMessages: () => void;
+  applyBlockListChange: (
+    blockedKeys: string[],
+    blockedNames: string[],
+    refetchUnblocked: boolean
+  ) => void;
 }
 
 function isMessageConversation(conversation: Conversation | null): conversation is Conversation {
@@ -909,9 +916,65 @@ export function useConversationMessages(
     conversationMessageCache.remove(conversationId);
   }, []);
 
-  const clearConversationMessages = useCallback(() => {
-    conversationMessageCache.clear();
-  }, []);
+  /**
+   * Apply a block-list change without reloading the open conversation, so the
+   * reader keeps their place. Blocked rows are filtered out in place. After an
+   * unblock (`refetchUnblocked`), the loaded window is fetched again in the
+   * background and the returning rows are merged in by id. Other conversations'
+   * cache entries are dropped; they reload when opened.
+   */
+  const applyBlockListChange = useCallback(
+    (blockedKeys: string[], blockedNames: string[], refetchUnblocked: boolean) => {
+      conversationMessageCache.clear();
+      const conversation = activeConversationRef.current;
+      if (!isMessageConversation(conversation)) return;
+
+      const visible = messagesRef.current.filter(
+        (msg) => !isMessageBlocked(msg, blockedKeys, blockedNames)
+      );
+      if (visible.length !== messagesRef.current.length) {
+        messagesRef.current = visible;
+        setMessages(visible);
+        syncSeenContent(visible);
+      }
+      if (!refetchUnblocked || visible.length === 0) return;
+
+      const conversationId = conversation.id;
+      const before = (a: Message, b: Message) =>
+        a.received_at < b.received_at || (a.received_at === b.received_at && a.id < b.id);
+      const oldest = visible.reduce((acc, msg) => (before(msg, acc) ? msg : acc));
+      const newest = visible.reduce((acc, msg) => (before(acc, msg) ? msg : acc));
+      // ponytail: one request of up to 1000 rows from the oldest loaded message;
+      // a window larger than that misses its newest unblocked rows until reload.
+      api
+        .getMessages({
+          type: conversation.type === 'channel' ? 'CHAN' : 'PRIV',
+          conversation_key: conversationId,
+          limit: MAX_MESSAGE_FETCH,
+          after: oldest.received_at,
+          after_id: oldest.id,
+        })
+        .then((data) => {
+          if (fetchingConversationIdRef.current !== conversationId) return;
+          // In jump mode, rows past the loaded window belong to load-newer.
+          const inWindow = hasNewerMessagesRef.current
+            ? data.filter((msg) => !before(newest, msg))
+            : data;
+          const merged = appendUniqueMessages(
+            messagesRef.current,
+            inWindow.map((msg) => applyPendingAck(msg))
+          );
+          if (merged === messagesRef.current) return;
+          messagesRef.current = merged;
+          setMessages(merged);
+          syncSeenContent(merged);
+        })
+        .catch((err) => {
+          console.debug('Refetch after unblock failed:', err);
+        });
+    },
+    [applyPendingAck, syncSeenContent]
+  );
 
   return {
     messages,
@@ -929,6 +992,6 @@ export function useConversationMessages(
     reconcileOnReconnect,
     renameConversationMessages,
     removeConversationMessages,
-    clearConversationMessages,
+    applyBlockListChange,
   };
 }

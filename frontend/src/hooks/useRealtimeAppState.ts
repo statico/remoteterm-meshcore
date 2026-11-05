@@ -61,7 +61,11 @@ interface UseRealtimeAppStateArgs {
   maxRawPackets?: number;
 }
 
-function isMessageBlocked(msg: Message, blockedKeys: string[], blockedNames: string[]): boolean {
+export function isMessageBlocked(
+  msg: Message,
+  blockedKeys: string[],
+  blockedNames: string[]
+): boolean {
   if (msg.outgoing) {
     return false;
   }

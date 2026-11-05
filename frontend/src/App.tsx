@@ -26,7 +26,13 @@ import { RichPayloadProvider } from './contexts/RichPayloadContext';
 import { usePush } from './contexts/PushSubscriptionContext';
 import { messageContainsMention } from './utils/messageParser';
 import { getStateKey } from './utils/conversationState';
-import type { BulkCreateHashtagChannelsResult, Channel, Conversation, Message } from './types';
+import type {
+  AppSettings,
+  BulkCreateHashtagChannelsResult,
+  Channel,
+  Conversation,
+  Message,
+} from './types';
 import { CONTACT_TYPE_REPEATER, CONTACT_TYPE_ROOM } from './types';
 import { shouldAutoFocusInput } from './utils/autoFocusInput';
 
@@ -302,13 +308,12 @@ export function App() {
     fetchOlderMessages,
     fetchNewerMessages,
     jumpToBottom,
-    reloadCurrentConversation,
     observeMessage,
     receiveMessageAck,
     reconcileOnReconnect,
     renameConversationMessages,
     removeConversationMessages,
-    clearConversationMessages,
+    applyBlockListChange,
   } = useConversationMessages(activeConversation, targetMessageId);
   removeConversationMessagesRef.current = removeConversationMessages;
 
@@ -426,25 +431,37 @@ export function App() {
     receiveMessageAck,
     notifyIncomingMessage,
   });
-  const handleVisibilityPolicyChanged = useCallback(() => {
-    clearConversationMessages();
-    reloadCurrentConversation();
-    void refreshUnreads();
-    setVisibilityVersion((current) => current + 1);
-  }, [clearConversationMessages, refreshUnreads, reloadCurrentConversation]);
+  // Block/unblock edits the open conversation in place (no reload) so the
+  // reader keeps their scroll position; an unblock refetches in the background.
+  const handleVisibilityPolicyChanged = useCallback(
+    (prevKeys: string[], prevNames: string[], settings: AppSettings | null) => {
+      if (settings) {
+        const keys = settings.blocked_keys ?? [];
+        const names = settings.blocked_names ?? [];
+        const unblocked =
+          prevKeys.some((k) => !keys.includes(k)) || prevNames.some((n) => !names.includes(n));
+        applyBlockListChange(keys, names, unblocked);
+      }
+      void refreshUnreads();
+      setVisibilityVersion((current) => current + 1);
+    },
+    [applyBlockListChange, refreshUnreads]
+  );
 
   const handleBlockKey = useCallback(
     async (key: string) => {
-      await handleToggleBlockedKey(key);
-      handleVisibilityPolicyChanged();
+      const prevKeys = blockedKeysRef.current;
+      const prevNames = blockedNamesRef.current;
+      handleVisibilityPolicyChanged(prevKeys, prevNames, await handleToggleBlockedKey(key));
     },
     [handleToggleBlockedKey, handleVisibilityPolicyChanged]
   );
 
   const handleBlockName = useCallback(
     async (name: string) => {
-      await handleToggleBlockedName(name);
-      handleVisibilityPolicyChanged();
+      const prevKeys = blockedKeysRef.current;
+      const prevNames = blockedNamesRef.current;
+      handleVisibilityPolicyChanged(prevKeys, prevNames, await handleToggleBlockedName(name));
     },
     [handleToggleBlockedName, handleVisibilityPolicyChanged]
   );

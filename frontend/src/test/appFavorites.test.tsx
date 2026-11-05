@@ -43,7 +43,7 @@ const mocks = vi.hoisted(() => ({
     reconcileOnReconnect: vi.fn(),
     renameConversationMessages: vi.fn(),
     removeConversationMessages: vi.fn(),
-    clearConversationMessages: vi.fn(),
+    applyBlockListChange: vi.fn(),
     recordMessageEvent: vi.fn(),
     markAllRead: vi.fn(),
     refreshUnreads: vi.fn(async () => {}),
@@ -97,7 +97,7 @@ vi.mock('../hooks', async (importOriginal) => {
       reconcileOnReconnect: mocks.hookFns.reconcileOnReconnect,
       renameConversationMessages: mocks.hookFns.renameConversationMessages,
       removeConversationMessages: mocks.hookFns.removeConversationMessages,
-      clearConversationMessages: mocks.hookFns.clearConversationMessages,
+      applyBlockListChange: mocks.hookFns.applyBlockListChange,
     }),
     useUnreadCounts: () => ({
       unreadCounts: {},

@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useRealtimeAppState } from '../hooks/useRealtimeAppState';
+import { isMessageBlocked, useRealtimeAppState } from '../hooks/useRealtimeAppState';
 import {
   getRawPacketStatsSession,
   getRawPackets,
@@ -316,5 +316,29 @@ describe('useRealtimeAppState', () => {
 
     expect(getRawPackets()).toEqual([packet]);
     expect(getRawPacketStatsSession().totalObservedPackets).toBe(1);
+  });
+});
+
+describe('isMessageBlocked', () => {
+  const key = 'aa'.repeat(32);
+  const chan: Message = {
+    ...incomingDm,
+    type: 'CHAN',
+    conversation_key: 'chan1',
+    sender_key: key.toUpperCase(),
+  };
+
+  it('blocks DMs by conversation key and channel messages by sender key, case-insensitively', () => {
+    expect(
+      isMessageBlocked({ ...incomingDm, conversation_key: key.toUpperCase() }, [key], [])
+    ).toBe(true);
+    expect(isMessageBlocked(chan, [key], [])).toBe(true);
+    expect(isMessageBlocked(chan, ['bb'.repeat(32)], [])).toBe(false);
+  });
+
+  it('blocks by exact sender name and never blocks outgoing messages', () => {
+    expect(isMessageBlocked(chan, [], ['Alice'])).toBe(true);
+    expect(isMessageBlocked(chan, [], ['alice'])).toBe(false);
+    expect(isMessageBlocked({ ...chan, outgoing: true }, [key], ['Alice'])).toBe(false);
   });
 });

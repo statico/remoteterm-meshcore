@@ -40,7 +40,7 @@ vi.mock('../hooks', async (importOriginal) => {
       reconcileOnReconnect: vi.fn(),
       renameConversationMessages: vi.fn(),
       removeConversationMessages: vi.fn(),
-      clearConversationMessages: vi.fn(),
+      applyBlockListChange: vi.fn(),
     }),
     useUnreadCounts: () => ({
       unreadCounts: {},

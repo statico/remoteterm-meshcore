@@ -44,15 +44,18 @@ export function useAppSettings() {
     try {
       const updatedSettings = await api.toggleBlockedKey(key);
       setAppSettings(updatedSettings);
+      return updatedSettings;
     } catch (err) {
       console.error('Failed to toggle blocked key:', err);
+      toast.error('Failed to update blocked key');
       try {
         const settings = await api.getSettings();
         setAppSettings(settings);
+        return settings;
       } catch {
         // If refetch also fails, leave optimistic state
+        return null;
       }
-      toast.error('Failed to update blocked key');
     }
   }, []);
 
@@ -68,15 +71,18 @@ export function useAppSettings() {
     try {
       const updatedSettings = await api.toggleBlockedName(name);
       setAppSettings(updatedSettings);
+      return updatedSettings;
     } catch (err) {
       console.error('Failed to toggle blocked name:', err);
+      toast.error('Failed to update blocked name');
       try {
         const settings = await api.getSettings();
         setAppSettings(settings);
+        return settings;
       } catch {
         // If refetch also fails, leave optimistic state
+        return null;
       }
-      toast.error('Failed to update blocked name');
     }
   }, []);
 

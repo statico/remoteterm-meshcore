@@ -916,3 +916,109 @@ describe('useConversationMessages forward pagination', () => {
     expect(result.current.hasNewerMessages).toBe(true);
   });
 });
+
+describe('useConversationMessages block-list changes', () => {
+  const channel: Conversation = { type: 'channel', id: 'chan1', name: '#test' };
+  const chanMessage = (id: number, sender: string) =>
+    createMessage({
+      id,
+      type: 'CHAN',
+      conversation_key: 'chan1',
+      text: `${sender}: m${id}`,
+      sender_timestamp: 1700000000 + id,
+      received_at: 1700000000 + id,
+      sender_name: sender,
+      sender_key: sender === 'Bob' ? 'bbbb' : 'aaaa',
+      outgoing: false,
+    });
+  const all = [1, 2, 3, 4, 5, 6].map((id) => chanMessage(id, id % 2 ? 'Bob' : 'Alice'));
+  const ids = (messages: Message[]) => messages.map((m) => m.id).sort((a, b) => a - b);
+
+  beforeEach(() => {
+    mockGetMessages.mockReset();
+    mockGetMessagesAround.mockReset();
+    conversationMessageCache.clear();
+  });
+
+  async function openChannel(initial: Message[]) {
+    mockGetMessages.mockResolvedValueOnce(initial);
+    const hook = renderHook(() => useConversationMessages(channel));
+    await waitFor(() => expect(hook.result.current.messages).toHaveLength(initial.length));
+    mockGetMessages.mockClear();
+    return hook;
+  }
+
+  it('block filters loaded messages in place without refetching or reloading', async () => {
+    const { result } = await openChannel(all);
+    const survivor = result.current.messages.find((m) => m.id === 2);
+    conversationMessageCache.set('other', {
+      messages: [chanMessage(9, 'Bob')],
+      hasOlderMessages: false,
+    });
+
+    act(() => {
+      result.current.applyBlockListChange(['bbbb'], [], false);
+    });
+
+    expect(ids(result.current.messages)).toEqual([2, 4, 6]);
+    // Same row objects, no loading flash, no fetch.
+    expect(result.current.messages.find((m) => m.id === 2)).toBe(survivor);
+    expect(result.current.messagesLoading).toBe(false);
+    expect(mockGetMessages).not.toHaveBeenCalled();
+    // Other conversations reload when opened.
+    expect(conversationMessageCache.get('other')).toBeUndefined();
+  });
+
+  it('block by name filters too, and never hides outgoing messages', async () => {
+    const mine = { ...chanMessage(7, 'Bob'), outgoing: true };
+    const { result } = await openChannel([...all, mine]);
+
+    act(() => {
+      result.current.applyBlockListChange([], ['Bob'], false);
+    });
+
+    expect(ids(result.current.messages)).toEqual([2, 4, 6, 7]);
+  });
+
+  it('unblock refetches the loaded window and merges the returning rows', async () => {
+    const visible = all.filter((m) => m.sender_name === 'Alice');
+    const { result } = await openChannel(visible);
+    const kept = result.current.messages.find((m) => m.id === 4);
+    mockGetMessages.mockResolvedValueOnce(all.filter((m) => m.id > 2));
+
+    act(() => {
+      result.current.applyBlockListChange([], [], true);
+    });
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual([2, 3, 4, 5, 6]));
+    expect(mockGetMessages).toHaveBeenCalledTimes(1);
+    expect(mockGetMessages.mock.calls[0][0]).toMatchObject({
+      type: 'CHAN',
+      conversation_key: 'chan1',
+      after: visible[0].received_at,
+      after_id: 2,
+      limit: 1000,
+    });
+    // Existing rows are untouched and nothing reloads.
+    expect(result.current.messages.find((m) => m.id === 4)).toBe(kept);
+    expect(result.current.messagesLoading).toBe(false);
+  });
+
+  it('unblock in jump mode does not merge rows past the loaded window', async () => {
+    mockGetMessagesAround.mockResolvedValueOnce({
+      messages: [chanMessage(2, 'Alice'), chanMessage(4, 'Alice')],
+      has_older: false,
+      has_newer: true,
+    });
+    const { result } = renderHook(() => useConversationMessages(channel, 2));
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+    expect(result.current.hasNewerMessages).toBe(true);
+    mockGetMessages.mockResolvedValueOnce(all.filter((m) => m.id > 2));
+
+    act(() => {
+      result.current.applyBlockListChange([], [], true);
+    });
+
+    await waitFor(() => expect(ids(result.current.messages)).toEqual([2, 3, 4]));
+  });
+});

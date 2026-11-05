@@ -67,16 +67,6 @@ TRACE_TIMEOUT_MARGIN = 1.2
 TRACE_HASH_FLAGS = {1: 0, 2: 1, 4: 2}
 
 
-async def _prepare_connected(*, broadcast_on_success: bool) -> bool:
-    return await radio_manager.prepare_connected(broadcast_on_success=broadcast_on_success)
-
-
-async def _reconnect_and_prepare(*, broadcast_on_success: bool) -> bool:
-    return await radio_manager.reconnect_and_prepare(
-        broadcast_on_success=broadcast_on_success,
-    )
-
-
 class RadioSettings(BaseModel):
     freq: float = Field(description="Frequency in MHz")
     bw: float = Field(description="Bandwidth in kHz")
@@ -755,7 +745,7 @@ async def _attempt_reconnect() -> dict:
         }
 
     try:
-        success = await _reconnect_and_prepare(broadcast_on_success=True)
+        success = await radio_manager.reconnect_and_prepare(broadcast_on_success=True)
     except Exception as e:
         logger.exception("Post-connect setup failed after reconnect")
         raise HTTPException(
@@ -819,7 +809,7 @@ async def reconnect_radio() -> dict:
 
         logger.info("Radio connected but setup incomplete, retrying setup")
         try:
-            if not await _prepare_connected(broadcast_on_success=True):
+            if not await radio_manager.prepare_connected(broadcast_on_success=True):
                 raise HTTPException(status_code=423, detail="Radio connection is paused")
             return {"status": "ok", "message": "Setup completed", "connected": True}
         except HTTPException:

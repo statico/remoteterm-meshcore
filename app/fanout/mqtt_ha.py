@@ -215,16 +215,8 @@ def _assign_lpp_keys(lpp_sensors: list[dict]) -> list[tuple[dict, str, int]]:
 
 def _repeater_telemetry_payload(data: dict[str, Any]) -> dict[str, Any]:
     """Build the flat HA state payload for a repeater telemetry snapshot."""
-    payload: dict[str, Any] = {}
-    for sensor in _REPEATER_SENSORS:
-        field = sensor["field"]
-        if field is not None:
-            payload[field] = data.get(field)
-
-    for sensor, key, _ in _assign_lpp_keys(data.get("lpp_sensors", []) or []):
-        payload[key] = sensor.get("value")
-
-    return payload
+    payload: dict[str, Any] = {s["field"]: data.get(s["field"]) for s in _REPEATER_SENSORS}
+    return payload | _contact_telemetry_payload(data)
 
 
 def _contact_telemetry_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -233,10 +225,10 @@ def _contact_telemetry_payload(data: dict[str, Any]) -> dict[str, Any]:
     Unlike repeaters, contacts only have LPP sensor data — no battery_volts,
     noise_floor_dbm, packets_received, etc.
     """
-    payload: dict[str, Any] = {}
-    for sensor, key, _ in _assign_lpp_keys(data.get("lpp_sensors", []) or []):
-        payload[key] = sensor.get("value")
-    return payload
+    return {
+        key: sensor.get("value")
+        for sensor, key, _ in _assign_lpp_keys(data.get("lpp_sensors", []) or [])
+    }
 
 
 def _lpp_discovery_configs(
@@ -248,12 +240,12 @@ def _lpp_discovery_configs(
 ) -> list[tuple[str, dict]]:
     """Build HA discovery configs for a repeater's LPP sensors."""
     configs: list[tuple[str, dict]] = []
+    nid = _node_id(pub_key)
     for sensor, field, occurrence in _assign_lpp_keys(lpp_sensors):
         type_name = sensor.get("type_name", "unknown")
         channel = sensor.get("channel", 0)
         meta = _LPP_HA_META.get(type_name, {})
 
-        nid = _node_id(pub_key)
         object_id = field
         display = type_name.replace("_", " ").title()
         name = (
@@ -837,10 +829,7 @@ class MqttHaModule(FanoutModule):
 
         nid = _node_id(self._radio_key)
         payload: dict[str, Any] = {"connected": data.get("connected", False)}
-        for sensor in _RADIO_SENSORS:
-            field = sensor["field"]
-            if field is not None:
-                payload[field] = data.get(field)
+        payload.update({s["field"]: data.get(s["field"]) for s in _RADIO_SENSORS})
 
         # Normalize battery from millivolts to volts for consistency with
         # repeater battery and the discovery config (unit: V, precision: 2).
@@ -888,11 +877,11 @@ class MqttHaModule(FanoutModule):
             _repeater_telemetry_payload(data) if is_repeater else _contact_telemetry_payload(data)
         )
         lpp_sensors: list[dict] = data.get("lpp_sensors", [])
-        rediscover = False
-        for _, key, _ in _assign_lpp_keys(lpp_sensors):
-            expected_topic = f"homeassistant/sensor/meshcore_{nid}/{key}/config"
-            if expected_topic not in self._discovery_topics:
-                rediscover = True
+        known_topics = set(self._discovery_topics)
+        rediscover = any(
+            f"homeassistant/sensor/meshcore_{nid}/{key}/config" not in known_topics
+            for _, key, _ in _assign_lpp_keys(lpp_sensors)
+        )
 
         # If new LPP sensor types appeared, re-publish discovery *before*
         # the state payload so HA already knows the entity when the value arrives.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '../components/ui/sonner';
 import { api, isAbortError } from '../api';
+import { takePrefetchedMessages } from '../prefetch';
 import type { Conversation, Message, MessagePath } from '../types';
 import { getMessageContentKey } from '../utils/messageIdentity';
 import { isMessageBlocked } from './useRealtimeAppState';
@@ -440,14 +441,17 @@ export function useConversationMessages(
       }
 
       try {
-        const data = await api.getMessages(
-          {
-            type: activeConversation.type === 'channel' ? 'CHAN' : 'PRIV',
-            conversation_key: activeConversation.id,
-            limit: MESSAGE_PAGE_SIZE,
-          },
-          signal
-        );
+        const fetchLatest = () =>
+          api.getMessages(
+            {
+              type: activeConversation.type === 'channel' ? 'CHAN' : 'PRIV',
+              conversation_key: activeConversation.id,
+              limit: MESSAGE_PAGE_SIZE,
+            },
+            signal
+          );
+        const prefetched = takePrefetchedMessages(conversationId);
+        const data = await (prefetched ? prefetched.catch(fetchLatest) : fetchLatest());
 
         if (fetchingConversationIdRef.current !== conversationId) {
           return;

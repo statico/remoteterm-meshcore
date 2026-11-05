@@ -52,6 +52,22 @@
         unreads: fetchJsonOrThrow('./api/read-state/unreads'),
         undecryptedCount: fetchJsonOrThrow('./api/packets/undecrypted/count'),
       };
+      // The open conversation's latest page, for a stable #channel/<key> or
+      // #contact/<key> URL. Without this, the messages request waits for the JS
+      // bundle and the channel/contact lists. limit must match MESSAGE_PAGE_SIZE.
+      var hashMatch = /^#(?:channel\/([0-9a-fA-F]{32})|contact\/([0-9a-fA-F]{64}))(?:\/|$)/.exec(
+        window.location.hash
+      );
+      if (hashMatch) {
+        var conversationKey = hashMatch[1] || hashMatch[2];
+        window.__prefetch.messages = {
+          conversationKey: conversationKey,
+          promise: fetchJsonOrThrow(
+            './api/messages?limit=200&type=' + (hashMatch[1] ? 'CHAN' : 'PRIV') +
+              '&conversation_key=' + conversationKey
+          ),
+        };
+      }
     </script>
   </head>
   <body>

@@ -186,6 +186,12 @@ CREATE INDEX IF NOT EXISTS idx_repeater_telemetry_pk_ts
 """
 
 
+# Concurrent reads beyond this queue for a free connection. Readers share the
+# writer's OS page cache, so each gets a smaller private cache (KB, negative).
+READER_POOL_SIZE = 4
+READER_CACHE_KB = -16000
+
+
 class Database:
     """Single-connection aiosqlite wrapper with coroutine-level serialization.
 
@@ -205,17 +211,21 @@ class Database:
     that take a ``conn`` and don't lock; the public method acquires the lock
     once and calls those helpers.
 
-    Why reads are also locked: reads must also hold the lock, because a read
-    in ``SQLITE_ROW`` state is precisely the live statement that breaks a
-    concurrent writer's commit. Single-connection aiosqlite cannot safely
-    overlap reads and writes. If we ever split reader/writer connections in
-    the future, ``readonly()`` becomes the seam to point at the reader pool.
+    Reads: on a file database, ``readonly()`` hands out one of
+    ``READER_POOL_SIZE`` separate read-only connections instead of taking the
+    lock. The commit hazard above is per connection, and in WAL mode readers
+    on other connections never block the writer's commit (nor it them), so
+    reads run concurrently with each other and with writes. Each read runs in
+    its own BEGIN/ROLLBACK so its statements share one snapshot, the same
+    consistency the lock gave. ``:memory:`` databases cannot be shared across
+    connections, so there reads fall back to the locked writer connection.
     """
 
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._connection: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
+        self._readers: asyncio.Queue[aiosqlite.Connection] | None = None
 
     @asynccontextmanager
     async def tx(self) -> AsyncIterator[aiosqlite.Connection]:
@@ -243,18 +253,29 @@ class Database:
 
     @asynccontextmanager
     async def readonly(self) -> AsyncIterator[aiosqlite.Connection]:
-        """Acquire the connection for a read. No commit, no rollback.
+        """Acquire a connection for a read. Writes on it fail.
 
-        Locked for the same reason writes are: on a single connection, an
-        active read statement blocks a concurrent writer's commit. Callers
-        MUST fully consume or close cursors before the block exits (use
+        Callers MUST fully consume or close cursors before the block exits (use
         ``async with conn.execute(...) as cursor:`` + ``fetchall`` /
         ``fetchone``; avoid holding a cursor across ``await`` on other IO).
         """
-        async with self._lock:
-            if self._connection is None:
-                raise RuntimeError("Database not connected")
-            yield self._connection
+        if self._readers is None:
+            async with self._lock:
+                if self._connection is None:
+                    raise RuntimeError("Database not connected")
+                yield self._connection
+            return
+        conn = await self._readers.get()
+        try:
+            if conn.in_transaction:  # a cancelled read never reached its rollback
+                await conn.rollback()
+            await conn.execute("BEGIN")
+            yield conn
+        finally:
+            try:
+                await conn.rollback()
+            finally:
+                self._readers.put_nowait(conn)
 
     async def connect(self) -> None:
         logger.info("Connecting to database at %s", self.db_path)
@@ -312,7 +333,25 @@ class Database:
         await self._connection.execute("PRAGMA foreign_keys = ON")
         logger.debug("Foreign key enforcement enabled")
 
+        if self.db_path != ":memory:":
+            await self._open_readers()
+
+    async def _open_readers(self) -> None:
+        uri = Path(self.db_path).resolve().as_uri() + "?mode=ro"
+        readers: asyncio.Queue[aiosqlite.Connection] = asyncio.Queue()
+        for _ in range(READER_POOL_SIZE):
+            conn = await aiosqlite.connect(uri, uri=True)
+            conn.row_factory = aiosqlite.Row
+            await conn.execute("PRAGMA busy_timeout = 5000")
+            await conn.execute(f"PRAGMA cache_size = {READER_CACHE_KB}")
+            await conn.execute("PRAGMA temp_store = MEMORY")
+            readers.put_nowait(conn)
+        self._readers = readers
+
     async def disconnect(self) -> None:
+        readers, self._readers = self._readers, None
+        while readers is not None and not readers.empty():
+            await readers.get_nowait().close()
         if self._connection:
             await self._connection.close()
             self._connection = None

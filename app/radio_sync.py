@@ -31,7 +31,7 @@ from app.repository import (
     ContactRepository,
     RepeaterTelemetryRepository,
 )
-from app.repository.contact_telemetry import ContactTelemetryRepository
+from app.repository.telemetry_history import ContactTelemetryRepository
 from app.services.contact_reconciliation import (
     promote_prefix_contacts_for_contact,
     reconcile_contact_messages,

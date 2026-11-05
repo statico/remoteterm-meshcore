@@ -59,15 +59,7 @@ async def _insert_repeater(public_key: str, name: str = "Repeater"):
 
 @pytest.fixture
 async def _db(test_db):
-    """Set up test DB and patch the repeater_telemetry module's db reference."""
-    from app.repository import repeater_telemetry
-
-    original = repeater_telemetry.db
-    repeater_telemetry.db = test_db
-    try:
-        yield test_db
-    finally:
-        repeater_telemetry.db = original
+    return test_db  # test_db already points telemetry_history at it
 
 
 class TestRepeaterTelemetryRepository:

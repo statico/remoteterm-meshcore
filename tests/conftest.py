@@ -46,13 +46,12 @@ async def test_db():
     """Create an in-memory test database with schema + migrations."""
     from app.repository import (
         channels,
-        contact_telemetry,
         contacts,
         messages,
         push_subscriptions,
         raw_packets,
-        repeater_telemetry,
         settings,
+        telemetry_history,
     )
     from app.repository import fanout as fanout_repo
 
@@ -66,8 +65,7 @@ async def test_db():
         raw_packets,
         settings,
         fanout_repo,
-        repeater_telemetry,
-        contact_telemetry,
+        telemetry_history,
         push_subscriptions,
     ]
     originals = [(mod, mod.db) for mod in submodules]

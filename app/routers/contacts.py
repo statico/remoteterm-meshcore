@@ -652,7 +652,7 @@ async def request_contact_telemetry(public_key: str) -> ContactTelemetryResponse
     Persists the result in contact_telemetry_history and returns the latest
     sensor readings along with recent telemetry history.
     """
-    from app.repository.contact_telemetry import ContactTelemetryRepository
+    from app.repository.telemetry_history import ContactTelemetryRepository
 
     radio_manager.require_connected()
     contact = await _resolve_contact_or_404(public_key)
@@ -714,7 +714,7 @@ async def request_contact_telemetry(public_key: str) -> ContactTelemetryResponse
 @router.get("/{public_key}/telemetry-history", response_model=list[TelemetryHistoryEntry])
 async def get_contact_telemetry_history(public_key: str) -> list[TelemetryHistoryEntry]:
     """Get stored telemetry history for a contact (read-only, no radio access)."""
-    from app.repository.contact_telemetry import ContactTelemetryRepository
+    from app.repository.telemetry_history import ContactTelemetryRepository
 
     contact = await _resolve_contact_or_404(public_key)
     since = int(time.time()) - 30 * 86400

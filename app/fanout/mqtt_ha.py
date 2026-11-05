@@ -748,7 +748,7 @@ class MqttHaModule(FanoutModule):
     async def _resolve_latest_telemetry(pub_key: str) -> dict | None:
         """Return the most recent telemetry row for a repeater, or None."""
         try:
-            from app.repository.repeater_telemetry import RepeaterTelemetryRepository
+            from app.repository.telemetry_history import RepeaterTelemetryRepository
 
             return await RepeaterTelemetryRepository.get_latest(pub_key)
         except Exception:
@@ -759,7 +759,7 @@ class MqttHaModule(FanoutModule):
     async def _resolve_latest_contact_telemetry(pub_key: str) -> dict | None:
         """Return the most recent contact telemetry row, or None."""
         try:
-            from app.repository.contact_telemetry import ContactTelemetryRepository
+            from app.repository.telemetry_history import ContactTelemetryRepository
 
             return await ContactTelemetryRepository.get_latest(pub_key)
         except Exception:

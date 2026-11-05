@@ -31,7 +31,7 @@ app/
 ├── migrations/          # Schema migrations (SQLite user_version, per-version modules)
 ├── models.py            # Pydantic request/response models and typed write contracts (for example ContactUpsert)
 ├── version_info.py      # Unified version/build metadata resolution for debug + startup surfaces
-├── repository/          # Data access layer (contacts, channels, messages, raw_packets, settings, fanout, push_subscriptions, repeater_telemetry, contact_telemetry)
+├── repository/          # Data access layer (contacts, channels, messages, raw_packets, settings, fanout, push_subscriptions, telemetry_history)
 ├── services/            # Shared orchestration/domain services
 │   ├── messages.py              # Shared message creation, dedup, ACK application
 │   ├── message_send.py          # Direct send, channel send, resend workflows

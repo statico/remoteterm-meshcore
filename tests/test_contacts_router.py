@@ -799,7 +799,7 @@ class TestContactTelemetry:
         """History endpoint returns stored telemetry snapshots."""
         import time
 
-        from app.repository.contact_telemetry import ContactTelemetryRepository
+        from app.repository.telemetry_history import ContactTelemetryRepository
 
         await _insert_contact(KEY_A)
         now = int(time.time())

@@ -1124,3 +1124,25 @@ async def test_dict_reply_routes_to_dm_or_channel():
 
     assert sent == [("hi", True, "cc" * 32, "AB" * 16), ("yo", False, "dd" * 32, "EF" * 16)]
     assert _coerce_bot_dict_reply({"message": "x", "dm": "a", "channel": "b"}) is None
+
+
+def test_eleven_positional_bot_receives_all_trailing_args():
+    code = """
+def bot(sender_name, sender_key, message_text, is_dm, channel_key, channel_name, sender_timestamp, path, is_outgoing, path_bytes_per_hop, packet_hash):
+    return f"{sender_name}|{path}|{is_outgoing}|{path_bytes_per_hop}|{packet_hash}"
+"""
+    result = execute_bot_code(
+        code=code,
+        sender_name="Alice",
+        sender_key="abc123",
+        message_text="Hi",
+        is_dm=True,
+        channel_key=None,
+        channel_name=None,
+        sender_timestamp=None,
+        path="aabb",
+        is_outgoing=True,
+        path_bytes_per_hop=2,
+        packet_hash="DEADBEEF",
+    )
+    assert result == "Alice|aabb|True|2|DEADBEEF"

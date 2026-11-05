@@ -183,11 +183,11 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
 
     if not has_kwargs and explicit_optional_names:
         kwargs: dict[str, object] = {}
-        if has_kwargs or "is_outgoing" in params:
+        if "is_outgoing" in params:
             kwargs["is_outgoing"] = False
-        if has_kwargs or "path_bytes_per_hop" in params:
+        if "path_bytes_per_hop" in params:
             kwargs["path_bytes_per_hop"] = 1
-        if has_kwargs or "packet_hash" in params:
+        if "packet_hash" in params:
             kwargs["packet_hash"] = ""
         for name in OPT_IN_KWARGS:
             if name in params:
@@ -221,6 +221,9 @@ def _analyze_bot_signature(bot_func_or_sig) -> BotCallPlan:
         + ", ".join(OPT_IN_KWARGS)
         + ")."
     )
+
+
+_POSITIONAL_ARG_COUNTS = {"positional_11": 11, "positional_10": 10, "positional_9": 9}
 
 
 def execute_bot_code(
@@ -327,46 +330,7 @@ def execute_bot_code(
 
     try:
         # Call the bot function with appropriate signature
-        if call_plan.call_style == "positional_11":
-            result = bot_func(
-                sender_name,
-                sender_key,
-                message_text,
-                is_dm,
-                channel_key,
-                channel_name,
-                sender_timestamp,
-                path,
-                is_outgoing,
-                path_bytes_per_hop,
-                packet_hash,
-            )
-        elif call_plan.call_style == "positional_10":
-            result = bot_func(
-                sender_name,
-                sender_key,
-                message_text,
-                is_dm,
-                channel_key,
-                channel_name,
-                sender_timestamp,
-                path,
-                is_outgoing,
-                path_bytes_per_hop,
-            )
-        elif call_plan.call_style == "positional_9":
-            result = bot_func(
-                sender_name,
-                sender_key,
-                message_text,
-                is_dm,
-                channel_key,
-                channel_name,
-                sender_timestamp,
-                path,
-                is_outgoing,
-            )
-        elif call_plan.call_style == "keyword":
+        if call_plan.call_style == "keyword":
             available: dict[str, Any] = {
                 "sender_name": sender_name,
                 "sender_key": sender_key,
@@ -385,10 +349,9 @@ def execute_bot_code(
                 "paths": paths,
                 "is_room": is_room,
             }
-            keyword_args = {name: available[name] for name in call_plan.keyword_args}
-            result = bot_func(**keyword_args)
+            result = bot_func(**{name: available[name] for name in call_plan.keyword_args})
         else:
-            result = bot_func(
+            positional = [
                 sender_name,
                 sender_key,
                 message_text,
@@ -397,7 +360,12 @@ def execute_bot_code(
                 channel_name,
                 sender_timestamp,
                 path,
-            )
+                is_outgoing,
+                path_bytes_per_hop,
+                packet_hash,
+            ]
+            arg_count = _POSITIONAL_ARG_COUNTS.get(call_plan.call_style, 8)
+            result = bot_func(*positional[:arg_count])
 
         # Validate result
         if result is None:

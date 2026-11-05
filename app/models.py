@@ -135,53 +135,46 @@ class Contact(BaseModel):
             self.direct_path_len,
             self.direct_path_hash_mode,
         )
-        self.direct_path = direct_path or None
-        self.direct_path_len = direct_path_len
-        self.direct_path_hash_mode = direct_path_hash_mode
-
-        route_override_path, route_override_len, route_override_hash_mode = (
-            normalize_route_override(
-                self.route_override_path,
-                self.route_override_len,
-                self.route_override_hash_mode,
-            )
+        override_path, override_len, override_hash_mode = normalize_route_override(
+            self.route_override_path,
+            self.route_override_len,
+            self.route_override_hash_mode,
         )
-        self.route_override_path = route_override_path or None
-        self.route_override_len = route_override_len
-        self.route_override_hash_mode = route_override_hash_mode
-        if (
-            route_override_path is not None
-            and route_override_len is not None
-            and route_override_hash_mode is not None
-        ):
-            self.route_override = ContactRoute(
-                path=route_override_path,
-                path_len=route_override_len,
-                path_hash_mode=route_override_hash_mode,
+        # Normalized values need no re-validation, so model_construct the routes.
+        route_override = (
+            ContactRoute.model_construct(
+                path=override_path, path_len=override_len, path_hash_mode=override_hash_mode
             )
-        else:
-            self.route_override = None
-
-        if direct_path_len >= 0:
-            self.direct_route = ContactRoute(
-                path=direct_path,
-                path_len=direct_path_len,
-                path_hash_mode=direct_path_hash_mode,
+            if override_len is not None
+            else None
+        )
+        direct_route = (
+            ContactRoute.model_construct(
+                path=direct_path, path_len=direct_path_len, path_hash_mode=direct_path_hash_mode
             )
+            if direct_path_len >= 0
+            else None
+        )
+        if route_override is not None:
+            source, effective = "override", route_override
+        elif direct_route is not None:
+            source, effective = "direct", direct_route
         else:
-            self.direct_route = None
-
-        path, path_len, path_hash_mode = self.effective_route_tuple()
-        if self.has_route_override():
-            self.effective_route_source = "override"
-        elif self.direct_route is not None:
-            self.effective_route_source = "direct"
-        else:
-            self.effective_route_source = "flood"
-        self.effective_route = ContactRoute(
-            path=path,
-            path_len=path_len,
-            path_hash_mode=path_hash_mode,
+            source = "flood"
+            effective = ContactRoute.model_construct(path="", path_len=-1, path_hash_mode=-1)
+        # One vars() update instead of ten validated __setattr__ calls: this
+        # runs per row on every contacts page (thousands per sidebar load).
+        vars(self).update(
+            direct_path=direct_path or None,
+            direct_path_len=direct_path_len,
+            direct_path_hash_mode=direct_path_hash_mode,
+            route_override_path=override_path or None,
+            route_override_len=override_len,
+            route_override_hash_mode=override_hash_mode,
+            route_override=route_override,
+            direct_route=direct_route,
+            effective_route_source=source,
+            effective_route=effective,
         )
 
     def has_route_override(self) -> bool:

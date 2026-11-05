@@ -25,6 +25,10 @@ class AmbiguousPublicKeyPrefixError(ValueError):
         super().__init__(f"Ambiguous public key prefix '{self.prefix}'")
 
 
+def _minus_one_if_none(value: int | None) -> int:
+    return -1 if value is None else value
+
+
 class ContactRepository:
     @staticmethod
     def _coerce_contact_upsert(
@@ -130,59 +134,29 @@ class ContactRepository:
 
     @staticmethod
     def _row_to_contact(row) -> Contact:
-        """Convert a database row to a Contact model."""
-        available_columns = set(row.keys())
-        direct_path, direct_path_len, direct_path_hash_mode = normalize_contact_route(
-            row["direct_path"] if "direct_path" in available_columns else None,
-            row["direct_path_len"] if "direct_path_len" in available_columns else None,
-            row["direct_path_hash_mode"] if "direct_path_hash_mode" in available_columns else None,
-        )
-        route_override_path = (
-            row["route_override_path"] if "route_override_path" in available_columns else None
-        )
-        route_override_len = (
-            row["route_override_len"] if "route_override_len" in available_columns else None
-        )
-        route_override_hash_mode = (
-            row["route_override_hash_mode"]
-            if "route_override_hash_mode" in available_columns
-            else None
-        )
-        route_override_path, route_override_len, route_override_hash_mode = (
-            normalize_route_override(
-                route_override_path,
-                route_override_len,
-                route_override_hash_mode,
-            )
-        )
+        """Convert a contacts row to a Contact model (which normalizes routes)."""
         return Contact(
             public_key=row["public_key"],
             name=row["name"],
             type=row["type"],
             flags=row["flags"],
-            direct_path=direct_path,
-            direct_path_len=direct_path_len,
-            direct_path_hash_mode=direct_path_hash_mode,
-            direct_path_updated_at=(
-                row["direct_path_updated_at"]
-                if "direct_path_updated_at" in available_columns
-                else None
-            ),
-            route_override_path=route_override_path,
-            route_override_len=route_override_len,
-            route_override_hash_mode=route_override_hash_mode,
+            direct_path=row["direct_path"],
+            direct_path_len=_minus_one_if_none(row["direct_path_len"]),
+            direct_path_hash_mode=_minus_one_if_none(row["direct_path_hash_mode"]),
+            direct_path_updated_at=row["direct_path_updated_at"],
+            route_override_path=row["route_override_path"],
+            route_override_len=row["route_override_len"],
+            route_override_hash_mode=row["route_override_hash_mode"],
             last_advert=row["last_advert"],
             lat=row["lat"],
             lon=row["lon"],
             last_seen=row["last_seen"],
             on_radio=bool(row["on_radio"]),
-            favorite=bool(row["favorite"]) if "favorite" in available_columns else False,
+            favorite=bool(row["favorite"]),
             last_contacted=row["last_contacted"],
             last_read_at=row["last_read_at"],
             first_seen=row["first_seen"],
-            flood_scope_override=(
-                row["flood_scope_override"] if "flood_scope_override" in available_columns else None
-            ),
+            flood_scope_override=row["flood_scope_override"],
         )
 
     @staticmethod

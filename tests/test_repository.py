@@ -796,6 +796,57 @@ class TestContactRepositoryUpsertContracts:
         assert contact.on_radio is True
 
 
+class TestContactRouteDerivation:
+    def test_flood_override_and_direct_routes(self):
+        flood = Contact(public_key="aa" * 32)
+        assert flood.effective_route_source == "flood"
+        assert flood.direct_route is None and flood.route_override is None
+        assert flood.effective_route is not None
+        assert flood.effective_route.model_dump() == {
+            "path": "",
+            "path_len": -1,
+            "path_hash_mode": -1,
+        }
+
+        # Legacy packed wire byte in the hop-count column: 0x42 = 2 hops, 2-byte mode.
+        direct = Contact(public_key="aa" * 32, direct_path="aabbccdd", direct_path_len=0x42)
+        assert direct.effective_route_source == "direct"
+        assert (direct.direct_path, direct.direct_path_len, direct.direct_path_hash_mode) == (
+            "aabbccdd",
+            2,
+            1,
+        )
+        assert direct.effective_route == direct.direct_route
+
+        both = Contact(
+            public_key="aa" * 32,
+            direct_path="aa",
+            direct_path_len=1,
+            direct_path_hash_mode=0,
+            route_override_path="",
+            route_override_len=0,
+            route_override_hash_mode=0,
+        )
+        assert both.effective_route_source == "override"
+        assert both.route_override_path is None
+        assert both.effective_route is not None
+        assert both.effective_route.model_dump() == {"path": "", "path_len": 0, "path_hash_mode": 0}
+        assert both.to_radio_dict()["out_path_len"] == 0
+
+    @pytest.mark.asyncio
+    async def test_null_route_columns_read_back_as_flood(self, test_db):
+        await ContactRepository.upsert(ContactUpsert(public_key="cc" * 32, name="Carol"))
+        async with test_db.tx() as conn:
+            await conn.execute(
+                "UPDATE contacts SET direct_path_len = NULL, direct_path_hash_mode = NULL"
+            )
+
+        contact = await ContactRepository.get_by_key("cc" * 32)
+        assert contact is not None
+        assert contact.effective_route_source == "flood"
+        assert (contact.direct_path_len, contact.direct_path_hash_mode) == (-1, -1)
+
+
 class TestContactRepositoryLastSeenSemantics:
     """Guard the 'last_seen = last RF reception' contract.
 

@@ -14,8 +14,6 @@ import { Sidebar } from './Sidebar';
 import { ConversationPane } from './ConversationPane';
 import { NewMessageModal } from './NewMessageModal';
 import { BulkAddChannelResultModal } from './BulkAddChannelResultModal';
-import { ContactInfoPane } from './ContactInfoPane';
-import { ChannelInfoPane } from './ChannelInfoPane';
 import { CommandPalette } from './CommandPalette';
 import { SecurityWarningModal } from './SecurityWarningModal';
 import { Toaster } from './ui/sonner';
@@ -39,6 +37,13 @@ const CrackerPanel = lazy(() =>
   import('./CrackerPanel').then((m) => ({ default: m.CrackerPanel }))
 );
 const SearchView = lazy(() => import('./SearchView').then((m) => ({ default: m.SearchView })));
+// Info panes pull in recharts; keep them out of the main chunk until first opened.
+const ContactInfoPane = lazy(() =>
+  import('./ContactInfoPane').then((m) => ({ default: m.ContactInfoPane }))
+);
+const ChannelInfoPane = lazy(() =>
+  import('./ChannelInfoPane').then((m) => ({ default: m.ChannelInfoPane }))
+);
 
 type SidebarProps = ComponentProps<typeof Sidebar>;
 type ConversationPaneProps = ComponentProps<typeof ConversationPane>;
@@ -146,6 +151,16 @@ export function AppShell({
   const crackerMounted = useRef(false);
   if (showCracker) {
     crackerMounted.current = true;
+  }
+
+  // Stay mounted after first open so the sheet's close animation still plays.
+  const contactInfoMounted = useRef(false);
+  if (contactInfoPaneProps.contactKey !== null) {
+    contactInfoMounted.current = true;
+  }
+  const channelInfoMounted = useRef(false);
+  if (channelInfoPaneProps.channelKey !== null) {
+    channelInfoMounted.current = true;
   }
 
   // Position toasts below the conversation header when in chat, otherwise below the status bar
@@ -371,8 +386,16 @@ export function AppShell({
         onRepeaterAutoLogin={onRepeaterAutoLogin}
       />
       <SecurityWarningModal health={statusProps.health} />
-      <ContactInfoPane {...contactInfoPaneProps} />
-      <ChannelInfoPane {...channelInfoPaneProps} />
+      {contactInfoMounted.current && (
+        <Suspense fallback={null}>
+          <ContactInfoPane {...contactInfoPaneProps} />
+        </Suspense>
+      )}
+      {channelInfoMounted.current && (
+        <Suspense fallback={null}>
+          <ChannelInfoPane {...channelInfoPaneProps} />
+        </Suspense>
+      )}
       <Toaster
         position="top-right"
         offset={toastTopOffset !== undefined ? { top: toastTopOffset } : undefined}

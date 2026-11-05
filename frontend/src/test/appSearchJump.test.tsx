@@ -107,7 +107,13 @@ vi.mock('../components/Sidebar', () => ({
 }));
 
 vi.mock('../components/ChatHeader', () => ({
-  ChatHeader: () => <div data-testid="chat-header" />,
+  ChatHeader: ({ onOpenContactInfo }: { onOpenContactInfo?: (publicKey: string) => void }) => (
+    <div data-testid="chat-header">
+      <button type="button" onClick={() => onOpenContactInfo?.('aa'.repeat(32))}>
+        Open Contact Info
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../components/MessageList', () => ({
@@ -273,6 +279,13 @@ describe('App search jump target handling', () => {
     await act(async () => {
       render(<App />);
     });
+
+    // The contact pane is lazy and only mounts once a contact is opened.
+    expect(screen.queryByText('Search Contact By Key')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Open Contact Info')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Open Contact Info'));
 
     await waitFor(() => {
       expect(screen.getByText('Search Contact By Key')).toBeInTheDocument();

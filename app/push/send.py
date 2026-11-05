@@ -225,10 +225,6 @@ async def send_push(
     Raises:
         WebPushException: on push service error (caller handles 404/410 cleanup).
     """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None,
-        lambda: _send_push_with_fallback(
-            subscription_info, payload, vapid_private_key, vapid_claims
-        ),
+    return await asyncio.to_thread(
+        _send_push_with_fallback, subscription_info, payload, vapid_private_key, vapid_claims
     )

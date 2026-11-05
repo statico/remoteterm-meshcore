@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import string
@@ -21,6 +22,7 @@ _TOPIC_TEMPLATE_FIELD_CANONICAL = {
 }
 
 
+@functools.lru_cache(maxsize=32)
 def _normalize_topic_template(topic_template: str) -> str:
     """Normalize packet topic template fields to canonical uppercase placeholders."""
     template = topic_template.strip() or _DEFAULT_PACKET_TOPIC_TEMPLATE
@@ -154,12 +156,12 @@ async def _publish_community_packet(
         if radio_manager.meshcore and radio_manager.meshcore.self_info:
             device_name = radio_manager.meshcore.self_info.get("name", "")
 
-        packet = _format_raw_packet(data, device_name, pubkey_hex)
-        if packet is None:
-            return
         iata = config.get("iata", "").upper().strip()
         if not _IATA_RE.fullmatch(iata):
             logger.debug("Community MQTT: skipping publish — no valid IATA code configured")
+            return
+        packet = _format_raw_packet(data, device_name, pubkey_hex)
+        if packet is None:
             return
         topic = _render_packet_topic(
             str(config.get("topic_template", _DEFAULT_PACKET_TOPIC_TEMPLATE)),

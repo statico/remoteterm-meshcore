@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 import json
 import logging
-from functools import partial
 from urllib.parse import urlparse
 
 import boto3
@@ -145,7 +144,7 @@ class SqsModule(FanoutModule):
             )
 
         try:
-            await asyncio.to_thread(partial(self._client.send_message, **request_kwargs))
+            await asyncio.to_thread(self._client.send_message, **request_kwargs)
             self._set_last_error(None)
         except (ClientError, BotoCoreError) as exc:
             self._set_last_error(str(exc))

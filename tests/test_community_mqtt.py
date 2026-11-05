@@ -1158,6 +1158,20 @@ class TestCommunityPacketPublishTopic:
         topic = publisher.publish.await_args.args[0]
         assert topic == f"mesh2mqtt/LAX/node/{'AA' * 32}"
 
+    @pytest.mark.asyncio
+    async def test_invalid_iata_skips_before_formatting(self):
+        publisher = MagicMock()
+        publisher.publish = AsyncMock()
+
+        with (
+            patch("app.keystore.get_public_key", return_value=bytes.fromhex("AA" * 32)),
+            patch("app.fanout.mqtt_community._format_raw_packet") as mock_format,
+        ):
+            await _publish_community_packet(publisher, {"iata": "nope!"}, {"data": "0100AA"})
+
+        mock_format.assert_not_called()
+        publisher.publish.assert_not_awaited()
+
 
 def _mock_radio_operation(mc_mock):
     """Create a mock async context manager for radio_operation."""

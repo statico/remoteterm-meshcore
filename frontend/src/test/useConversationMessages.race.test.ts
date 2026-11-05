@@ -1022,3 +1022,94 @@ describe('useConversationMessages block-list changes', () => {
     await waitFor(() => expect(ids(result.current.messages)).toEqual([2, 3, 4]));
   });
 });
+
+describe('useConversationMessages load-older', () => {
+  const page = (from: number) =>
+    Array.from({ length: 200 }, (_, i) =>
+      createMessage({ id: from + i, received_at: 1700000000 + from + i, text: `m${from + i}` })
+    );
+  const olderCursors = () =>
+    mockGetMessages.mock.calls
+      .map(([params]) => params?.before_id)
+      .filter((cursor) => cursor !== undefined);
+
+  beforeEach(() => {
+    mockGetMessages.mockReset();
+    conversationMessageCache.clear();
+  });
+
+  it('does not request the same older page twice before its rows commit', async () => {
+    mockGetMessages.mockResolvedValueOnce(page(1000));
+    const { result } = renderHook(() => useConversationMessages(createConversation()));
+    await waitFor(() => expect(result.current.messages).toHaveLength(200));
+    expect(result.current.hasOlderMessages).toBe(true);
+
+    mockGetMessages.mockResolvedValue(page(800));
+    // A fling keeps firing scroll events at the top edge. The second call lands
+    // after the first page resolved but before React rendered its rows.
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+      await result.current.fetchOlderMessages();
+    });
+
+    expect(olderCursors()).toEqual([1000]);
+    expect(result.current.messages).toHaveLength(400);
+  });
+
+  it('pages further once the older rows have committed', async () => {
+    mockGetMessages.mockResolvedValueOnce(page(1000));
+    const { result } = renderHook(() => useConversationMessages(createConversation()));
+    await waitFor(() => expect(result.current.messages).toHaveLength(200));
+
+    mockGetMessages.mockResolvedValueOnce(page(800)).mockResolvedValueOnce(page(600));
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+
+    expect(olderCursors()).toEqual([1000, 800]);
+    expect(result.current.messages).toHaveLength(600);
+  });
+
+  it('can page back from the same oldest message again after the list reloads', async () => {
+    mockGetMessages.mockResolvedValueOnce(page(1000));
+    const { result } = renderHook(() => useConversationMessages(createConversation()));
+    await waitFor(() => expect(result.current.messages).toHaveLength(200));
+
+    mockGetMessages.mockResolvedValueOnce(page(800));
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+    // Reload to the latest page: the same 200 rows, so the same oldest message.
+    mockGetMessages.mockResolvedValueOnce(page(1000));
+    act(() => {
+      result.current.jumpToBottom();
+    });
+    await waitFor(() => expect(result.current.messages).toHaveLength(200));
+
+    mockGetMessages.mockResolvedValueOnce(page(800));
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+    expect(olderCursors()).toEqual([1000, 1000]);
+  });
+
+  it('retries the same older page after a failed load', async () => {
+    mockGetMessages.mockResolvedValueOnce(page(1000));
+    const { result } = renderHook(() => useConversationMessages(createConversation()));
+    await waitFor(() => expect(result.current.messages).toHaveLength(200));
+
+    mockGetMessages.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(page(800));
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+    await act(async () => {
+      await result.current.fetchOlderMessages();
+    });
+
+    expect(olderCursors()).toEqual([1000, 1000]);
+    expect(result.current.messages).toHaveLength(400);
+  });
+});

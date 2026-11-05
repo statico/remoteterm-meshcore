@@ -387,6 +387,10 @@ export function useConversationMessages(
   const pendingReconnectReconcileRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const loadingOlderRef = useRef(false);
+  // The list a finished load-older paged back from. The page's rows reach
+  // messagesRef only once React commits them, so until messagesRef moves on, a
+  // scroll event would see the same oldest message and request the same page.
+  const olderFetchedFromRef = useRef<Message[] | null>(null);
   const loadingNewerRef = useRef(false);
   const hasOlderMessagesRef = useRef(false);
   const hasNewerMessagesRef = useRef(false);
@@ -518,12 +522,14 @@ export function useConversationMessages(
     if (
       !isMessageConversation(activeConversation) ||
       loadingOlderRef.current ||
-      !hasOlderMessagesRef.current
+      !hasOlderMessagesRef.current ||
+      olderFetchedFromRef.current === messagesRef.current
     ) {
       return;
     }
 
     const conversationId = activeConversation.id;
+    const fetchedFrom = messagesRef.current;
     const oldestMessage = messagesRef.current.reduce(
       (oldest, msg) => {
         if (!oldest) return msg;
@@ -553,6 +559,7 @@ export function useConversationMessages(
 
       if (fetchingConversationIdRef.current !== conversationId) return;
 
+      olderFetchedFromRef.current = fetchedFrom;
       const dataWithPendingAck = data.map((msg) => applyPendingAck(msg));
 
       if (dataWithPendingAck.length > 0) {
@@ -726,6 +733,7 @@ export function useConversationMessages(
 
     setLoadingOlder(false);
     loadingOlderRef.current = false;
+    olderFetchedFromRef.current = null;
     setLoadingNewer(false);
     if (conversationChanged) {
       setHasNewerMessages(false);

@@ -55,6 +55,42 @@ class TestUndecryptedCount:
         assert response.status_code == 200
         assert response.json()["count"] == 3
 
+    @pytest.mark.asyncio
+    async def test_cached_count_tracks_every_write_path(self, test_db):
+        """The count is cached after the first read; each write that links or
+        unlinks a packet must keep it equal to a real COUNT(*)."""
+
+        async def assert_matches_table(expected: int) -> None:
+            async with test_db.readonly() as conn:
+                async with conn.execute(
+                    "SELECT COUNT(*) FROM raw_packets WHERE message_id IS NULL"
+                ) as cursor:
+                    (actual,) = await cursor.fetchone()
+            assert actual == expected
+            assert await RawPacketRepository.get_undecrypted_count() == expected
+
+        old = await _insert_raw_packets(2, age_days=30)
+        await assert_matches_table(2)  # first read primes the cache
+
+        new_id, is_new = await RawPacketRepository.create(b"fresh", int(time.time()))
+        assert is_new
+        await RawPacketRepository.create(b"fresh", int(time.time()))  # duplicate payload
+        await assert_matches_table(3)
+
+        msg_id = await MessageRepository.create(
+            msg_type="CHAN", text="hi", conversation_key="DEADBEEF" * 4, received_at=1
+        )
+        assert msg_id is not None
+        await RawPacketRepository.mark_decrypted(new_id, msg_id)
+        await RawPacketRepository.mark_decrypted(new_id, msg_id)  # relink: no change
+        await assert_matches_table(2)
+
+        await MessageRepository.delete_by_id(msg_id)  # unlinks its packet
+        await assert_matches_table(3)
+
+        assert await RawPacketRepository.prune_old_undecrypted(7) == len(old)
+        await assert_matches_table(1)
+
 
 class TestRegionBackfill:
     """Test POST /api/packets/region-backfill."""

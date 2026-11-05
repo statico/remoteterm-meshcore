@@ -3,12 +3,26 @@ import time
 from collections.abc import AsyncIterator
 from hashlib import sha256
 
-from app.database import db
+from app.database import Database, db
 from app.decoder import PayloadType, extract_payload, get_packet_payload_type
 
 logger = logging.getLogger(__name__)
 
 UNDECRYPTED_PACKET_BATCH_SIZE = 500
+
+# COUNT(*) of undecrypted packets walks ~1M index entries (~40 ms on a real
+# DB), so the count is taken once and then kept current by the hot writes
+# that link or unlink packets. Keyed by the Database it was counted on so a
+# fresh database (tests) never sees another one's count.
+_undecrypted_count: tuple[Database, int] | None = None
+
+
+def adjust_undecrypted_count(delta: int) -> None:
+    """Apply a write's delta. Call right after its tx() exits, with no await in
+    between, so no other writer or recount can interleave."""
+    global _undecrypted_count
+    if _undecrypted_count is not None and _undecrypted_count[0] is db:
+        _undecrypted_count = (db, _undecrypted_count[1] + delta)
 
 
 class RawPacketRepository:
@@ -42,27 +56,34 @@ class RawPacketRepository:
                 rowcount = cursor.rowcount
                 lastrowid = cursor.lastrowid
 
-            if rowcount > 0:
-                assert lastrowid is not None
-                return (lastrowid, True)
-
-            # Duplicate payload — look up the existing row (same transaction).
-            async with conn.execute(
-                "SELECT id FROM raw_packets WHERE payload_hash = ?", (payload_hash,)
-            ) as cursor:
-                existing = await cursor.fetchone()
-        assert existing is not None
+            existing = None
+            if rowcount == 0:
+                # Duplicate payload — look up the existing row (same transaction).
+                async with conn.execute(
+                    "SELECT id FROM raw_packets WHERE payload_hash = ?", (payload_hash,)
+                ) as cursor:
+                    existing = await cursor.fetchone()
+        if existing is None:
+            assert lastrowid is not None
+            adjust_undecrypted_count(1)
+            return (lastrowid, True)
         return (existing["id"], False)
 
     @staticmethod
     async def get_undecrypted_count() -> int:
         """Get count of undecrypted packets (those without a linked message)."""
-        async with db.readonly() as conn:
+        global _undecrypted_count
+        if _undecrypted_count is not None and _undecrypted_count[0] is db:
+            return _undecrypted_count[1]
+        # Count under the write lock so no write lands between COUNT and store.
+        async with db.tx() as conn:
             async with conn.execute(
                 "SELECT COUNT(*) as count FROM raw_packets WHERE message_id IS NULL"
             ) as cursor:
                 row = await cursor.fetchone()
-        return row["count"] if row else 0
+            count = row["count"] if row else 0
+            _undecrypted_count = (db, count)
+        return count
 
     @staticmethod
     async def get_oldest_undecrypted() -> int | None:
@@ -147,10 +168,17 @@ class RawPacketRepository:
         """Link a raw packet to its decrypted message."""
         async with db.tx() as conn:
             async with conn.execute(
-                "UPDATE raw_packets SET message_id = ? WHERE id = ?",
+                "UPDATE raw_packets SET message_id = ? WHERE id = ? AND message_id IS NULL",
                 (message_id, packet_id),
-            ):
-                pass
+            ) as cursor:
+                newly_linked = cursor.rowcount
+            if not newly_linked:  # already linked (or missing): relink, count unchanged
+                async with conn.execute(
+                    "UPDATE raw_packets SET message_id = ? WHERE id = ?",
+                    (message_id, packet_id),
+                ):
+                    pass
+        adjust_undecrypted_count(-newly_linked)
 
     @staticmethod
     async def get_linked_message_id(packet_id: int) -> int | None:
@@ -188,6 +216,7 @@ class RawPacketRepository:
                 (cutoff,),
             ) as cursor:
                 rowcount = cursor.rowcount
+        adjust_undecrypted_count(-rowcount)
         return rowcount
 
     @staticmethod

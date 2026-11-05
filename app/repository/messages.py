@@ -12,6 +12,7 @@ from app.models import (
     Message,
     MessagePath,
 )
+from app.repository.raw_packets import adjust_undecrypted_count
 
 
 class MessageRepository:
@@ -639,10 +640,11 @@ class MessageRepository:
             async with conn.execute(
                 "UPDATE raw_packets SET message_id = NULL WHERE message_id = ?",
                 (message_id,),
-            ):
-                pass
+            ) as cursor:
+                unlinked = cursor.rowcount
             async with conn.execute("DELETE FROM messages WHERE id = ?", (message_id,)):
                 pass
+        adjust_undecrypted_count(unlinked)
 
     @staticmethod
     async def stream_chan_messages_with_raw(

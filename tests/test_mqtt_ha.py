@@ -315,6 +315,17 @@ class TestLppGpsHandling:
         assert payload == {"lpp_voltage_ch1": 4.03}
         assert "lpp_gps_ch1" not in payload
 
+    def test_repeater_telemetry_payload_merges_core_and_lpp_fields(self):
+        payload = _repeater_telemetry_payload(
+            {
+                "battery_volts": 4.1,
+                "lpp_sensors": [{"channel": 1, "type_name": "voltage", "value": 4.03}],
+            }
+        )
+        assert payload["battery_volts"] == 4.1
+        assert payload["noise_floor_dbm"] is None
+        assert payload["lpp_voltage_ch1"] == 4.03
+
     def test_extract_gps_reading(self):
         attrs = _extract_gps_reading([self._GPS_SENSOR])
         assert attrs == {

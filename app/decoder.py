@@ -14,6 +14,8 @@ from Crypto.Cipher import AES
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
+from app.path_utils import decode_path_byte, parse_packet_envelope
+
 logger = logging.getLogger(__name__)
 
 
@@ -127,16 +129,12 @@ def extract_payload(raw_packet: bytes) -> bytes | None:
 
     Returns the payload bytes, or None if packet is malformed.
     """
-    from app.path_utils import parse_packet_envelope
-
     envelope = parse_packet_envelope(raw_packet)
     return envelope.payload if envelope is not None else None
 
 
 def parse_packet(raw_packet: bytes) -> PacketInfo | None:
     """Parse a raw packet and extract basic info."""
-    from app.path_utils import parse_packet_envelope
-
     envelope = parse_packet_envelope(raw_packet)
     if envelope is None:
         return None
@@ -253,10 +251,7 @@ def try_decrypt_packet_with_channel_key(
     if len(packet_info.payload) < 1:
         return None
 
-    packet_channel_hash = format(packet_info.payload[0], "02x")
-    expected_hash = format(hashlib.sha256(channel_key).digest()[0], "02x")
-
-    if packet_channel_hash != expected_hash:
+    if packet_info.payload[0] != hashlib.sha256(channel_key).digest()[0]:
         return None
 
     return decrypt_group_text(packet_info.payload, channel_key)
@@ -671,8 +666,6 @@ def decrypt_path_payload(payload: bytes, shared_secret: bytes) -> DecryptedPathP
 
     if len(decrypted) < 2:
         return None
-
-    from app.path_utils import decode_path_byte
 
     packed_len = decrypted[0]
     try:

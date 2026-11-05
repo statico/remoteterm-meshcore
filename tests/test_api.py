@@ -645,7 +645,7 @@ class TestMessagesEndpoint:
         radio_manager._meshcore = mock_mc
         with (
             _patch_require_connected(mock_mc),
-            patch("app.routers.messages.MessageRepository") as mock_msg_repo,
+            patch("app.services.messages.MessageRepository") as mock_msg_repo,
         ):
             mock_msg_repo.get_by_content = AsyncMock(return_value=None)
             # Simulate duplicate - create returns None
@@ -681,7 +681,7 @@ class TestMessagesEndpoint:
         radio_manager._meshcore = mock_mc
         with (
             _patch_require_connected(mock_mc),
-            patch("app.routers.messages.MessageRepository") as mock_msg_repo,
+            patch("app.services.messages.MessageRepository") as mock_msg_repo,
         ):
             mock_msg_repo.get_by_content = AsyncMock(return_value=None)
             # Simulate duplicate - create returns None

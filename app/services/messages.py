@@ -121,10 +121,9 @@ async def build_stored_outgoing_channel_message(
     sender_name: str | None,
     sender_key: str | None,
     channel_name: str | None,
-    message_repository=MessageRepository,
 ) -> Message:
     """Build the current payload for a stored outgoing channel message."""
-    acked_count, paths = await message_repository.get_ack_and_paths(message_id)
+    acked_count, paths = await MessageRepository.get_ack_and_paths(message_id)
     return build_message_model(
         message_id=message_id,
         msg_type="CHAN",
@@ -445,7 +444,6 @@ async def create_fallback_channel_message(
     sender_name: str | None,
     channel_name: str | None,
     broadcast_fn: BroadcastFn,
-    message_repository=MessageRepository,
 ) -> Message | None:
     """Store and broadcast a CHANNEL_MSG_RECV fallback channel message."""
     conversation_key_normalized = conversation_key.upper()
@@ -457,7 +455,7 @@ async def create_fallback_channel_message(
         if len(candidates) == 1:
             resolved_sender_key = candidates[0].public_key
 
-    msg_id = await message_repository.create(
+    msg_id = await MessageRepository.create(
         msg_type="CHAN",
         text=text,
         conversation_key=conversation_key_normalized,
@@ -508,10 +506,9 @@ async def create_outgoing_direct_message(
     sender_timestamp: int,
     received_at: int,
     broadcast_fn: BroadcastFn,
-    message_repository=MessageRepository,
 ) -> Message | None:
     """Store and broadcast an outgoing direct message."""
-    msg_id = await message_repository.create(
+    msg_id = await MessageRepository.create(
         msg_type="PRIV",
         text=text,
         conversation_key=conversation_key,
@@ -547,10 +544,9 @@ async def create_outgoing_channel_message(
     channel_name: str | None,
     broadcast_fn: BroadcastFn,
     broadcast: bool = True,
-    message_repository=MessageRepository,
 ) -> Message | None:
     """Store and broadcast an outgoing channel message."""
-    msg_id = await message_repository.create(
+    msg_id = await MessageRepository.create(
         msg_type="CHAN",
         text=text,
         conversation_key=conversation_key,
@@ -572,7 +568,6 @@ async def create_outgoing_channel_message(
         sender_name=sender_name,
         sender_key=sender_key,
         channel_name=channel_name,
-        message_repository=message_repository,
     )
     if broadcast:
         broadcast_message(message=message, broadcast_fn=broadcast_fn)

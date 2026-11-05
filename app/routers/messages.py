@@ -152,8 +152,6 @@ async def send_direct_message(request: SendDirectMessageRequest) -> Message:
             track_pending_ack_fn=track_pending_ack,
             now_fn=time.time,
             error_broadcast_fn=broadcast_error,
-            message_repository=MessageRepository,
-            contact_repository=ContactRepository,
         )
         sent_ids.append(message.id)
     return message
@@ -206,7 +204,6 @@ async def send_channel_message(request: SendChannelMessageRequest) -> Message:
             now_fn=time.time,
             temp_radio_slot=TEMP_RADIO_SLOT,
             flood_scope_override=flood_scope_override,
-            message_repository=MessageRepository,
         )
         sent_ids.append(message.id)
     return message
@@ -270,5 +267,4 @@ async def resend_channel_message(
             error_broadcast_fn=broadcast_error,
             now_fn=time.time,
             temp_radio_slot=TEMP_RADIO_SLOT,
-            message_repository=MessageRepository,
         )

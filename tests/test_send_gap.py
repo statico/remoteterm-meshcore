@@ -43,11 +43,13 @@ def clock(monkeypatch):
     monkeypatch.setattr(message_send, "SEND_GAP_QUIET_SECONDS", 2.0)
     monkeypatch.setattr(message_send._time, "monotonic", clock.monotonic)
     monkeypatch.setattr(message_send.asyncio, "sleep", clock.sleep)
+    monkeypatch.setattr(message_send, "MessageRepository", message_send.MessageRepository)
     return clock
 
 
 async def send(repo, message_id=None):
-    async with message_send.paced_send(repo) as sent_ids:
+    message_send.MessageRepository = repo  # restored by the clock fixture's monkeypatch
+    async with message_send.paced_send() as sent_ids:
         if message_id is not None:
             sent_ids.append(message_id)
 

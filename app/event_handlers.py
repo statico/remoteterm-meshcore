@@ -65,7 +65,6 @@ async def on_contact_message(event: "Event") -> None:
         sender_public_key=sender_pubkey,
         received_at=received_at,
         broadcast_fn=broadcast_event,
-        contact_repository=ContactRepository,
         log=logger,
     )
     if context.skip_storage:
@@ -92,7 +91,6 @@ async def on_contact_message(event: "Event") -> None:
     ):
         sender_name, sender_key = await resolve_direct_message_sender_metadata(
             sender_public_key=signature,
-            contact_repository=ContactRepository,
             log=logger,
         )
     message = await ingest_fallback_direct_message(

@@ -120,7 +120,7 @@ async def _send_gap_seconds() -> float:
     return (await AppSettingsRepository.get()).send_gap_seconds
 
 
-async def _wait_for_send_gap(message_repository) -> None:
+async def _wait_for_send_gap() -> None:
     gap = await _send_gap_seconds()
     if gap <= 0:
         return
@@ -136,7 +136,7 @@ async def _wait_for_send_gap(message_repository) -> None:
     # ponytail: polls the previous row for an echo; hook increment_ack if this gets hot
     while (now := _time.monotonic()) < deadline:
         if not echoed and _last_send_message_id is not None:
-            previous = await message_repository.get_by_id(_last_send_message_id)
+            previous = await MessageRepository.get_by_id(_last_send_message_id)
             echoed = previous is not None and previous.acked > 0
         if echoed and now - _last_rx_monotonic >= SEND_GAP_QUIET_SECONDS:
             return
@@ -144,7 +144,7 @@ async def _wait_for_send_gap(message_repository) -> None:
 
 
 @asynccontextmanager
-async def paced_send(message_repository=MessageRepository) -> AsyncIterator[list[int]]:
+async def paced_send() -> AsyncIterator[list[int]]:
     """Hold the shared send slot, waiting out the gap after the previous send.
 
     Append the stored message id to the yielded list so the next send can
@@ -152,7 +152,7 @@ async def paced_send(message_repository=MessageRepository) -> AsyncIterator[list
     """
     global _last_send_monotonic, _last_send_message_id
     async with _send_gap_lock:
-        await _wait_for_send_gap(message_repository)
+        await _wait_for_send_gap()
         sent_ids: list[int] = []
         try:
             yield sent_ids
@@ -168,7 +168,6 @@ DM_RETRY_WAIT_MARGIN = 1.2
 
 async def allocate_outgoing_sender_timestamp(
     *,
-    message_repository,
     msg_type: str,
     conversation_key: str,
     text: str,
@@ -186,7 +185,7 @@ async def allocate_outgoing_sender_timestamp(
             candidate += 1
             continue
 
-        existing = await message_repository.get_by_content(
+        existing = await MessageRepository.get_by_content(
             msg_type=msg_type,
             conversation_key=conversation_key,
             text=text,
@@ -246,7 +245,6 @@ async def send_channel_message_with_effective_scope(
     temp_radio_slot: int,
     error_broadcast_fn: BroadcastFn,
     flood_scope_override: str | _ScopeUnset = SCOPE_UNSET,
-    app_settings_repository=AppSettingsRepository,
 ) -> Any:
     """Send a channel message, temporarily overriding flood scope and/or path hash mode.
 
@@ -266,7 +264,7 @@ async def send_channel_message_with_effective_scope(
     # change it: a non-empty desired scope, or an explicit request to go unscoped.
     baseline_scope = ""
     if desired_scope or scope_explicit:
-        settings = await app_settings_repository.get()
+        settings = await AppSettingsRepository.get()
         baseline_scope = normalize_region_scope(settings.flood_scope)
 
     # Apply only when the desired scope differs from the radio's baseline. A blank
@@ -558,8 +556,8 @@ async def _apply_direct_message_ack_tracking(
     return 0
 
 
-async def _is_message_acked(*, message_id: int, message_repository) -> bool:
-    acked_count, _paths = await message_repository.get_ack_and_paths(message_id)
+async def _is_message_acked(*, message_id: int) -> bool:
+    acked_count, _paths = await MessageRepository.get_ack_and_paths(message_id)
     return acked_count > 0
 
 
@@ -574,13 +572,12 @@ async def _retry_direct_message_until_acked(
     broadcast_fn: BroadcastFn,
     wait_timeout_ms: int,
     sleep_fn,
-    message_repository,
 ) -> None:
     next_wait_timeout_ms = wait_timeout_ms
     attempt = 1
     while attempt < DM_SEND_MAX_ATTEMPTS:
         await sleep_fn((next_wait_timeout_ms / 1000) * DM_RETRY_WAIT_MARGIN)
-        if await _is_message_acked(message_id=message_id, message_repository=message_repository):
+        if await _is_message_acked(message_id=message_id):
             return
 
         try:
@@ -665,7 +662,7 @@ async def _retry_direct_message_until_acked(
             attempt += 1
             continue
 
-        if await _is_message_acked(message_id=message_id, message_repository=message_repository):
+        if await _is_message_acked(message_id=message_id):
             return
 
         ack_code = _extract_expected_ack_code(result)
@@ -705,8 +702,6 @@ async def send_direct_message_to_contact(
     error_broadcast_fn: BroadcastFn | None = None,
     retry_task_scheduler: RetryTaskScheduler | None = None,
     retry_sleep_fn=None,
-    message_repository=MessageRepository,
-    contact_repository=ContactRepository,
 ) -> Any:
     """Send a direct message and persist/broadcast the outgoing row."""
     if retry_task_scheduler is None:
@@ -733,7 +728,6 @@ async def send_direct_message_to_contact(
             logger.info("Sending direct message to %s", contact.public_key[:12])
             sent_at = int(now_fn())
             sender_timestamp = await allocate_outgoing_sender_timestamp(
-                message_repository=message_repository,
                 msg_type="PRIV",
                 conversation_key=contact.public_key.lower(),
                 text=text,
@@ -776,7 +770,6 @@ async def send_direct_message_to_contact(
             sender_timestamp=sender_timestamp,
             received_at=sent_at,
             broadcast_fn=broadcast_fn,
-            message_repository=message_repository,
         )
         if message is None:
             raise HTTPException(
@@ -795,7 +788,7 @@ async def send_direct_message_to_contact(
     if sent_at is None or sender_timestamp is None or message is None or result is None:
         raise HTTPException(status_code=422, detail="Failed to store outgoing message")
 
-    await contact_repository.update_last_contacted(contact.public_key.lower(), sent_at)
+    await ContactRepository.update_last_contacted(contact.public_key.lower(), sent_at)
 
     ack_code = _extract_expected_ack_code(result)
     retry_timeout_ms = _get_direct_message_retry_timeout_ms(result)
@@ -821,7 +814,6 @@ async def send_direct_message_to_contact(
                 broadcast_fn=broadcast_fn,
                 wait_timeout_ms=retry_timeout_ms,
                 sleep_fn=retry_sleep_fn,
-                message_repository=message_repository,
             )
         )
 
@@ -936,7 +928,6 @@ async def send_channel_message_to_channel(
     now_fn: NowFn,
     temp_radio_slot: int,
     flood_scope_override: str | _ScopeUnset = SCOPE_UNSET,
-    message_repository=MessageRepository,
 ) -> Any:
     """Send a channel message and persist/broadcast the outgoing row.
 
@@ -960,7 +951,6 @@ async def send_channel_message_to_channel(
 
             sent_at = int(now_fn())
             sender_timestamp = await allocate_outgoing_sender_timestamp(
-                message_repository=message_repository,
                 msg_type="CHAN",
                 conversation_key=channel_key_upper,
                 text=text_with_sender,
@@ -977,7 +967,6 @@ async def send_channel_message_to_channel(
                 channel_name=channel.name,
                 broadcast_fn=broadcast_fn,
                 broadcast=False,
-                message_repository=message_repository,
             )
             if outgoing_message is None:
                 raise HTTPException(
@@ -1012,7 +1001,7 @@ async def send_channel_message_to_channel(
                 )
     except Exception:
         if outgoing_message is not None:
-            await message_repository.delete_by_id(outgoing_message.id)
+            await MessageRepository.delete_by_id(outgoing_message.id)
             outgoing_message = None
         raise
     finally:
@@ -1036,7 +1025,6 @@ async def send_channel_message_to_channel(
         sender_name=radio_name or None,
         sender_key=our_public_key,
         channel_name=channel.name,
-        message_repository=message_repository,
     )
     broadcast_message(message=outgoing_message, broadcast_fn=broadcast_fn)
 
@@ -1068,7 +1056,6 @@ async def resend_channel_message_record(
     error_broadcast_fn: BroadcastFn,
     now_fn: NowFn,
     temp_radio_slot: int,
-    message_repository=MessageRepository,
 ) -> ResendChannelMessageResponse:
     """Resend a stored outgoing channel message."""
     try:
@@ -1098,7 +1085,6 @@ async def resend_channel_message_record(
             if new_timestamp:
                 sent_at = int(now_fn())
                 sender_timestamp = await allocate_outgoing_sender_timestamp(
-                    message_repository=message_repository,
                     msg_type="CHAN",
                     conversation_key=message.conversation_key,
                     text=stored_text,
@@ -1115,7 +1101,6 @@ async def resend_channel_message_record(
                     channel_name=channel.name,
                     broadcast_fn=broadcast_fn,
                     broadcast=False,
-                    message_repository=message_repository,
                 )
                 if new_message is None:
                     raise HTTPException(
@@ -1148,7 +1133,7 @@ async def resend_channel_message_record(
                 )
     except Exception:
         if new_message is not None:
-            await message_repository.delete_by_id(new_message.id)
+            await MessageRepository.delete_by_id(new_message.id)
             new_message = None
         raise
     finally:
@@ -1173,7 +1158,6 @@ async def resend_channel_message_record(
             sender_name=radio_name or None,
             sender_key=resend_public_key,
             channel_name=channel.name,
-            message_repository=message_repository,
         )
         broadcast_message(message=new_message, broadcast_fn=broadcast_fn)
 

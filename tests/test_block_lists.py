@@ -452,3 +452,43 @@ class TestUnreadCountsBlockFiltering:
 
         assert f"contact-{blocked_key}" not in result["last_message_times"]
         assert result["last_message_times"][f"contact-{normal_key}"] == 2999
+
+    @pytest.mark.asyncio
+    async def test_first_unread_ids_skip_blocked_messages(self, test_db):
+        """The unread divider must not anchor to a message the client hides."""
+        chan_key = "DD" * 16
+        prefix_key = "abcdef12"  # DM stored under a key prefix: no contacts row
+        await ChannelRepository.upsert(key=chan_key, name="#test")
+        await ChannelRepository.update_last_read_at(chan_key, 1000)
+
+        chan_ids = []
+        for i, name in enumerate(["Spammer", "Spammer", "Friend", "Friend"]):
+            chan_ids.append(
+                await MessageRepository.create(
+                    msg_type="CHAN",
+                    text=f"{name}: {i}",
+                    received_at=1001,
+                    conversation_key=chan_key,
+                    sender_timestamp=1001 + i,
+                    sender_name=name,
+                )
+            )
+        dm_ids = []
+        for i, name in enumerate(["Spammer", "Friend"]):
+            dm_ids.append(
+                await MessageRepository.create(
+                    msg_type="PRIV",
+                    text=f"dm {i}",
+                    received_at=1001,
+                    conversation_key=prefix_key,
+                    sender_timestamp=1001 + i,
+                    sender_name=name,
+                )
+            )
+
+        result = await MessageRepository.get_unread_counts(blocked_names=["Spammer"])
+
+        assert result["counts"][f"channel-{chan_key}"] == 2
+        assert result["first_unread_ids"][f"channel-{chan_key}"] == chan_ids[2]
+        assert result["counts"][f"contact-{prefix_key}"] == 1
+        assert result["first_unread_ids"][f"contact-{prefix_key}"] == dm_ids[1]

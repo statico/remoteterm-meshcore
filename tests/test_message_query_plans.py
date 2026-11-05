@@ -83,3 +83,40 @@ async def test_get_around_context_queries_seek_the_pagination_index(test_db):
     _target, before, after = plans
     assert "USING INDEX idx_messages_pagination" in before and "received_at<?" in before
     assert "USING INDEX idx_messages_pagination" in after and "received_at>?" in after
+
+
+@pytest.mark.asyncio
+async def test_unread_counts_seek_per_conversation(test_db):
+    """get_unread_counts runs at startup and holds the single DB lock, so every
+    message page queued behind it waits. Each statement must seek per
+    conversation rather than walk the messages table (seconds on 200k rows).
+    """
+    from app.repository import ChannelRepository
+
+    await ChannelRepository.upsert(key=CHAN_KEY, name="#test")
+    await seed_same_second_ties()
+    plans = await plans_for(
+        test_db,
+        lambda: MessageRepository.get_unread_counts(
+            "me", blocked_keys=BLOCKED_KEYS, blocked_names=BLOCKED_NAMES
+        ),
+    )
+    chan, _priv, _channels, _contacts, last_times = plans
+
+    # Channels drive the join; messages is a range seek per channel, and the
+    # first-unread subquery is a seek on the same index whose order already
+    # matches ORDER BY received_at, id (no sort).
+    unread_range = (
+        "USING INDEX idx_messages_unread_covering "
+        "(type=? AND conversation_key=? AND outgoing=? AND received_at>?)"
+    )
+    assert chan.index("SCAN c") < chan.index("SEARCH m")
+    assert f"SEARCH m {unread_range}" in chan
+    first_unread = chan.split("CORRELATED SCALAR SUBQUERY")[1]
+    assert f"SEARCH f {unread_range}" in first_unread
+    assert "TEMP B-TREE" not in first_unread
+
+    assert (
+        "SEARCH m USING INDEX idx_messages_pagination (type=? AND conversation_key=?)"
+        in last_times
+    )

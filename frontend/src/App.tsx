@@ -358,7 +358,7 @@ export function App() {
     removeConversationState,
     markAllRead,
     refreshUnreads,
-  } = useUnreadCounts(channels, contacts, activeConversation);
+  } = useUnreadCounts(channels, contacts, activeConversation, contactsLoaded && channelsLoaded);
   useFaviconBadge(unreadCounts, mentions, channels);
   useUnreadTitle(unreadCounts, contacts, channels);
 

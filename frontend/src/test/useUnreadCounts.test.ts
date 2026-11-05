@@ -119,12 +119,86 @@ describe('useUnreadCounts', () => {
     channels = [] as Channel[],
     contacts = [] as Contact[],
     activeConversation = null as Conversation | null,
+    listsLoaded = true,
   } = {}) {
     return renderHook(
-      ({ channels: ch, contacts: ct, activeConversation: ac }) => useUnreadCounts(ch, ct, ac),
-      { initialProps: { channels, contacts, activeConversation } }
+      ({ channels: ch, contacts: ct, activeConversation: ac, listsLoaded: loaded }) =>
+        useUnreadCounts(ch, ct, ac, loaded),
+      {
+        initialProps: { channels, contacts, activeConversation, listsLoaded } as {
+          channels: Channel[];
+          contacts: Contact[];
+          activeConversation: Conversation | null;
+          listsLoaded?: boolean;
+        },
+      }
     );
   }
+
+  it('fetches unreads and marks the open conversation read once across startup list loads', async () => {
+    const mocks = await getMockedApi();
+    const activeConversation: Conversation = {
+      type: 'channel',
+      id: CHANNEL_KEY,
+      name: CHANNEL_KEY,
+    };
+    const { rerender } = renderWith({ activeConversation, listsLoaded: false });
+
+    // Channels land first, then contacts; the active conversation is re-set with
+    // its resolved name (a new object) once the channel list is known.
+    const channels = [makeChannel(CHANNEL_KEY, 'Test')];
+    const named: Conversation = { ...activeConversation, name: 'Test' };
+    rerender({ channels, contacts: [], activeConversation: named, listsLoaded: false });
+    rerender({
+      channels,
+      contacts: [makeContact(CONTACT_KEY)],
+      activeConversation: { ...named },
+      listsLoaded: true,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mocks.getUnreads).toHaveBeenCalledTimes(1);
+    expect(mocks.markChannelRead).toHaveBeenCalledTimes(1);
+    expect(mocks.markChannelRead).toHaveBeenCalledWith(CHANNEL_KEY);
+  });
+
+  it('still re-fetches on a count change after the startup lists have loaded', async () => {
+    const mocks = await getMockedApi();
+    const channels = [makeChannel(CHANNEL_KEY, 'Test')];
+    const { rerender } = renderWith({ listsLoaded: false });
+    rerender({ channels, contacts: [], activeConversation: null, listsLoaded: true });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mocks.getUnreads).toHaveBeenCalledTimes(1);
+
+    rerender({
+      channels: [...channels, makeChannel('11223344556677889900AABBCCDDEEFF', 'New')],
+      contacts: [],
+      activeConversation: null,
+      listsLoaded: true,
+    });
+    await act(async () => {
+      await vi.waitFor(() => expect(mocks.getUnreads).toHaveBeenCalledTimes(2));
+    });
+  });
+
+  it('marks a conversation read again when the reader switches away and back', async () => {
+    const mocks = await getMockedApi();
+    const channel: Conversation = { type: 'channel', id: CHANNEL_KEY, name: 'Test' };
+    const contact: Conversation = { type: 'contact', id: CONTACT_KEY, name: 'Bob' };
+    const { rerender } = renderWith({ activeConversation: channel });
+    rerender({ channels: [], contacts: [], activeConversation: contact, listsLoaded: true });
+    rerender({ channels: [], contacts: [], activeConversation: channel, listsLoaded: true });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mocks.markChannelRead).toHaveBeenCalledTimes(2);
+    expect(mocks.markContactRead).toHaveBeenCalledTimes(1);
+  });
 
   it('filters out active channel conversation from server unreads', async () => {
     const mocks = await getMockedApi();

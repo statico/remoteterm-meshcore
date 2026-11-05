@@ -41,7 +41,9 @@ interface UseUnreadCountsResult {
 export function useUnreadCounts(
   channels: Channel[],
   contacts: Contact[],
-  activeConversation: Conversation | null
+  activeConversation: Conversation | null,
+  /** False until the startup channel and contact loads have both finished. */
+  listsLoaded = true
 ): UseUnreadCountsResult {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [mentions, setMentions] = useState<Record<string, boolean>>({});
@@ -104,8 +106,10 @@ export function useUnreadCounts(
   // On mount, consume the prefetched promise (started in index.html before
   // React loaded) or fall back to a fresh fetch.
   // Re-fetch when channel/contact count changes mid-session (new sync, cracker
-  // channel created, etc.). Skip only the very first run of this effect; after
-  // that, any count change should trigger a refresh, even if the other
+  // channel created, etc.). The counts seen once both startup loads finish are
+  // the baseline: the lists filling in at startup are not a change, and
+  // re-fetching for them tripled the startup unreads (and mark-read) requests.
+  // After that, any count change triggers a refresh, even if the other
   // collection is still empty.
   const channelsLen = channels.length;
   const contactsLen = contacts.length;
@@ -118,51 +122,56 @@ export function useUnreadCounts(
       });
   }, [applyUnreads]);
   useEffect(() => {
+    if (!listsLoaded) return;
     if (!hasObservedCountsRef.current) {
       hasObservedCountsRef.current = true;
       return;
     }
     fetchUnreads();
-  }, [channelsLen, contactsLen, fetchUnreads]);
+  }, [channelsLen, contactsLen, listsLoaded, fetchUnreads]);
 
-  // Mark conversation as read when user views it
+  // Mark conversation as read when user views it. Keyed on the conversation's
+  // identity, not the object: the same conversation is re-set with a fresh
+  // object (name resolved once lists load, etc.) and each one re-POSTed mark-read.
   // Calls server API to persist read state across devices
+  const readable = isUnreadTrackedConversation(activeConversation) ? activeConversation : null;
+  const readableType = readable?.type ?? null;
+  const readableId = readable?.id ?? null;
   useEffect(() => {
-    if (isUnreadTrackedConversation(activeConversation)) {
-      const key = getStateKey(activeConversation.type, activeConversation.id);
+    if (!readableType || !readableId) return;
+    const key = getStateKey(readableType, readableId);
 
-      // Update local state immediately for responsive UI
-      setUnreadCounts((prev) => {
-        if (prev[key]) {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        }
-        return prev;
-      });
-
-      // Also clear mentions for this conversation
-      setMentions((prev) => {
-        if (prev[key]) {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        }
-        return prev;
-      });
-
-      // Persist to server (fire-and-forget, errors logged but not blocking)
-      if (activeConversation.type === 'channel') {
-        api.markChannelRead(activeConversation.id).catch((err) => {
-          console.error('Failed to mark channel as read on server:', err);
-        });
-      } else if (activeConversation.type === 'contact') {
-        api.markContactRead(activeConversation.id).catch((err) => {
-          console.error('Failed to mark contact as read on server:', err);
-        });
+    // Update local state immediately for responsive UI
+    setUnreadCounts((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
       }
+      return prev;
+    });
+
+    // Also clear mentions for this conversation
+    setMentions((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return prev;
+    });
+
+    // Persist to server (fire-and-forget, errors logged but not blocking)
+    if (readableType === 'channel') {
+      api.markChannelRead(readableId).catch((err) => {
+        console.error('Failed to mark channel as read on server:', err);
+      });
+    } else {
+      api.markContactRead(readableId).catch((err) => {
+        console.error('Failed to mark contact as read on server:', err);
+      });
     }
-  }, [activeConversation]);
+  }, [readableType, readableId]);
 
   const incrementUnread = useCallback(
     (stateKey: string, messageId: number, hasMention?: boolean) => {

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState, useMemo, type MouseEvent } from 'react';
+import { lazy, useEffect, useCallback, useRef, useState, useMemo, type MouseEvent } from 'react';
 import { api } from './api';
 import { takePrefetchOrFetch } from './prefetch';
 import { useWebSocket } from './useWebSocket';
@@ -16,6 +16,14 @@ import { useBrowserNotifications } from './hooks/useBrowserNotifications';
 import { useFaviconBadge, useUnreadTitle } from './hooks/useFaviconBadge';
 import { toast } from './components/ui/sonner';
 import { AppShell } from './components/AppShell';
+import { StatusBar } from './components/StatusBar';
+import { Sidebar } from './components/Sidebar';
+import { ConversationPane } from './components/ConversationPane';
+import { NewMessageModal } from './components/NewMessageModal';
+import { BulkAddChannelResultModal } from './components/BulkAddChannelResultModal';
+import { CommandPalette } from './components/CommandPalette';
+import { SecurityWarningModal } from './components/SecurityWarningModal';
+import type { SettingsSection } from './components/settings/settingsConstants';
 import type { MessageInputHandle } from './components/MessageInput';
 import { usePush } from './contexts/PushSubscriptionContext';
 import { messageContainsMention } from './utils/messageParser';
@@ -29,6 +37,26 @@ import type {
 } from './types';
 import { CONTACT_TYPE_REPEATER, CONTACT_TYPE_ROOM } from './types';
 import { shouldAutoFocusInput } from './utils/autoFocusInput';
+
+const SettingsModal = lazy(() =>
+  import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal }))
+);
+const CrackerPanel = lazy(() =>
+  import('./components/CrackerPanel').then((m) => ({ default: m.CrackerPanel }))
+);
+const SearchView = lazy(() =>
+  import('./components/SearchView').then((m) => ({ default: m.SearchView }))
+);
+// Info panes pull in recharts; keep them out of the main chunk until first opened.
+const ContactInfoPane = lazy(() =>
+  import('./components/ContactInfoPane').then((m) => ({ default: m.ContactInfoPane }))
+);
+const ChannelInfoPane = lazy(() =>
+  import('./components/ChannelInfoPane').then((m) => ({ default: m.ChannelInfoPane }))
+);
+
+/** Stable fallback so memoized children don't see a new [] before settings load. */
+const NO_STRINGS: string[] = [];
 
 interface ChannelUnreadMarker {
   channelId: string;
@@ -546,233 +574,22 @@ export function App() {
     [handleBulkCreateHashtagChannels]
   );
 
-  const statusProps = {
-    health,
-    config,
-  };
-  const sidebarProps = {
-    contacts,
-    channels,
-    loaded: contactsLoaded && channelsLoaded,
-    activeConversation,
-    onSelectConversation: handleSelectConversationWithTargetReset,
-    onNewMessage: handleOpenNewMessage,
-    lastMessageTimes,
-    unreadCounts,
-    mentions,
-    showCracker,
-    crackerRunning,
-    onToggleCracker: handleToggleCracker,
-    onMarkAllRead: markAllRead,
-    isConversationNotificationsEnabled,
-    blockedKeys: appSettings?.blocked_keys ?? [],
-    blockedNames: appSettings?.blocked_names ?? [],
-  };
-  const bulkAddChannelResultModalProps = {
-    result: bulkAddResult,
-  };
+  const blockedKeys = appSettings?.blocked_keys ?? NO_STRINGS;
+  const blockedNames = appSettings?.blocked_names ?? NO_STRINGS;
+  const trackedTelemetryRepeaters = appSettings?.tracked_telemetry_repeaters ?? NO_STRINGS;
+  const trackedTelemetryContacts = appSettings?.tracked_telemetry_contacts ?? NO_STRINGS;
+  const handleOpenSettings = useCallback(
+    (section: SettingsSection) => {
+      setSettingsSection(section);
+      if (!showSettings) handleToggleSettingsView();
+    },
+    [setSettingsSection, showSettings, handleToggleSettingsView]
+  );
   const activePendingMessages = pendingMessages.filter(
     (m) =>
       m.conversation_key === activeConversation?.id &&
       m.type === (activeConversation?.type === 'channel' ? 'CHAN' : 'PRIV')
   );
-  const conversationPaneProps = {
-    activeConversation,
-    contacts,
-    channels,
-    contactsLoaded,
-    dataLoaded: contactsLoaded && channelsLoaded,
-    config,
-    health,
-    messages: activePendingMessages.length
-      ? [...sortedMessages, ...activePendingMessages]
-      : sortedMessages,
-    preSorted: activeContactIsRoom,
-    messagesLoading,
-    loadingOlder,
-    hasOlderMessages,
-    unreadMarkerMessageId:
-      activeConversation?.type === 'channel' &&
-      channelUnreadMarker?.channelId === activeConversation.id
-        ? resolveUnreadMarkerId(
-            channelUnreadMarker.messageId,
-            unreadLastReadAts[getStateKey('channel', activeConversation.id)] ?? null,
-            messages
-          )
-        : undefined,
-    unreadSummaryAfter:
-      activeConversation?.type === 'channel' &&
-      channelUnreadMarker?.channelId === activeConversation.id &&
-      appSettings?.ollama_enabled
-        ? channelUnreadMarker.summarizeAfter
-        : null,
-    onNavigateToUnread: (messageId: number) => setTargetMessageId(messageId),
-    targetMessageId,
-    hasNewerMessages,
-    loadingNewer,
-    messageInputRef,
-    onTrace: handleTrace,
-    onRunTracePath: api.requestRadioTrace,
-    onPathDiscovery: handlePathDiscovery,
-    onToggleFavorite: handleToggleFavorite,
-    onToggleMute: handleToggleMute,
-    onDeleteContact: handleDeleteContact,
-    onDeleteChannel: handleDeleteChannel,
-    onSetChannelFloodScopeOverride: handleSetChannelFloodScopeOverride,
-    onSetContactFloodScopeOverride: handleSetContactFloodScopeOverride,
-    onSetChannelPathHashModeOverride: handleSetChannelPathHashModeOverride,
-    onSelectConversation: handleSelectConversationWithTargetReset,
-    onOpenContactInfo: handleOpenContactInfo,
-    onOpenChannelInfo: handleOpenChannelInfo,
-    onSenderClick: handleSenderClick,
-    onChannelReferenceClick: handleChannelReferenceClick,
-    onLoadOlder: fetchOlderMessages,
-    onResendChannelMessage: handleResendChannelMessage,
-    onTargetReached: () => setTargetMessageId(null),
-    mentionsViewProps: {
-      myName: config?.name ?? null,
-      mentions,
-      lastReadAts: unreadLastReadAts,
-      refreshNonce: mentionNonce,
-      onNavigateToMessage: handleNavigateToMessage,
-    },
-    onLoadNewer: fetchNewerMessages,
-    onJumpToBottom: jumpToBottom,
-    onSendMessage: handleSendMessage,
-    onDismissUnreadMarker: () => setChannelUnreadMarker(null),
-    notificationsSupported,
-    notificationsPermission,
-    notificationsEnabled:
-      activeConversation?.type === 'contact' || activeConversation?.type === 'channel'
-        ? isConversationNotificationsEnabled(activeConversation.type, activeConversation.id)
-        : false,
-    onToggleNotifications: () => {
-      if (activeConversation?.type === 'contact' || activeConversation?.type === 'channel') {
-        void toggleConversationNotifications(
-          activeConversation.type,
-          activeConversation.id,
-          activeConversation.name
-        );
-      }
-    },
-    pushSupported: pushSubscription.isSupported,
-    pushSubscribed: pushSubscription.isSubscribed,
-    pushEnabledForConversation:
-      activeConversation?.type === 'contact' || activeConversation?.type === 'channel'
-        ? pushSubscription.isConversationPushEnabled(
-            getStateKey(activeConversation.type, activeConversation.id)
-          )
-        : false,
-    onTogglePush: async () => {
-      if (
-        !activeConversation ||
-        (activeConversation.type !== 'contact' && activeConversation.type !== 'channel')
-      )
-        return;
-      const key = getStateKey(activeConversation.type, activeConversation.id);
-      const pushEnabled = pushSubscription.isConversationPushEnabled(key);
-
-      if (!pushEnabled && !pushSubscription.isSubscribed) {
-        const subscriptionId = await pushSubscription.subscribe();
-        if (!subscriptionId) {
-          return;
-        }
-      }
-
-      await pushSubscription.toggleConversation(key);
-    },
-    onOpenPushSettings: () => {
-      setSettingsSection('local');
-      if (!showSettings) handleToggleSettingsView();
-    },
-    trackedTelemetryRepeaters: appSettings?.tracked_telemetry_repeaters ?? [],
-    onToggleTrackedTelemetry: handleToggleTrackedTelemetry,
-    repeaterAutoLoginKey,
-    onClearRepeaterAutoLogin: () => setRepeaterAutoLoginKey(null),
-    blockedKeys: appSettings?.blocked_keys,
-    blockedNames: appSettings?.blocked_names,
-  };
-  const searchProps = {
-    contacts,
-    channels,
-    visibilityVersion,
-    onNavigateToMessage: handleNavigateToMessage,
-    prefillRequest: searchPrefillRequest,
-  };
-  const settingsProps = {
-    config,
-    health,
-    appSettings,
-    onSave: handleSaveConfig,
-    onSaveAppSettings: handleSaveAppSettings,
-    onSetPrivateKey: handleSetPrivateKey,
-    onReboot: handleReboot,
-    onDisconnect: handleDisconnect,
-    onReconnect: handleReconnect,
-    onAdvertise: handleAdvertise,
-    meshDiscovery,
-    meshDiscoveryLoadingTarget,
-    onDiscoverMesh: handleDiscoverMesh,
-    regionDiscovery,
-    regionDiscoveryLoading,
-    onDiscoverRegions: handleDiscoverRegions,
-    onHealthRefresh: handleHealthRefresh,
-    onRefreshAppSettings: fetchAppSettings,
-    blockedKeys: appSettings?.blocked_keys,
-    blockedNames: appSettings?.blocked_names,
-    onToggleBlockedKey: handleBlockKey,
-    onToggleBlockedName: handleBlockName,
-    contacts,
-    channels,
-    onBulkDeleteContacts: (deletedKeys: string[]) => {
-      const keySet = new Set(deletedKeys.map((k) => k.toLowerCase()));
-      setContacts((prev) => prev.filter((c) => !keySet.has(c.public_key.toLowerCase())));
-    },
-    trackedTelemetryRepeaters: appSettings?.tracked_telemetry_repeaters ?? [],
-    onToggleTrackedTelemetry: handleToggleTrackedTelemetry,
-    trackedTelemetryContacts: appSettings?.tracked_telemetry_contacts ?? [],
-    onToggleTrackedTelemetryContact: handleToggleTrackedTelemetryContact,
-  };
-  const crackerProps = {
-    channels,
-    onChannelCreate: handleCreateCrackedChannel,
-  };
-  const newMessageModalProps = {
-    undecryptedCount,
-    showBulkAddChannelTab,
-    prefillRequest: newMessagePrefillRequest,
-    onCreateContact: handleCreateContact,
-    onCreateChannel: handleCreateChannel,
-    onCreateHashtagChannel: handleCreateHashtagChannel,
-    onBulkAddHashtagChannels: handleBulkAddChannels,
-  };
-  const contactInfoPaneProps = {
-    contactKey: infoPaneContactKey,
-    fromChannel: infoPaneFromChannel,
-    onClose: handleCloseContactInfo,
-    contacts,
-    config,
-    onToggleFavorite: handleToggleFavorite,
-    onNavigateToChannel: handleNavigateToChannel,
-    onSearchMessagesByKey: (publicKey: string) => {
-      handleOpenSearchWithQuery(`user:${publicKey}`);
-    },
-    onSearchMessagesByName: (name: string) => {
-      handleOpenSearchWithQuery(`user:${quoteSearchOperatorValue(name)}`);
-    },
-    onToggleBlockedKey: handleBlockKey,
-    onToggleBlockedName: handleBlockName,
-    blockedKeys: appSettings?.blocked_keys ?? [],
-    blockedNames: appSettings?.blocked_names ?? [],
-    trackedTelemetryContacts: appSettings?.tracked_telemetry_contacts ?? [],
-    onToggleTrackedTelemetryContact: handleToggleTrackedTelemetryContact,
-  };
-  const channelInfoPaneProps = {
-    channelKey: infoPaneChannelKey,
-    onClose: handleCloseChannelInfo,
-    channels,
-    onToggleFavorite: handleToggleFavorite,
-  };
 
   // Connect to WebSocket
   useWebSocket(wsHandlers);
@@ -810,31 +627,281 @@ export function App() {
   return (
     <AppShell
       localLabel={localLabel}
-      showNewMessage={showNewMessage}
-      showBulkAddResults={bulkAddResult !== null}
+      activeConversation={activeConversation}
       showSettings={showSettings}
       settingsSection={settingsSection}
       sidebarOpen={sidebarOpen}
       showCracker={showCracker}
+      contactInfoOpen={infoPaneContactKey !== null}
+      channelInfoOpen={infoPaneChannelKey !== null}
       onSettingsSectionChange={setSettingsSection}
       onSidebarOpenChange={setSidebarOpen}
-      onCrackerRunningChange={setCrackerRunning}
-      onToggleSettingsView={handleToggleSettingsView}
       onCloseSettingsView={handleCloseSettingsView}
-      onCloseNewMessage={handleCloseNewMessage}
-      onCloseBulkAddResults={handleCloseBulkAddResults}
-      onLocalLabelChange={setLocalLabel}
-      statusProps={statusProps}
-      sidebarProps={sidebarProps}
-      conversationPaneProps={conversationPaneProps}
-      searchProps={searchProps}
-      settingsProps={settingsProps}
-      crackerProps={crackerProps}
-      newMessageModalProps={newMessageModalProps}
-      bulkAddChannelResultModalProps={bulkAddChannelResultModalProps}
-      contactInfoPaneProps={contactInfoPaneProps}
-      channelInfoPaneProps={channelInfoPaneProps}
-      onRepeaterAutoLogin={handleRepeaterAutoLogin}
-    />
+      statusBar={
+        <StatusBar
+          health={health}
+          config={config}
+          settingsMode={showSettings}
+          onSettingsClick={handleToggleSettingsView}
+          onMenuClick={showSettings ? undefined : () => setSidebarOpen(true)}
+        />
+      }
+      sidebar={
+        <Sidebar
+          contacts={contacts}
+          channels={channels}
+          loaded={contactsLoaded && channelsLoaded}
+          activeConversation={activeConversation}
+          onSelectConversation={handleSelectConversationWithTargetReset}
+          onNewMessage={handleOpenNewMessage}
+          lastMessageTimes={lastMessageTimes}
+          unreadCounts={unreadCounts}
+          mentions={mentions}
+          showCracker={showCracker}
+          crackerRunning={crackerRunning}
+          onToggleCracker={handleToggleCracker}
+          onMarkAllRead={markAllRead}
+          isConversationNotificationsEnabled={isConversationNotificationsEnabled}
+          blockedKeys={blockedKeys}
+          blockedNames={blockedNames}
+        />
+      }
+      conversationPane={
+        <ConversationPane
+          activeConversation={activeConversation}
+          contacts={contacts}
+          channels={channels}
+          contactsLoaded={contactsLoaded}
+          dataLoaded={contactsLoaded && channelsLoaded}
+          config={config}
+          health={health}
+          messages={
+            activePendingMessages.length
+              ? [...sortedMessages, ...activePendingMessages]
+              : sortedMessages
+          }
+          preSorted={activeContactIsRoom}
+          messagesLoading={messagesLoading}
+          loadingOlder={loadingOlder}
+          hasOlderMessages={hasOlderMessages}
+          unreadMarkerMessageId={
+            activeConversation?.type === 'channel' &&
+            channelUnreadMarker?.channelId === activeConversation.id
+              ? resolveUnreadMarkerId(
+                  channelUnreadMarker.messageId,
+                  unreadLastReadAts[getStateKey('channel', activeConversation.id)] ?? null,
+                  messages
+                )
+              : undefined
+          }
+          unreadSummaryAfter={
+            activeConversation?.type === 'channel' &&
+            channelUnreadMarker?.channelId === activeConversation.id &&
+            appSettings?.ollama_enabled
+              ? channelUnreadMarker.summarizeAfter
+              : null
+          }
+          onNavigateToUnread={(messageId: number) => setTargetMessageId(messageId)}
+          targetMessageId={targetMessageId}
+          hasNewerMessages={hasNewerMessages}
+          loadingNewer={loadingNewer}
+          messageInputRef={messageInputRef}
+          onTrace={handleTrace}
+          onRunTracePath={api.requestRadioTrace}
+          onPathDiscovery={handlePathDiscovery}
+          onToggleFavorite={handleToggleFavorite}
+          onToggleMute={handleToggleMute}
+          onDeleteContact={handleDeleteContact}
+          onDeleteChannel={handleDeleteChannel}
+          onSetChannelFloodScopeOverride={handleSetChannelFloodScopeOverride}
+          onSetContactFloodScopeOverride={handleSetContactFloodScopeOverride}
+          onSetChannelPathHashModeOverride={handleSetChannelPathHashModeOverride}
+          onSelectConversation={handleSelectConversationWithTargetReset}
+          onOpenContactInfo={handleOpenContactInfo}
+          onOpenChannelInfo={handleOpenChannelInfo}
+          onSenderClick={handleSenderClick}
+          onChannelReferenceClick={handleChannelReferenceClick}
+          onLoadOlder={fetchOlderMessages}
+          onResendChannelMessage={handleResendChannelMessage}
+          onTargetReached={() => setTargetMessageId(null)}
+          mentionsViewProps={{
+            myName: config?.name ?? null,
+            mentions,
+            lastReadAts: unreadLastReadAts,
+            refreshNonce: mentionNonce,
+            onNavigateToMessage: handleNavigateToMessage,
+          }}
+          onLoadNewer={fetchNewerMessages}
+          onJumpToBottom={jumpToBottom}
+          onSendMessage={handleSendMessage}
+          onDismissUnreadMarker={() => setChannelUnreadMarker(null)}
+          notificationsSupported={notificationsSupported}
+          notificationsPermission={notificationsPermission}
+          notificationsEnabled={
+            activeConversation?.type === 'contact' || activeConversation?.type === 'channel'
+              ? isConversationNotificationsEnabled(activeConversation.type, activeConversation.id)
+              : false
+          }
+          onToggleNotifications={() => {
+            if (activeConversation?.type === 'contact' || activeConversation?.type === 'channel') {
+              void toggleConversationNotifications(
+                activeConversation.type,
+                activeConversation.id,
+                activeConversation.name
+              );
+            }
+          }}
+          pushSupported={pushSubscription.isSupported}
+          pushSubscribed={pushSubscription.isSubscribed}
+          pushEnabledForConversation={
+            activeConversation?.type === 'contact' || activeConversation?.type === 'channel'
+              ? pushSubscription.isConversationPushEnabled(
+                  getStateKey(activeConversation.type, activeConversation.id)
+                )
+              : false
+          }
+          onTogglePush={async () => {
+            if (
+              !activeConversation ||
+              (activeConversation.type !== 'contact' && activeConversation.type !== 'channel')
+            )
+              return;
+            const key = getStateKey(activeConversation.type, activeConversation.id);
+            const pushEnabled = pushSubscription.isConversationPushEnabled(key);
+
+            if (!pushEnabled && !pushSubscription.isSubscribed) {
+              const subscriptionId = await pushSubscription.subscribe();
+              if (!subscriptionId) {
+                return;
+              }
+            }
+
+            await pushSubscription.toggleConversation(key);
+          }}
+          onOpenPushSettings={() => handleOpenSettings('local')}
+          trackedTelemetryRepeaters={trackedTelemetryRepeaters}
+          onToggleTrackedTelemetry={handleToggleTrackedTelemetry}
+          repeaterAutoLoginKey={repeaterAutoLoginKey}
+          onClearRepeaterAutoLogin={() => setRepeaterAutoLoginKey(null)}
+          blockedKeys={appSettings?.blocked_keys}
+          blockedNames={appSettings?.blocked_names}
+        />
+      }
+      searchView={
+        <SearchView
+          contacts={contacts}
+          channels={channels}
+          visibilityVersion={visibilityVersion}
+          onNavigateToMessage={handleNavigateToMessage}
+          prefillRequest={searchPrefillRequest}
+        />
+      }
+      settingsView={
+        <SettingsModal
+          config={config}
+          health={health}
+          appSettings={appSettings}
+          onSave={handleSaveConfig}
+          onSaveAppSettings={handleSaveAppSettings}
+          onSetPrivateKey={handleSetPrivateKey}
+          onReboot={handleReboot}
+          onDisconnect={handleDisconnect}
+          onReconnect={handleReconnect}
+          onAdvertise={handleAdvertise}
+          meshDiscovery={meshDiscovery}
+          meshDiscoveryLoadingTarget={meshDiscoveryLoadingTarget}
+          onDiscoverMesh={handleDiscoverMesh}
+          regionDiscovery={regionDiscovery}
+          regionDiscoveryLoading={regionDiscoveryLoading}
+          onDiscoverRegions={handleDiscoverRegions}
+          onHealthRefresh={handleHealthRefresh}
+          onRefreshAppSettings={fetchAppSettings}
+          blockedKeys={appSettings?.blocked_keys}
+          blockedNames={appSettings?.blocked_names}
+          onToggleBlockedKey={handleBlockKey}
+          onToggleBlockedName={handleBlockName}
+          contacts={contacts}
+          channels={channels}
+          onBulkDeleteContacts={(deletedKeys: string[]) => {
+            const keySet = new Set(deletedKeys.map((k) => k.toLowerCase()));
+            setContacts((prev) => prev.filter((c) => !keySet.has(c.public_key.toLowerCase())));
+          }}
+          trackedTelemetryRepeaters={trackedTelemetryRepeaters}
+          onToggleTrackedTelemetry={handleToggleTrackedTelemetry}
+          trackedTelemetryContacts={trackedTelemetryContacts}
+          onToggleTrackedTelemetryContact={handleToggleTrackedTelemetryContact}
+          open={showSettings}
+          pageMode
+          externalSidebarNav
+          desktopSection={settingsSection}
+          onClose={handleCloseSettingsView}
+          onLocalLabelChange={setLocalLabel}
+        />
+      }
+      crackerPanel={
+        <CrackerPanel
+          channels={channels}
+          onChannelCreate={handleCreateCrackedChannel}
+          visible={showCracker}
+          onRunningChange={setCrackerRunning}
+        />
+      }
+      contactInfoPane={
+        <ContactInfoPane
+          contactKey={infoPaneContactKey}
+          fromChannel={infoPaneFromChannel}
+          onClose={handleCloseContactInfo}
+          contacts={contacts}
+          config={config}
+          onToggleFavorite={handleToggleFavorite}
+          onNavigateToChannel={handleNavigateToChannel}
+          onSearchMessagesByKey={(publicKey: string) => {
+            handleOpenSearchWithQuery(`user:${publicKey}`);
+          }}
+          onSearchMessagesByName={(name: string) => {
+            handleOpenSearchWithQuery(`user:${quoteSearchOperatorValue(name)}`);
+          }}
+          onToggleBlockedKey={handleBlockKey}
+          onToggleBlockedName={handleBlockName}
+          blockedKeys={blockedKeys}
+          blockedNames={blockedNames}
+          trackedTelemetryContacts={trackedTelemetryContacts}
+          onToggleTrackedTelemetryContact={handleToggleTrackedTelemetryContact}
+        />
+      }
+      channelInfoPane={
+        <ChannelInfoPane
+          channelKey={infoPaneChannelKey}
+          onClose={handleCloseChannelInfo}
+          channels={channels}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      }
+    >
+      <NewMessageModal
+        undecryptedCount={undecryptedCount}
+        showBulkAddChannelTab={showBulkAddChannelTab}
+        prefillRequest={newMessagePrefillRequest}
+        onCreateContact={handleCreateContact}
+        onCreateChannel={handleCreateChannel}
+        onCreateHashtagChannel={handleCreateHashtagChannel}
+        onBulkAddHashtagChannels={handleBulkAddChannels}
+        open={showNewMessage}
+        onClose={handleCloseNewMessage}
+      />
+      <BulkAddChannelResultModal
+        result={bulkAddResult}
+        open={bulkAddResult !== null}
+        onClose={handleCloseBulkAddResults}
+      />
+      <CommandPalette
+        contacts={contacts}
+        channels={channels}
+        onSelectConversation={handleSelectConversationWithTargetReset}
+        onOpenSettings={handleOpenSettings}
+        onRepeaterAutoLogin={handleRepeaterAutoLogin}
+      />
+      <SecurityWarningModal health={health} />
+    </AppShell>
   );
 }

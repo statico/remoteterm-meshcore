@@ -68,7 +68,7 @@ frontend/src/
 │   ├── useEntranceSettled.ts       # Defers entrance animation work until layout settles
 │   └── useRememberedServerPassword.ts # Browser-local repeater/room password persistence
 ├── components/
-│   ├── AppShell.tsx            # App-shell layout: status, sidebar, search/settings panes, cracker, modals, security warning
+│   ├── AppShell.tsx            # App-shell layout: slots for status, sidebar, panes, modals; lazy-pane mount gating
 │   ├── ConversationPane.tsx    # Active conversation surface selection (map/raw/trace/repeater/room/chat/empty)
 │   ├── visualizer/
 │   │   ├── useVisualizerData3D.ts   # Packet→graph data pipeline, repeat aggregation, simulation state
@@ -238,14 +238,12 @@ frontend/src/
 
 ### State ownership
 
-`App.tsx` is now a thin composition entrypoint over the hook layer. `AppShell.tsx` owns shell layout/composition:
+`App.tsx` wires the hook layer and renders every pane itself (status bar, sidebar, conversation pane, search, settings, cracker, info panes, modals), handing them to `AppShell` as element slots. `AppShell.tsx` owns layout only and never sees pane props:
 - local label banner
-- status bar
-- desktop/mobile sidebar container
+- desktop/mobile sidebar container and swipe gestures; settings nav replaces the sidebar in settings mode
 - search/settings surface switching
-- global cracker mount/focus behavior
-- new-message modal and info panes
-- trusted-network `SecurityWarningModal`
+- mount-on-first-use gating for the lazy panes (search, cracker, info panes), kept mounted afterwards
+- toast offset measuring
 
 High-level state is delegated to hooks:
 - `useAppShell`: app-shell view state (settings section, sidebar, cracker, new-message modal)
@@ -260,7 +258,7 @@ High-level state is delegated to hooks:
 - `useRealtimeAppState`: typed WS event application, reconnect recovery, cache/unread coordination
 - `useRepeaterDashboard`: repeater dashboard state (login, pane data/retries, console, actions)
 
-`App.tsx` intentionally still does the final `AppShell` prop assembly. That composition layer is considered acceptable here because it keeps the shell contract visible in one place and avoids a prop-bundling hook with little original logic.
+`Sidebar` is memoized, so App keeps its props stable: list fallbacks use the module-level `NO_STRINGS` instead of a fresh `[]`.
 
 **The overheard packet stream is the one piece of app state that deliberately does not live in React.** It is held in `stores/rawPacketStore.ts` and read through `useSyncExternalStore`, because it updates several times a second with every packet the node hears — far more often than anything else — and only four surfaces consume it (`MapView`, `VisualizerView`, `RawPacketFeedView`, `CrackerPanel`). Held in `App` state it re-rendered the entire tree, including `MessageList`, which is neither memoized nor cheap on a long history.
 

@@ -1,22 +1,6 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ComponentProps,
-} from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSwipeable } from 'react-swipeable';
 
-import { StatusBar } from './StatusBar';
-import { Sidebar } from './Sidebar';
-import { ConversationPane } from './ConversationPane';
-import { NewMessageModal } from './NewMessageModal';
-import { BulkAddChannelResultModal } from './BulkAddChannelResultModal';
-import { CommandPalette } from './CommandPalette';
-import { SecurityWarningModal } from './SecurityWarningModal';
-import { Toaster } from './ui/sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import {
   SETTINGS_SECTION_ICONS,
@@ -25,97 +9,68 @@ import {
   type SettingsSection,
 } from './settings/settingsConstants';
 import { getContrastTextColor, type LocalLabel } from '../utils/localLabel';
-import type { CrackerPanelProps } from './CrackerPanel';
-import type { SearchViewProps } from './SearchView';
-import type { SettingsModalProps } from './SettingsModal';
+import type { Conversation } from '../types';
+import { Toaster } from './ui/sonner';
 import { cn } from '@/lib/utils';
 
-const SettingsModal = lazy(() =>
-  import('./SettingsModal').then((m) => ({ default: m.SettingsModal }))
-);
-const CrackerPanel = lazy(() =>
-  import('./CrackerPanel').then((m) => ({ default: m.CrackerPanel }))
-);
-const SearchView = lazy(() => import('./SearchView').then((m) => ({ default: m.SearchView })));
-// Info panes pull in recharts; keep them out of the main chunk until first opened.
-const ContactInfoPane = lazy(() =>
-  import('./ContactInfoPane').then((m) => ({ default: m.ContactInfoPane }))
-);
-const ChannelInfoPane = lazy(() =>
-  import('./ChannelInfoPane').then((m) => ({ default: m.ChannelInfoPane }))
-);
+/** True from the first render where `flag` is set, for good. */
+function useMountedOnce(flag: boolean): boolean {
+  const mounted = useRef(false);
+  if (flag) mounted.current = true;
+  return mounted.current;
+}
 
-type SidebarProps = ComponentProps<typeof Sidebar>;
-type ConversationPaneProps = ComponentProps<typeof ConversationPane>;
-type NewMessageModalProps = Omit<ComponentProps<typeof NewMessageModal>, 'open' | 'onClose'>;
-type BulkAddChannelResultModalProps = Omit<
-  ComponentProps<typeof BulkAddChannelResultModal>,
-  'open' | 'onClose'
->;
-type ContactInfoPaneProps = ComponentProps<typeof ContactInfoPane>;
-type ChannelInfoPaneProps = ComponentProps<typeof ChannelInfoPane>;
-
+/**
+ * Shell layout only: App builds every pane and passes it in as an element, so
+ * the shell never needs to know their props. It decides where panes sit, which
+ * one shows, and keeps lazy panes unmounted until first use (then mounted, so
+ * close animations and pane state survive).
+ */
 interface AppShellProps {
   localLabel: LocalLabel;
-  showNewMessage: boolean;
-  showBulkAddResults: boolean;
+  activeConversation: Conversation | null;
   showSettings: boolean;
   settingsSection: SettingsSection;
   sidebarOpen: boolean;
   showCracker: boolean;
-  disabledSettingsSections?: SettingsSection[];
+  contactInfoOpen: boolean;
+  channelInfoOpen: boolean;
   onSettingsSectionChange: (section: SettingsSection) => void;
   onSidebarOpenChange: (open: boolean) => void;
-  onCrackerRunningChange: (running: boolean) => void;
-  onToggleSettingsView: () => void;
   onCloseSettingsView: () => void;
-  onCloseNewMessage: () => void;
-  onCloseBulkAddResults: () => void;
-  onLocalLabelChange: (label: LocalLabel) => void;
-  statusProps: Pick<ComponentProps<typeof StatusBar>, 'health' | 'config'>;
-  sidebarProps: SidebarProps;
-  conversationPaneProps: ConversationPaneProps;
-  searchProps: SearchViewProps;
-  settingsProps: Omit<
-    SettingsModalProps,
-    'open' | 'pageMode' | 'externalSidebarNav' | 'desktopSection' | 'onClose' | 'onLocalLabelChange'
-  >;
-  crackerProps: Omit<CrackerPanelProps, 'visible' | 'onRunningChange'>;
-  newMessageModalProps: NewMessageModalProps;
-  bulkAddChannelResultModalProps: BulkAddChannelResultModalProps;
-  contactInfoPaneProps: ContactInfoPaneProps;
-  channelInfoPaneProps: ChannelInfoPaneProps;
-  onRepeaterAutoLogin: (publicKey: string, displayName: string) => void;
+  statusBar: ReactNode;
+  sidebar: ReactNode;
+  conversationPane: ReactNode;
+  searchView: ReactNode;
+  settingsView: ReactNode;
+  crackerPanel: ReactNode;
+  contactInfoPane: ReactNode;
+  channelInfoPane: ReactNode;
+  /** Modals and other overlays, rendered as-is. */
+  children?: ReactNode;
 }
 
 export function AppShell({
   localLabel,
-  showNewMessage,
-  showBulkAddResults,
+  activeConversation,
   showSettings,
   settingsSection,
   sidebarOpen,
   showCracker,
-  disabledSettingsSections = [],
+  contactInfoOpen,
+  channelInfoOpen,
   onSettingsSectionChange,
   onSidebarOpenChange,
-  onCrackerRunningChange,
-  onToggleSettingsView,
   onCloseSettingsView,
-  onCloseNewMessage,
-  onCloseBulkAddResults,
-  onLocalLabelChange,
-  statusProps,
-  sidebarProps,
-  conversationPaneProps,
-  searchProps,
-  settingsProps,
-  crackerProps,
-  newMessageModalProps,
-  bulkAddChannelResultModalProps,
-  contactInfoPaneProps,
-  channelInfoPaneProps,
-  onRepeaterAutoLogin,
+  statusBar,
+  sidebar,
+  conversationPane,
+  searchView,
+  settingsView,
+  crackerPanel,
+  contactInfoPane,
+  channelInfoPane,
+  children,
 }: AppShellProps) {
   const swipeHandlers = useSwipeable({
     onSwipedRight: ({ initial }) => {
@@ -135,40 +90,18 @@ export function AppShell({
     preventScrollOnSwipe: false,
   });
 
-  const handleOpenSettings = useCallback(
-    (section: SettingsSection) => {
-      onSettingsSectionChange(section);
-      if (!showSettings) onToggleSettingsView();
-    },
-    [onSettingsSectionChange, onToggleSettingsView, showSettings]
-  );
-
-  const searchMounted = useRef(false);
-  if (conversationPaneProps.activeConversation?.type === 'search') {
-    searchMounted.current = true;
-  }
-
-  const crackerMounted = useRef(false);
-  if (showCracker) {
-    crackerMounted.current = true;
-  }
-
-  // Stay mounted after first open so the sheet's close animation still plays.
-  const contactInfoMounted = useRef(false);
-  if (contactInfoPaneProps.contactKey !== null) {
-    contactInfoMounted.current = true;
-  }
-  const channelInfoMounted = useRef(false);
-  if (channelInfoPaneProps.channelKey !== null) {
-    channelInfoMounted.current = true;
-  }
+  const searchActive = activeConversation?.type === 'search';
+  const searchMounted = useMountedOnce(searchActive);
+  const crackerMounted = useMountedOnce(showCracker);
+  const contactInfoMounted = useMountedOnce(contactInfoOpen);
+  const channelInfoMounted = useMountedOnce(channelInfoOpen);
 
   // Position toasts below the conversation header when in chat, otherwise below the status bar
   const TOAST_TOP_PADDING = 10;
   const [toastTopOffset, setToastTopOffset] = useState<number | undefined>(undefined);
   const hasLocalLabel = !!localLabel.text;
-  const activeType = conversationPaneProps.activeConversation?.type;
-  const activeId = conversationPaneProps.activeConversation?.id;
+  const activeType = activeConversation?.type;
+  const activeId = activeConversation?.id;
   useEffect(() => {
     const measure = () => {
       const anchor =
@@ -205,16 +138,13 @@ export function AppShell({
       <div className="flex-1 min-h-0 overflow-y-auto py-1 [contain:layout_paint]">
         {SETTINGS_SECTION_ORDER.map((section) => {
           const Icon = SETTINGS_SECTION_ICONS[section];
-          const disabled = disabledSettingsSections.includes(section);
           return (
             <button
               key={section}
               type="button"
-              disabled={disabled}
               className={cn(
-                'w-full px-3 py-2 text-left text-[0.8125rem] border-l-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-50',
-                !disabled && 'hover:bg-accent',
-                settingsSection === section && !disabled && 'bg-accent border-l-primary'
+                'w-full px-3 py-2 text-left text-[0.8125rem] border-l-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset hover:bg-accent',
+                settingsSection === section && 'bg-accent border-l-primary'
               )}
               aria-current={settingsSection === section ? 'true' : undefined}
               onClick={() => onSettingsSectionChange(section)}
@@ -230,11 +160,7 @@ export function AppShell({
     </nav>
   );
 
-  const activeSidebarContent = showSettings ? (
-    settingsSidebarContent
-  ) : (
-    <Sidebar {...sidebarProps} />
-  );
+  const activeSidebarContent = showSettings ? settingsSidebarContent : sidebar;
 
   return (
     <div className="flex flex-col h-full" {...swipeHandlers}>
@@ -256,13 +182,7 @@ export function AppShell({
         </div>
       )}
 
-      <StatusBar
-        health={statusProps.health}
-        config={statusProps.config}
-        settingsMode={showSettings}
-        onSettingsClick={onToggleSettingsView}
-        onMenuClick={showSettings ? undefined : () => onSidebarOpenChange(true)}
-      />
+      {statusBar}
       <div data-toast-anchor="statusbar" aria-hidden="true" />
 
       <div className="flex flex-1 overflow-hidden">
@@ -291,19 +211,17 @@ export function AppShell({
           <div
             className={cn(
               'flex-1 flex flex-col min-h-0',
-              (showSettings || conversationPaneProps.activeConversation?.type === 'search') &&
-                'hidden'
+              (showSettings || searchActive) && 'hidden'
             )}
           >
-            <ConversationPane {...conversationPaneProps} />
+            {conversationPane}
           </div>
 
-          {searchMounted.current && (
+          {searchMounted && (
             <div
               className={cn(
                 'flex-1 flex flex-col min-h-0',
-                (conversationPaneProps.activeConversation?.type !== 'search' || showSettings) &&
-                  'hidden'
+                (!searchActive || showSettings) && 'hidden'
               )}
             >
               <Suspense
@@ -313,7 +231,7 @@ export function AppShell({
                   </div>
                 }
               >
-                <SearchView {...searchProps} />
+                {searchView}
               </Suspense>
             </div>
           )}
@@ -328,15 +246,7 @@ export function AppShell({
                     </div>
                   }
                 >
-                  <SettingsModal
-                    {...settingsProps}
-                    open={showSettings}
-                    pageMode
-                    externalSidebarNav
-                    desktopSection={settingsSection}
-                    onClose={onCloseSettingsView}
-                    onLocalLabelChange={onLocalLabelChange}
-                  />
+                  {settingsView}
                 </Suspense>
               </div>
             </div>
@@ -350,7 +260,7 @@ export function AppShell({
           showCracker ? 'h-[275px]' : 'h-0'
         )}
       >
-        {crackerMounted.current && (
+        {crackerMounted && (
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -358,44 +268,14 @@ export function AppShell({
               </div>
             }
           >
-            <CrackerPanel
-              {...crackerProps}
-              visible={showCracker}
-              onRunningChange={onCrackerRunningChange}
-            />
+            {crackerPanel}
           </Suspense>
         )}
       </div>
 
-      <NewMessageModal
-        {...newMessageModalProps}
-        open={showNewMessage}
-        onClose={onCloseNewMessage}
-      />
-      <BulkAddChannelResultModal
-        {...bulkAddChannelResultModalProps}
-        open={showBulkAddResults}
-        onClose={onCloseBulkAddResults}
-      />
-
-      <CommandPalette
-        contacts={sidebarProps.contacts}
-        channels={sidebarProps.channels}
-        onSelectConversation={sidebarProps.onSelectConversation}
-        onOpenSettings={handleOpenSettings}
-        onRepeaterAutoLogin={onRepeaterAutoLogin}
-      />
-      <SecurityWarningModal health={statusProps.health} />
-      {contactInfoMounted.current && (
-        <Suspense fallback={null}>
-          <ContactInfoPane {...contactInfoPaneProps} />
-        </Suspense>
-      )}
-      {channelInfoMounted.current && (
-        <Suspense fallback={null}>
-          <ChannelInfoPane {...channelInfoPaneProps} />
-        </Suspense>
-      )}
+      {children}
+      {contactInfoMounted && <Suspense fallback={null}>{contactInfoPane}</Suspense>}
+      {channelInfoMounted && <Suspense fallback={null}>{channelInfoPane}</Suspense>}
       <Toaster
         position="top-right"
         offset={toastTopOffset !== undefined ? { top: toastTopOffset } : undefined}

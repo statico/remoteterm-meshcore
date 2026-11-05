@@ -964,7 +964,10 @@ export function MessageList({
   const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   const [showJumpToUnread, setShowJumpToUnread] = useState(false);
   const [jumpToUnreadDismissed, setJumpToUnreadDismissed] = useState(false);
-  const targetScrolledRef = useRef(false);
+  // The target id we already jumped to. Comparing ids (rather than a boolean reset
+  // by a passive effect) matters: that effect also ran on mount, after the jump,
+  // and re-armed it so the next list change yanked the reader back to the target.
+  const scrolledTargetRef = useRef<number | null>(null);
   const unreadMarkerRef = useRef<HTMLButtonElement | HTMLDivElement | null>(null);
 
   const handleAnalyzePacket = useCallback(async (message: Message) => {
@@ -1075,7 +1078,8 @@ export function MessageList({
     if (!virtualizerRef.current || last < 0) return;
 
     // A pending jump-to-message owns the scroll; the target effect handles it.
-    const targetPending = !!targetMessageIdRef.current && !targetScrolledRef.current;
+    const targetPending =
+      !!targetMessageIdRef.current && scrolledTargetRef.current !== targetMessageIdRef.current;
 
     if (prev.length === 0) {
       // First rows of this conversation: open at the newest message.
@@ -1111,21 +1115,20 @@ export function MessageList({
 
   // Scroll to target message and highlight it
   useLayoutEffect(() => {
-    if (!targetMessageId || targetScrolledRef.current || sortedMessages.length === 0) return;
+    if (!targetMessageId) {
+      scrolledTargetRef.current = null; // cleared: a later jump to the same id runs again
+      return;
+    }
+    if (scrolledTargetRef.current === targetMessageId || sortedMessages.length === 0) return;
     const targetIndex = sortedMessages.findIndex((msg) => msg.id === targetMessageId);
     if (targetIndex === -1) return;
 
     atBottomRef.current = false;
     scrollToIndex(targetIndex, 'center');
     setHighlightedMessageId(targetMessageId);
-    targetScrolledRef.current = true;
+    scrolledTargetRef.current = targetMessageId;
     onTargetReached?.();
   }, [sortedMessages, targetMessageId, onTargetReached, scrollToIndex]);
-
-  // Reset target scroll tracking when targetMessageId changes
-  useEffect(() => {
-    targetScrolledRef.current = false;
-  }, [targetMessageId]);
 
   // Track resendable outgoing CHAN messages (within 30s window)
   useEffect(() => {

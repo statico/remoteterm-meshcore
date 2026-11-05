@@ -109,10 +109,12 @@ function maxScrollTop() {
  * User scroll: sets scrollTop the way a gesture would, then lets React react.
  * Virtua keeps re-applying a programmatic scrollToIndex for 150ms after the
  * last layout change, so wait that out first (a real user is never that fast).
+ * The margin over 150ms matters: under a loaded parallel run, a 160ms wait let a
+ * still-live jump-to-message scroll re-apply on the next append and flake.
  */
 async function userScrollTo(top: number) {
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 160));
+    await new Promise((resolve) => setTimeout(resolve, 400));
   });
   await act(async () => {
     scroller!.scrollTop = top;
@@ -790,6 +792,45 @@ describe('MessageList scroll behavior (Virtua)', () => {
     const target = container.querySelector('[data-message-id="250"]');
     expect(target).not.toBeNull();
     expect(target!.querySelector('.message-highlight')).not.toBeNull();
+  });
+
+  it('jumps once per target: list changes do not re-jump, a new or re-set target does', async () => {
+    const onTargetReached = vi.fn();
+    const centred = (index: number) => TOP_SLOT + index * ROW - (VIEWPORT - ROW) / 2;
+    const messages = history(500);
+    const list = (target: number | null, rows = messages) => (
+      <MessageList
+        messages={rows}
+        contacts={[]}
+        loading={false}
+        hasNewerMessages
+        targetMessageId={target}
+        onTargetReached={onTargetReached}
+      />
+    );
+    const { rerender } = await renderList(list(250));
+    expect(onTargetReached).toHaveBeenCalledTimes(1);
+
+    // Reader moves away; an in-place list change must not pull them back.
+    await userScrollTo(1000);
+    rerender(list(250, [...messages, ...history(5, 501)]));
+    await settle();
+    expect(scroller!.scrollTop).toBe(1000);
+    expect(onTargetReached).toHaveBeenCalledTimes(1);
+
+    rerender(list(100));
+    await settle();
+    expect(scroller!.scrollTop).toBe(centred(99));
+    expect(onTargetReached).toHaveBeenCalledTimes(2);
+
+    // Cleared, then the same id again (e.g. the same search hit clicked twice).
+    await userScrollTo(1000);
+    rerender(list(null));
+    await settle();
+    rerender(list(100));
+    await settle();
+    expect(scroller!.scrollTop).toBe(centred(99));
+    expect(onTargetReached).toHaveBeenCalledTimes(3);
   });
 
   it('asks for older messages near the top, but not while a load is running', async () => {

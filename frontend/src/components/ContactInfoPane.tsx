@@ -252,6 +252,12 @@ export function ContactInfoPane({
                   </p>
                 </div>
               </div>
+              {onOpenConversation && (
+                <Button className="mt-4 w-full" disabled>
+                  <MessageSquare className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Can't DM until they advertise
+                </Button>
+              )}
             </div>
 
             {/* Block by name toggle */}

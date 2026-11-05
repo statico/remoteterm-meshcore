@@ -226,6 +226,23 @@ describe('ContactInfoPane', () => {
     expect(baseProps.onSearchMessagesByName).toHaveBeenCalledWith('Mystery');
   });
 
+  it('shows a disabled DM button for a name with no known key', async () => {
+    getContactAnalytics.mockResolvedValue(
+      createAnalytics(null, { lookup_type: 'name', name: 'Mystery' })
+    );
+    render(
+      <ContactInfoPane
+        {...baseProps}
+        contactKey="name:Mystery"
+        fromChannel
+        onOpenConversation={vi.fn()}
+      />
+    );
+    expect(
+      await screen.findByRole('button', { name: "Can't DM until they advertise" })
+    ).toBeDisabled();
+  });
+
   it('shows alias note in the channel attribution warning for keyed contacts', async () => {
     const contact = createContact();
     getContactAnalytics.mockResolvedValue(

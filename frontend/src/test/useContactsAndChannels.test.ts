@@ -110,67 +110,56 @@ describe('useContactsAndChannels', () => {
       expect(api.getContacts).toHaveBeenCalledWith(1000, 0);
     });
 
-    it('paginates when first page returns exactly page size', async () => {
+    /** A backend holding `total` contacts; records how many pages are in flight. */
+    async function serveContacts(total: number) {
       const { api } = await import('../api');
-      const page1 = makeContacts(1000, 0);
-      const page2 = makeContacts(200, 1000);
+      const all = makeContacts(total, 0);
+      const stats = { inFlight: 0, maxInFlight: 0 };
+      vi.mocked(api.getContacts).mockImplementation(async (limit = 100, offset = 0) => {
+        stats.inFlight++;
+        stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        stats.inFlight--;
+        return all.slice(offset, offset + limit);
+      });
+      return { api, all, stats };
+    }
 
-      vi.mocked(api.getContacts)
-        .mockResolvedValueOnce(page1) // First page: full
-        .mockResolvedValueOnce(page2); // Second page: partial (done)
-
+    async function fetchAll() {
       const { result } = renderUseContactsAndChannels();
-
       let fetched: Contact[] = [];
       await act(async () => {
         fetched = await result.current.fetchAllContacts();
       });
+      return fetched;
+    }
 
-      expect(fetched).toHaveLength(1200);
-      expect(api.getContacts).toHaveBeenCalledTimes(2);
-      expect(api.getContacts).toHaveBeenNthCalledWith(1, 1000, 0);
-      expect(api.getContacts).toHaveBeenNthCalledWith(2, 1000, 1000);
+    it.each([1000, 1200, 2500, 3767, 4000, 5000, 9100])(
+      'returns all %i contacts in order',
+      async (total) => {
+        const { all } = await serveContacts(total);
+        const fetched = await fetchAll();
+        expect(fetched.map((c) => c.public_key)).toEqual(all.map((c) => c.public_key));
+      }
+    );
+
+    it('fetches the pages after the first in parallel, not one round trip each', async () => {
+      const { api, stats } = await serveContacts(3767);
+      await fetchAll();
+
+      // Page 0, then offsets 1000-4000 together (the last one comes back empty).
+      expect(api.getContacts).toHaveBeenCalledTimes(5);
+      expect(stats.maxInFlight).toBe(4);
+      expect(vi.mocked(api.getContacts).mock.calls.map(([, offset]) => offset)).toEqual([
+        0, 1000, 2000, 3000, 4000,
+      ]);
     });
 
-    it('paginates through multiple full pages', async () => {
-      const { api } = await import('../api');
-      const page1 = makeContacts(1000, 0);
-      const page2 = makeContacts(1000, 1000);
-      const page3 = makeContacts(500, 2000);
-
-      vi.mocked(api.getContacts)
-        .mockResolvedValueOnce(page1)
-        .mockResolvedValueOnce(page2)
-        .mockResolvedValueOnce(page3);
-
-      const { result } = renderUseContactsAndChannels();
-
-      let fetched: Contact[] = [];
-      await act(async () => {
-        fetched = await result.current.fetchAllContacts();
-      });
-
-      expect(fetched).toHaveLength(2500);
-      expect(api.getContacts).toHaveBeenCalledTimes(3);
-      expect(api.getContacts).toHaveBeenNthCalledWith(3, 1000, 2000);
-    });
-
-    it('handles exactly page size total (boundary case)', async () => {
-      const { api } = await import('../api');
-      const page1 = makeContacts(1000, 0);
-      const page2: Contact[] = []; // Empty second page
-
-      vi.mocked(api.getContacts).mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
-
-      const { result } = renderUseContactsAndChannels();
-
-      let fetched: Contact[] = [];
-      await act(async () => {
-        fetched = await result.current.fetchAllContacts();
-      });
-
-      expect(fetched).toHaveLength(1000);
-      expect(api.getContacts).toHaveBeenCalledTimes(2);
+    it('keeps going in further waves when every page of a wave is full', async () => {
+      const { api } = await serveContacts(5000);
+      await fetchAll();
+      // 0, then 1000-4000 (all full), then 5000-8000.
+      expect(api.getContacts).toHaveBeenCalledTimes(9);
     });
   });
 

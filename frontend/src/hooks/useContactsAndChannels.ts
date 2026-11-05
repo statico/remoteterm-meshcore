@@ -34,20 +34,23 @@ export function useContactsAndChannels({
     }
   }, []);
 
-  // Fetch all contacts, paginating if >1000
+  // Fetch all contacts, paginating if >1000. The route caps a page at 1000 and
+  // reports no total, so after the first full page the rest are fetched in
+  // parallel waves rather than one round trip per page (3.7k contacts was four
+  // sequential requests at startup).
   const fetchAllContacts = useCallback(async (): Promise<Contact[]> => {
     const pageSize = 1000;
+    const wave = 4;
     const first = await takePrefetchOrFetch('contacts', () => api.getContacts(pageSize, 0));
     if (first.length < pageSize) return first;
-    let all = [...first];
-    let offset = pageSize;
-    while (true) {
-      const page = await api.getContacts(pageSize, offset);
-      all = all.concat(page);
-      if (page.length < pageSize) break;
-      offset += pageSize;
+    let all = first;
+    for (let offset = pageSize; ; offset += wave * pageSize) {
+      const pages = await Promise.all(
+        Array.from({ length: wave }, (_, i) => api.getContacts(pageSize, offset + i * pageSize))
+      );
+      all = all.concat(...pages);
+      if (pages[wave - 1].length < pageSize) return all;
     }
-    return all;
   }, []);
 
   const handleCreateContact = useCallback(

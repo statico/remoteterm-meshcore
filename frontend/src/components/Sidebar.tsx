@@ -193,6 +193,9 @@ function loadInitialSectionSortOrders(): SidebarSectionSortOrders {
 
 const SECTION_ROW_PAGE_SIZE = 100;
 
+/** Same order as `localeCompare`, without its per-call locale setup. */
+const compareNames = new Intl.Collator().compare;
+
 // Memoized: App re-renders on every message/ack/health update; the sidebar only
 // needs to when its own props change.
 export const Sidebar = memo(function Sidebar({
@@ -294,37 +297,27 @@ export const Sidebar = memo(function Sidebar({
 
   // Deduplicate channels by key only.
   // Channel names are not unique; distinct keys must remain visible.
-  const uniqueChannels = useMemo(
-    () =>
-      channels.reduce<Channel[]>((acc, channel) => {
-        if (!acc.some((c) => c.key === channel.key)) {
-          acc.push(channel);
-        }
-        return acc;
-      }, []),
-    [channels]
-  );
+  // Set-based: the old `acc.some` scan was O(n^2) and, with ~4k contacts, the
+  // single biggest startup long task (it reruns on every contact update too).
+  const uniqueChannels = useMemo(() => {
+    const seen = new Set<string>();
+    return channels.filter((c) => !seen.has(c.key) && !!seen.add(c.key));
+  }, [channels]);
 
   // Deduplicate contacts by public key, preferring ones with names
   // Also filter out any contacts with empty public keys
-  const uniqueContacts = useMemo(
-    () =>
-      contacts
-        .filter((c) => c.public_key && c.public_key.length > 0)
-        .sort((a, b) => {
-          // Sort contacts with names first
-          if (a.name && !b.name) return -1;
-          if (!a.name && b.name) return 1;
-          return (a.name || '').localeCompare(b.name || '');
-        })
-        .reduce<Contact[]>((acc, contact) => {
-          if (!acc.some((c) => c.public_key === contact.public_key)) {
-            acc.push(contact);
-          }
-          return acc;
-        }, []),
-    [contacts]
-  );
+  const uniqueContacts = useMemo(() => {
+    const seen = new Set<string>();
+    return contacts
+      .filter((c) => c.public_key && c.public_key.length > 0)
+      .sort((a, b) => {
+        // Sort contacts with names first
+        if (a.name && !b.name) return -1;
+        if (!a.name && b.name) return 1;
+        return compareNames(a.name || '', b.name || '');
+      })
+      .filter((c) => !seen.has(c.public_key) && !!seen.add(c.public_key));
+  }, [contacts]);
 
   // Sort channels based on sort order, with Public always first
   const sortedChannels = useMemo(

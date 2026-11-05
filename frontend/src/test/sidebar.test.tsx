@@ -357,6 +357,40 @@ describe('Sidebar section summaries', () => {
     expect(new Set(selectedIds)).toEqual(new Set([channelA.key, channelB.key]));
   });
 
+  it('dedupes contacts by key, keeping the first by name, and channels by key', () => {
+    const key = '44'.repeat(32);
+    const publicChannel = makeChannel('AA'.repeat(16), 'Public');
+    render(
+      <Sidebar
+        contacts={[
+          makeContact(key, 'Twin B'),
+          makeContact(key, ''),
+          makeContact(key, 'Twin A'),
+          makeContact('55'.repeat(32), 'Other'),
+        ]}
+        channels={[
+          publicChannel,
+          makeChannel('DD'.repeat(16), '#dup'),
+          makeChannel('DD'.repeat(16), '#dup'),
+        ]}
+        activeConversation={null}
+        onSelectConversation={vi.fn()}
+        onNewMessage={vi.fn()}
+        lastMessageTimes={{}}
+        unreadCounts={{}}
+        mentions={{}}
+        showCracker={false}
+        crackerRunning={false}
+        onToggleCracker={vi.fn()}
+        onMarkAllRead={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText('Twin A')).toHaveLength(1);
+    expect(screen.queryByText('Twin B')).not.toBeInTheDocument();
+    expect(screen.getAllByText('#dup')).toHaveLength(1);
+  });
+
   it('shows a notification bell for conversations with notifications enabled', () => {
     const { aliceName } = renderSidebar({
       unreadCounts: {},

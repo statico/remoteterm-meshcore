@@ -423,16 +423,6 @@ class AppSettingsRepository:
         return []
 
     @staticmethod
-    async def set_push_conversations(conversations: list[str]) -> list[str]:
-        """Replace the global push-enabled conversation list."""
-        async with db.tx() as conn:
-            await conn.execute(
-                "UPDATE app_settings SET push_conversations = ? WHERE id = 1",
-                (json.dumps(conversations),),
-            )
-        return conversations
-
-    @staticmethod
     async def toggle_push_conversation(key: str) -> list[str]:
         """Add or remove a conversation state key from the global push list.
 

@@ -77,11 +77,7 @@ async def update_subscription(subscription_id: str, body: PushSubscriptionUpdate
     if not existing:
         raise HTTPException(status_code=404, detail="Subscription not found")
 
-    updates = {}
-    if body.label is not None:
-        updates["label"] = body.label
-
-    result = await PushSubscriptionRepository.update(subscription_id, **updates)
+    result = await PushSubscriptionRepository.update(subscription_id, label=body.label)
     return result or existing
 
 

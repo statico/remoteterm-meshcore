@@ -887,3 +887,21 @@ class TestContactRepositoryLastSeenSemantics:
         assert contact.last_seen == 1_700_000_500
         # The path itself still updates — only last_seen is monotonic-guarded.
         assert contact.direct_path == "cd"
+
+
+class TestPushSubscriptionRepositoryUpdate:
+    @pytest.mark.asyncio
+    async def test_update_label_and_noop(self, test_db):
+        from app.repository.push_subscriptions import PushSubscriptionRepository
+
+        sub = await PushSubscriptionRepository.create(
+            endpoint="https://push.example/1", p256dh="p", auth="a", label="old"
+        )
+
+        unchanged = await PushSubscriptionRepository.update(sub["id"], label=None)
+        assert unchanged is not None and unchanged["label"] == "old"
+
+        updated = await PushSubscriptionRepository.update(sub["id"], label="new")
+        assert updated is not None and updated["label"] == "new"
+
+        assert await PushSubscriptionRepository.update("missing", label="x") is None

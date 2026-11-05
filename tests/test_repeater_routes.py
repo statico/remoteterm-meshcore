@@ -1267,6 +1267,30 @@ class TestRepeaterAcl:
         assert response.acl[1].permission_name == "Guest"
 
     @pytest.mark.asyncio
+    async def test_names_resolved_in_one_batch_and_ambiguous_prefix_unnamed(self, test_db):
+        mc = _mock_mc()
+        await _insert_contact(KEY_A, name="Repeater", contact_type=2)
+        await _insert_contact("ee" * 32, name="Unique", contact_type=1)
+        await _insert_contact("ff01" + "00" * 30, name="Twin A", contact_type=1)
+        await _insert_contact("ff02" + "00" * 30, name="Twin B", contact_type=1)
+        mc.commands.req_acl_sync = AsyncMock(
+            return_value=[{"key": "EEEEEEEEEEEE", "perm": 1}, {"key": "ff", "perm": 3}]
+        )
+
+        with (
+            patch("app.routers.repeaters.radio_manager.require_connected", return_value=mc),
+            patch.object(radio_manager, "_meshcore", mc),
+            patch(
+                "app.routers.repeaters.ContactRepository.get_by_key_prefix",
+                side_effect=AssertionError("per-entry lookup"),
+            ),
+        ):
+            response = await repeater_acl(KEY_A)
+
+        assert [e.name for e in response.acl] == ["Unique", None]
+        assert response.acl[0].pubkey_prefix == "EEEEEEEEEEEE"
+
+    @pytest.mark.asyncio
     async def test_empty_acl(self, test_db):
         mc = _mock_mc()
         await _insert_contact(KEY_A, name="Repeater", contact_type=2)

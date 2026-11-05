@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 
 from app.models import (
     CONTACT_TYPE_ROOM,
-    AclEntry,
     LppSensor,
     RepeaterAclResponse,
     RepeaterLoginRequest,
@@ -124,22 +123,6 @@ async def room_acl(public_key: str) -> RepeaterAclResponse:
         await _ensure_on_radio(mc, contact)
         acl_data = await mc.commands.req_acl_sync(contact.public_key, timeout=10, min_timeout=5)
 
-    acl_entries = []
-    if acl_data and isinstance(acl_data, list):
-        from app.repository import ContactRepository
-        from app.routers.repeaters import ACL_PERMISSION_NAMES
+    from app.routers.repeaters import build_acl_response
 
-        for entry in acl_data:
-            pubkey_prefix = entry.get("key", "")
-            perm = entry.get("perm", 0)
-            resolved_contact = await ContactRepository.get_by_key_prefix(pubkey_prefix)
-            acl_entries.append(
-                AclEntry(
-                    pubkey_prefix=pubkey_prefix,
-                    name=resolved_contact.name if resolved_contact else None,
-                    permission=perm,
-                    permission_name=ACL_PERMISSION_NAMES.get(perm, f"Unknown({perm})"),
-                )
-            )
-
-    return RepeaterAclResponse(acl=acl_entries)
+    return await build_acl_response(acl_data)

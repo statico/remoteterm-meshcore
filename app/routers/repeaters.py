@@ -256,17 +256,17 @@ async def repeater_neighbors(public_key: str) -> RepeaterNeighborsResponse:
 
     neighbors: list[NeighborInfo] = []
     if neighbors_data and "neighbours" in neighbors_data:
-        for n in neighbors_data["neighbours"]:
-            pubkey_prefix = n.get("pubkey", "")
-            resolved_contact = await ContactRepository.get_by_key_prefix(pubkey_prefix)
-            neighbors.append(
-                NeighborInfo(
-                    pubkey_prefix=pubkey_prefix,
-                    name=resolved_contact.name if resolved_contact else None,
-                    snr=n.get("snr", 0.0),
-                    last_heard_seconds=n.get("secs_ago", 0),
-                )
+        raw = neighbors_data["neighbours"]
+        names = await _resolve_prefix_names([n.get("pubkey", "") for n in raw])
+        neighbors = [
+            NeighborInfo(
+                pubkey_prefix=n.get("pubkey", ""),
+                name=names.get(n.get("pubkey", "").lower()),
+                snr=n.get("snr", 0.0),
+                last_heard_seconds=n.get("secs_ago", 0),
             )
+            for n in raw
+        ]
 
     reported_count = neighbors_data.get("neighbours_count") if neighbors_data else None
     return RepeaterNeighborsResponse(neighbors=neighbors, reported_count=reported_count)
@@ -287,22 +287,33 @@ async def repeater_acl(public_key: str) -> RepeaterAclResponse:
 
         acl_data = await mc.commands.req_acl_sync(contact.public_key, timeout=10, min_timeout=5)
 
-    acl_entries: list[AclEntry] = []
-    if acl_data and isinstance(acl_data, list):
-        for entry in acl_data:
-            pubkey_prefix = entry.get("key", "")
-            perm = entry.get("perm", 0)
-            resolved_contact = await ContactRepository.get_by_key_prefix(pubkey_prefix)
-            acl_entries.append(
-                AclEntry(
-                    pubkey_prefix=pubkey_prefix,
-                    name=resolved_contact.name if resolved_contact else None,
-                    permission=perm,
-                    permission_name=ACL_PERMISSION_NAMES.get(perm, f"Unknown({perm})"),
-                )
-            )
+    return await build_acl_response(acl_data)
 
-    return RepeaterAclResponse(acl=acl_entries)
+
+async def _resolve_prefix_names(prefixes: list[str]) -> dict[str, str | None]:
+    """Map lowercased key prefix -> contact name for uniquely-resolving prefixes."""
+    contacts = await ContactRepository.resolve_prefixes(prefixes)
+    return {prefix: contact.name for prefix, contact in contacts.items()}
+
+
+async def build_acl_response(acl_data: object) -> RepeaterAclResponse:
+    """Build an ACL response from a raw ``req_acl_sync`` result, resolving names in one query."""
+    if not acl_data or not isinstance(acl_data, list):
+        return RepeaterAclResponse(acl=[])
+    names = await _resolve_prefix_names([entry.get("key", "") for entry in acl_data])
+    acl: list[AclEntry] = []
+    for entry in acl_data:
+        key = entry.get("key", "")
+        perm = entry.get("perm", 0)
+        acl.append(
+            AclEntry(
+                pubkey_prefix=key,
+                name=names.get(key.lower()),
+                permission=perm,
+                permission_name=ACL_PERMISSION_NAMES.get(perm, f"Unknown({perm})"),
+            )
+        )
+    return RepeaterAclResponse(acl=acl)
 
 
 async def _batch_cli_fetch(

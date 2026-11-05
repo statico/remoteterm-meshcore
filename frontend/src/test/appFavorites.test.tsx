@@ -77,41 +77,40 @@ vi.mock('../contexts/PushSubscriptionContext', () => ({
   }),
 }));
 
-vi.mock('../hooks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../hooks')>();
-  return {
-    ...actual,
-    useConversationMessages: () => ({
-      messages: [],
-      messagesLoading: false,
-      loadingOlder: false,
-      hasOlderMessages: false,
-      hasNewerMessages: false,
-      loadingNewer: false,
-      fetchOlderMessages: mocks.hookFns.fetchOlderMessages,
-      fetchNewerMessages: vi.fn(async () => {}),
-      jumpToBottom: vi.fn(),
-      reloadCurrentConversation: vi.fn(),
-      observeMessage: mocks.hookFns.observeMessage,
-      receiveMessageAck: mocks.hookFns.receiveMessageAck,
-      reconcileOnReconnect: mocks.hookFns.reconcileOnReconnect,
-      renameConversationMessages: mocks.hookFns.renameConversationMessages,
-      removeConversationMessages: mocks.hookFns.removeConversationMessages,
-      applyBlockListChange: mocks.hookFns.applyBlockListChange,
-    }),
-    useUnreadCounts: () => ({
-      unreadCounts: {},
-      mentions: {},
-      lastMessageTimes: {},
-      unreadLastReadAts: {},
-      firstUnreadIds: {},
-      recordMessageEvent: mocks.hookFns.recordMessageEvent,
-      renameConversationState: vi.fn(),
-      markAllRead: mocks.hookFns.markAllRead,
-      refreshUnreads: mocks.hookFns.refreshUnreads,
-    }),
-  };
-});
+vi.mock('../hooks/useConversationMessages', () => ({
+  useConversationMessages: () => ({
+    messages: [],
+    messagesLoading: false,
+    loadingOlder: false,
+    hasOlderMessages: false,
+    hasNewerMessages: false,
+    loadingNewer: false,
+    fetchOlderMessages: mocks.hookFns.fetchOlderMessages,
+    fetchNewerMessages: vi.fn(async () => {}),
+    jumpToBottom: vi.fn(),
+    reloadCurrentConversation: vi.fn(),
+    observeMessage: mocks.hookFns.observeMessage,
+    receiveMessageAck: mocks.hookFns.receiveMessageAck,
+    reconcileOnReconnect: mocks.hookFns.reconcileOnReconnect,
+    renameConversationMessages: mocks.hookFns.renameConversationMessages,
+    removeConversationMessages: mocks.hookFns.removeConversationMessages,
+    applyBlockListChange: mocks.hookFns.applyBlockListChange,
+  }),
+}));
+
+vi.mock('../hooks/useUnreadCounts', () => ({
+  useUnreadCounts: () => ({
+    unreadCounts: {},
+    mentions: {},
+    lastMessageTimes: {},
+    unreadLastReadAts: {},
+    firstUnreadIds: {},
+    recordMessageEvent: mocks.hookFns.recordMessageEvent,
+    renameConversationState: vi.fn(),
+    markAllRead: mocks.hookFns.markAllRead,
+    refreshUnreads: mocks.hookFns.refreshUnreads,
+  }),
+}));
 
 vi.mock('../components/StatusBar', () => ({
   StatusBar: ({

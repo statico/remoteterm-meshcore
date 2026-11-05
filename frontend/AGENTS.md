@@ -51,7 +51,6 @@ frontend/src/
 ├── stores/
 │   └── rawPacketStore.ts   # Overheard packet stream + session stats, outside React
 ├── hooks/
-│   ├── index.ts            # Central re-export of all hooks
 │   ├── useConversationActions.ts   # Send/resend/trace/block conversation actions
 │   ├── useConversationNavigation.ts # Search target, selection reset, and info-pane navigation state
 │   ├── useConversationMessages.ts  # Conversation timeline loading, cache restore, jump-target loading, pagination, dedup, pending ACK buffering

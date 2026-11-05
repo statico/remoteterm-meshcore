@@ -2,21 +2,18 @@ import { useEffect, useCallback, useRef, useState, useMemo, type MouseEvent } fr
 import { api } from './api';
 import { takePrefetchOrFetch } from './prefetch';
 import { useWebSocket } from './useWebSocket';
-import {
-  useAppShell,
-  useUnreadCounts,
-  useConversationMessages,
-  useRadioControl,
-  useAppSettings,
-  useConversationRouter,
-  useContactsAndChannels,
-  useConversationActions,
-  useConversationNavigation,
-  useRealtimeAppState,
-  useBrowserNotifications,
-  useFaviconBadge,
-  useUnreadTitle,
-} from './hooks';
+import { useAppShell } from './hooks/useAppShell';
+import { useUnreadCounts } from './hooks/useUnreadCounts';
+import { useConversationMessages } from './hooks/useConversationMessages';
+import { useRadioControl } from './hooks/useRadioControl';
+import { useAppSettings } from './hooks/useAppSettings';
+import { useConversationRouter } from './hooks/useConversationRouter';
+import { useContactsAndChannels } from './hooks/useContactsAndChannels';
+import { useConversationActions } from './hooks/useConversationActions';
+import { useConversationNavigation } from './hooks/useConversationNavigation';
+import { useRealtimeAppState } from './hooks/useRealtimeAppState';
+import { useBrowserNotifications } from './hooks/useBrowserNotifications';
+import { useFaviconBadge, useUnreadTitle } from './hooks/useFaviconBadge';
 import { toast } from './components/ui/sonner';
 import { AppShell } from './components/AppShell';
 import type { MessageInputHandle } from './components/MessageInput';

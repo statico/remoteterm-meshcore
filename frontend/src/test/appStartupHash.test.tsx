@@ -20,41 +20,40 @@ vi.mock('../useWebSocket', () => ({
   useWebSocket: vi.fn(),
 }));
 
-vi.mock('../hooks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../hooks')>();
-  return {
-    ...actual,
-    useConversationMessages: () => ({
-      messages: [],
-      messagesLoading: false,
-      loadingOlder: false,
-      hasOlderMessages: false,
-      hasNewerMessages: false,
-      loadingNewer: false,
-      fetchOlderMessages: vi.fn(async () => {}),
-      fetchNewerMessages: vi.fn(async () => {}),
-      jumpToBottom: vi.fn(),
-      reloadCurrentConversation: vi.fn(),
-      observeMessage: vi.fn(() => ({ added: false, activeConversation: false })),
-      receiveMessageAck: vi.fn(),
-      reconcileOnReconnect: vi.fn(),
-      renameConversationMessages: vi.fn(),
-      removeConversationMessages: vi.fn(),
-      applyBlockListChange: vi.fn(),
-    }),
-    useUnreadCounts: () => ({
-      unreadCounts: {},
-      mentions: {},
-      lastMessageTimes: {},
-      unreadLastReadAts: {},
-      firstUnreadIds: {},
-      recordMessageEvent: vi.fn(),
-      renameConversationState: vi.fn(),
-      markAllRead: vi.fn(),
-      refreshUnreads: vi.fn(async () => {}),
-    }),
-  };
-});
+vi.mock('../hooks/useConversationMessages', () => ({
+  useConversationMessages: () => ({
+    messages: [],
+    messagesLoading: false,
+    loadingOlder: false,
+    hasOlderMessages: false,
+    hasNewerMessages: false,
+    loadingNewer: false,
+    fetchOlderMessages: vi.fn(async () => {}),
+    fetchNewerMessages: vi.fn(async () => {}),
+    jumpToBottom: vi.fn(),
+    reloadCurrentConversation: vi.fn(),
+    observeMessage: vi.fn(() => ({ added: false, activeConversation: false })),
+    receiveMessageAck: vi.fn(),
+    reconcileOnReconnect: vi.fn(),
+    renameConversationMessages: vi.fn(),
+    removeConversationMessages: vi.fn(),
+    applyBlockListChange: vi.fn(),
+  }),
+}));
+
+vi.mock('../hooks/useUnreadCounts', () => ({
+  useUnreadCounts: () => ({
+    unreadCounts: {},
+    mentions: {},
+    lastMessageTimes: {},
+    unreadLastReadAts: {},
+    firstUnreadIds: {},
+    recordMessageEvent: vi.fn(),
+    renameConversationState: vi.fn(),
+    markAllRead: vi.fn(),
+    refreshUnreads: vi.fn(async () => {}),
+  }),
+}));
 
 vi.mock('../components/StatusBar', () => ({
   StatusBar: () => <div data-testid="status-bar" />,

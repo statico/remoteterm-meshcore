@@ -54,42 +54,41 @@ vi.mock('../contexts/PushSubscriptionContext', () => ({
   }),
 }));
 
-vi.mock('../hooks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../hooks')>();
-  return {
-    ...actual,
-    useConversationMessages: () => ({
-      messages: [],
-      messagesLoading: false,
-      loadingOlder: false,
-      hasOlderMessages: false,
-      hasNewerMessages: false,
-      loadingNewer: false,
-      fetchOlderMessages: vi.fn(async () => {}),
-      fetchNewerMessages: vi.fn(async () => {}),
-      jumpToBottom: vi.fn(),
-      reloadCurrentConversation: vi.fn(),
-      observeMessage: mocks.hookFns.observeMessage,
-      receiveMessageAck: vi.fn(),
-      reconcileOnReconnect: vi.fn(),
-      renameConversationMessages: vi.fn(),
-      removeConversationMessages: vi.fn(),
-      applyBlockListChange: vi.fn(),
-    }),
-    useUnreadCounts: () => ({
-      unreadCounts: {},
-      mentions: {},
-      lastMessageTimes: {},
-      unreadLastReadAts: {},
-      firstUnreadIds: {},
-      recordMessageEvent: vi.fn(),
-      renameConversationState: vi.fn(),
-      removeConversationState: vi.fn(),
-      markAllRead: vi.fn(),
-      refreshUnreads: mocks.hookFns.refreshUnreads,
-    }),
-  };
-});
+vi.mock('../hooks/useConversationMessages', () => ({
+  useConversationMessages: () => ({
+    messages: [],
+    messagesLoading: false,
+    loadingOlder: false,
+    hasOlderMessages: false,
+    hasNewerMessages: false,
+    loadingNewer: false,
+    fetchOlderMessages: vi.fn(async () => {}),
+    fetchNewerMessages: vi.fn(async () => {}),
+    jumpToBottom: vi.fn(),
+    reloadCurrentConversation: vi.fn(),
+    observeMessage: mocks.hookFns.observeMessage,
+    receiveMessageAck: vi.fn(),
+    reconcileOnReconnect: vi.fn(),
+    renameConversationMessages: vi.fn(),
+    removeConversationMessages: vi.fn(),
+    applyBlockListChange: vi.fn(),
+  }),
+}));
+
+vi.mock('../hooks/useUnreadCounts', () => ({
+  useUnreadCounts: () => ({
+    unreadCounts: {},
+    mentions: {},
+    lastMessageTimes: {},
+    unreadLastReadAts: {},
+    firstUnreadIds: {},
+    recordMessageEvent: vi.fn(),
+    renameConversationState: vi.fn(),
+    removeConversationState: vi.fn(),
+    markAllRead: vi.fn(),
+    refreshUnreads: mocks.hookFns.refreshUnreads,
+  }),
+}));
 
 // Mocked to keep the tree small and deterministic. None of them are mounted while a
 // chat conversation is active, so removing them cannot mask a chat-path subscription.

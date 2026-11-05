@@ -22,6 +22,7 @@ import hmac
 
 from app.region_scope import normalize_region_scope
 
+
 # SHA256("#name")[:16] is deterministic and cheap, but region lists are tiny and
 # packets are frequent, so cache the derived 16-byte keys.
 @functools.lru_cache(maxsize=256)

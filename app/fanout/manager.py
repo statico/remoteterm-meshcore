@@ -198,13 +198,12 @@ class FanoutManager:
         *,
         matcher: Any,
         handler_name: str,
-        log_label: str,
     ) -> None:
         """Dispatch to all matching modules concurrently."""
         tasks = []
         for config_id, (module, scope) in list(self._modules.items()):
             if matcher(scope, data):
-                tasks.append(self._run_handler(config_id, module, handler_name, data, log_label))
+                tasks.append(self._run_handler(config_id, module, handler_name, data))
         if tasks:
             await asyncio.gather(*tasks)
 
@@ -214,7 +213,6 @@ class FanoutManager:
         module: FanoutModule,
         handler_name: str,
         data: dict,
-        log_label: str,
     ) -> None:
         """Run one module handler with per-module exception isolation."""
         try:
@@ -227,13 +225,13 @@ class FanoutManager:
             logger.error(
                 "Fanout %s %s timed out after %.1fs; restarting module",
                 config_id,
-                log_label,
+                handler_name,
                 _DISPATCH_TIMEOUT_SECONDS,
             )
             await self._restart_module(config_id, module)
         except Exception as exc:
             self._set_module_error(config_id, _format_error_detail(exc))
-            logger.exception("Fanout %s %s error", config_id, log_label)
+            logger.exception("Fanout %s %s error", config_id, handler_name)
 
     async def _restart_module(self, config_id: str, module: FanoutModule) -> None:
         """Restart a timed-out module if it is still the active instance."""
@@ -259,7 +257,6 @@ class FanoutManager:
             data,
             matcher=_scope_matches_message,
             handler_name="on_message",
-            log_label="on_message",
         )
 
     async def broadcast_raw(self, data: dict) -> None:
@@ -268,7 +265,6 @@ class FanoutManager:
             data,
             matcher=_scope_matches_raw,
             handler_name="on_raw",
-            log_label="on_raw",
         )
 
     async def broadcast_contact(self, data: dict) -> None:
@@ -277,7 +273,6 @@ class FanoutManager:
             data,
             matcher=_always_match,
             handler_name="on_contact",
-            log_label="on_contact",
         )
 
     async def broadcast_telemetry(self, data: dict) -> None:
@@ -286,7 +281,6 @@ class FanoutManager:
             data,
             matcher=_always_match,
             handler_name="on_telemetry",
-            log_label="on_telemetry",
         )
 
     async def broadcast_health_fanout(self, data: dict) -> None:
@@ -295,7 +289,6 @@ class FanoutManager:
             data,
             matcher=_always_match,
             handler_name="on_health",
-            log_label="on_health",
         )
 
     async def stop_all(self) -> None:

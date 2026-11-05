@@ -313,13 +313,15 @@ That gives the store a load-bearing invariant: **no ancestor of `MessageList` ma
 
 ### Virtualization (`MessageList`)
 
-The message list is windowed with `@tanstack/react-virtual`; only the visible rows are mounted, so render cost no longer scales with conversation length. Three details are load-bearing and easy to break:
+The message list is windowed with Virtua's `Virtualizer` (scrolling the `MessageList` container via `scrollRef`); only the visible rows are mounted. Details that are load-bearing:
 
-- **`scrollMargin`** is measured from the virtual spacer's offset within the scroll container, because the container carries `p-4` and can show an "older messages" banner above the rows. Without it every `scrollToIndex` with `start`/`center` lands 16–48px high, and the error shifts as the banner appears during pagination. Rows must subtract it back out in their `translateY`.
-- **The bottom-pin is deferred and re-asserted** across a bounded run of frames rather than performed once, because row heights start as estimates and a single `scrollToIndex` gets undone as they converge (completely so under StrictMode's double-invoked effects). It is cancelled by a pending `targetMessageId` and by any deliberate scroll gesture.
-- **`getItemKey` returns a string sentinel** for indices past the end of a shrunken list; a bare index would collide with the numeric message-id keyspace and poison the measurement cache.
+- **Rows are memoized** (`MessageRow`) and sender lookups go through prebuilt key/name maps, so a scroll frame re-renders nothing that did not change. Do not pass fresh closures or objects into `MessageRow` per render.
+- **Prepend uses `shift`**: when older history lands above the first row (`isPrependOf`), Virtua keeps the offset itself. Do not write `scrollTop` for this; programmatic scrolls during an iOS fling kill the momentum.
+- **Other changes keep an anchor**: `onScroll` records the top visible message id and the reader's offset into it; after a non-prepend change (block filter, unblock merge) the effect restores it with `scrollToIndex(..., { align: 'start', offset })`. At the bottom with no newer pages, it pins to the last row instead.
+- **`startMargin` = the fixed 40px top slot** that holds the loading-older banner. The slot height never changes, so the rows never move when the banner appears.
+- **A pending `targetMessageId` suppresses the bottom pin**; the target is centered with `scrollToIndex`.
 
-jsdom has no layout engine, so none of this is observable from the vitest suite — it needs a real browser.
+`messageList.test.tsx` fakes layout (40px rows, 400px viewport) through a stub `ResizeObserver`, so scroll offsets are asserted in jsdom. Real touch momentum still needs a real device.
 
 ### Radio settings behavior
 

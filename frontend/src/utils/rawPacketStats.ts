@@ -2,6 +2,7 @@ import { MeshCoreDecoder, PayloadType, Utils } from '@michaelhart/meshcore-decod
 
 import type { RawPacket } from '../types';
 import { getRawPacketObservationKey } from './rawPacketIdentity';
+import { getPathTokens } from './rawPacketInspector';
 
 export const RAW_PACKET_STATS_WINDOWS = ['1m', '5m', '10m', '30m', 'session'] as const;
 export type RawPacketStatsWindow = (typeof RAW_PACKET_STATS_WINDOWS)[number];
@@ -114,14 +115,6 @@ function toSourceLabel(sourceKey: string): string {
     return sourceKey.slice(5);
   }
   return sourceKey.slice(0, 12).toUpperCase();
-}
-
-function getPathTokens(decoded: ReturnType<typeof MeshCoreDecoder.decode>): string[] {
-  const tracePayload =
-    decoded.payloadType === PayloadType.Trace && decoded.payload.decoded
-      ? (decoded.payload.decoded as { pathHashes?: string[] })
-      : null;
-  return tracePayload?.pathHashes || decoded.path || [];
 }
 
 function getSourceInfo(

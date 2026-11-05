@@ -82,7 +82,7 @@ export function describeCiphertextStructure(
   }
 }
 
-function getPathTokens(decoded: DecodedPacket): string[] {
+export function getPathTokens(decoded: DecodedPacket): string[] {
   const tracePayload =
     decoded.payloadType === PayloadType.Trace && decoded.payload.decoded
       ? (decoded.payload.decoded as { pathHashes?: string[] })

@@ -52,10 +52,11 @@ class BasicAuthMiddleware:
             password, self.password
         )
 
-    async def _send_http_unauthorized(self, send) -> None:
+    async def _send_unauthorized(self, send, event_prefix: str) -> None:
+        """Send a 401; event_prefix is "http" or "websocket.http" (WS denial response)."""
         await send(
             {
-                "type": "http.response.start",
+                "type": f"{event_prefix}.response.start",
                 "status": 401,
                 "headers": [
                     (b"content-type", b"application/json"),
@@ -65,32 +66,7 @@ class BasicAuthMiddleware:
                 ],
             }
         )
-        await send(
-            {
-                "type": "http.response.body",
-                "body": _UNAUTHORIZED_BODY,
-            }
-        )
-
-    async def _send_websocket_unauthorized(self, send) -> None:
-        await send(
-            {
-                "type": "websocket.http.response.start",
-                "status": 401,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"cache-control", b"no-store"),
-                    (b"content-length", str(len(_UNAUTHORIZED_BODY)).encode("ascii")),
-                    (b"www-authenticate", self._challenge_value),
-                ],
-            }
-        )
-        await send(
-            {
-                "type": "websocket.http.response.body",
-                "body": _UNAUTHORIZED_BODY,
-            }
-        )
+        await send({"type": f"{event_prefix}.response.body", "body": _UNAUTHORIZED_BODY})
 
     async def __call__(self, scope, receive, send) -> None:
         scope_type = scope["type"]
@@ -102,11 +78,7 @@ class BasicAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if scope_type == "http":
-            await self._send_http_unauthorized(send)
-            return
-
-        await self._send_websocket_unauthorized(send)
+        await self._send_unauthorized(send, "http" if scope_type == "http" else "websocket.http")
 
 
 def add_optional_basic_auth_middleware(app, settings) -> None:

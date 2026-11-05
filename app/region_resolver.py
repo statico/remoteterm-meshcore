@@ -16,16 +16,15 @@ for a match. The candidate region names come from the server-side
 ``app_settings.known_regions`` list.
 """
 
+import functools
 import hashlib
 import hmac
 
 from app.region_scope import normalize_region_scope
 
 # SHA256("#name")[:16] is deterministic and cheap, but region lists are tiny and
-# packets are frequent, so cache the derived 16-byte keys by normalized name.
-_key_cache: dict[str, bytes] = {}
-
-
+# packets are frequent, so cache the derived 16-byte keys.
+@functools.lru_cache(maxsize=256)
 def _region_key(region_name: str) -> bytes | None:
     """Return the 16-byte TransportKey for a region name, or None if blank.
 
@@ -35,11 +34,7 @@ def _region_key(region_name: str) -> bytes | None:
     normalized = normalize_region_scope(region_name)
     if not normalized:
         return None
-    key = _key_cache.get(normalized)
-    if key is None:
-        key = hashlib.sha256(normalized.encode("utf-8")).digest()[:16]
-        _key_cache[normalized] = key
-    return key
+    return hashlib.sha256(normalized.encode("utf-8")).digest()[:16]
 
 
 def compute_transport_code(region_name: str, payload_type: int, payload: bytes) -> int | None:

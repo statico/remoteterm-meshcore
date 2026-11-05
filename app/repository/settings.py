@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, TypedDict, Unpack
 
 import aiosqlite
 
@@ -16,6 +16,72 @@ SECONDS_1H = 3600
 SECONDS_24H = 86400
 SECONDS_72H = 259200
 SECONDS_7D = 604800
+
+
+_SETTINGS_COLUMNS = tuple(AppSettings.model_fields)
+_JSON_COLUMNS = frozenset(
+    {
+        "last_message_times",
+        "known_regions",
+        "blocked_keys",
+        "blocked_names",
+        "discovery_blocked_types",
+        "tracked_telemetry_repeaters",
+        "tracked_telemetry_contacts",
+    }
+)
+_DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+
+
+class SettingsUpdate(TypedDict, total=False):
+    max_radio_contacts: int | None
+    auto_decrypt_dm_on_advert: bool | None
+    last_message_times: dict[str, int] | None
+    advert_interval: int | None
+    last_advert_time: int | None
+    flood_scope: str | None
+    known_regions: list[str] | None
+    blocked_keys: list[str] | None
+    blocked_names: list[str] | None
+    discovery_blocked_types: list[int] | None
+    tracked_telemetry_repeaters: list[str] | None
+    tracked_telemetry_contacts: list[str] | None
+    auto_resend_channel: bool | None
+    telemetry_interval_hours: int | None
+    telemetry_routed_hourly: bool | None
+    ollama_enabled: bool | None
+    ollama_base_url: str | None
+    ollama_model: str | None
+    send_gap_seconds: float | None
+
+
+def _column(row: Any, name: str) -> Any:
+    """Read a column, treating one missing from a partially migrated row as NULL."""
+    try:
+        return row[name]
+    except (KeyError, IndexError):
+        return None
+
+
+def _json_column(row: Any, name: str, default: Any) -> Any:
+    raw = _column(row, name)
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("Failed to parse %s JSON, using default: %s", name, e)
+        return default
+
+
+def _number_column(row: Any, name: str, cast: type, default: Any) -> Any:
+    raw = _column(row, name)
+    if raw is None:
+        return default
+    try:
+        return cast(raw)
+    except (TypeError, ValueError):
+        return default
 
 
 class AppSettingsRepository:
@@ -36,18 +102,7 @@ class AppSettingsRepository:
         the non-reentrant DB lock.
         """
         async with conn.execute(
-            """
-            SELECT max_radio_contacts, auto_decrypt_dm_on_advert,
-                   last_message_times,
-                   advert_interval, last_advert_time, flood_scope, known_regions,
-                   blocked_keys, blocked_names, discovery_blocked_types,
-                   tracked_telemetry_repeaters, tracked_telemetry_contacts,
-                   auto_resend_channel,
-                   telemetry_interval_hours, telemetry_routed_hourly,
-                   ollama_enabled, ollama_base_url, ollama_model,
-                   send_gap_seconds
-            FROM app_settings WHERE id = 1
-            """
+            f"SELECT {', '.join(_SETTINGS_COLUMNS)} FROM app_settings WHERE id = 1"
         ) as cursor:
             row = await cursor.fetchone()
 
@@ -55,240 +110,52 @@ class AppSettingsRepository:
             # Should not happen after migration, but handle gracefully
             return AppSettings()
 
-        # Parse last_message_times JSON
-        last_message_times: dict[str, int] = {}
-        if row["last_message_times"]:
-            try:
-                last_message_times = json.loads(row["last_message_times"])
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.warning(
-                    "Failed to parse last_message_times JSON, using empty dict: %s",
-                    e,
-                )
-                last_message_times = {}
-
-        # Parse blocked_keys JSON
-        blocked_keys: list[str] = []
-        if row["blocked_keys"]:
-            try:
-                blocked_keys = json.loads(row["blocked_keys"])
-            except (json.JSONDecodeError, TypeError):
-                blocked_keys = []
-
-        # Parse blocked_names JSON
-        blocked_names: list[str] = []
-        if row["blocked_names"]:
-            try:
-                blocked_names = json.loads(row["blocked_names"])
-            except (json.JSONDecodeError, TypeError):
-                blocked_names = []
-
-        # Parse known_regions JSON
-        known_regions: list[str] = []
-        try:
-            raw_regions = row["known_regions"]
-            if raw_regions:
-                known_regions = json.loads(raw_regions)
-        except (json.JSONDecodeError, TypeError, KeyError):
-            known_regions = []
-
-        # Parse discovery_blocked_types JSON
-        discovery_blocked_types: list[int] = []
-        if row["discovery_blocked_types"]:
-            try:
-                discovery_blocked_types = json.loads(row["discovery_blocked_types"])
-            except (json.JSONDecodeError, TypeError):
-                discovery_blocked_types = []
-
-        # Parse tracked_telemetry_repeaters JSON
-        tracked_telemetry_repeaters: list[str] = []
-        try:
-            raw_tracked = row["tracked_telemetry_repeaters"]
-            if raw_tracked:
-                tracked_telemetry_repeaters = json.loads(raw_tracked)
-        except (json.JSONDecodeError, TypeError, KeyError):
-            tracked_telemetry_repeaters = []
-
-        # Parse tracked_telemetry_contacts JSON
-        tracked_telemetry_contacts: list[str] = []
-        try:
-            raw_tracked_contacts = row["tracked_telemetry_contacts"]
-            if raw_tracked_contacts:
-                tracked_telemetry_contacts = json.loads(raw_tracked_contacts)
-        except (json.JSONDecodeError, TypeError, KeyError):
-            tracked_telemetry_contacts = []
-
-        # Parse auto_resend_channel boolean
-        try:
-            auto_resend_channel = bool(row["auto_resend_channel"])
-        except (KeyError, TypeError):
-            auto_resend_channel = False
-
-        # Parse telemetry_interval_hours (migration adds the column with
-        # default=8, but guard against older rows / partial migrations).
-        try:
-            raw_interval = row["telemetry_interval_hours"]
-            telemetry_interval_hours = (
-                int(raw_interval) if raw_interval is not None else DEFAULT_TELEMETRY_INTERVAL_HOURS
-            )
-        except (KeyError, TypeError, ValueError):
-            telemetry_interval_hours = DEFAULT_TELEMETRY_INTERVAL_HOURS
-
-        # Parse telemetry_routed_hourly boolean
-        try:
-            telemetry_routed_hourly = bool(row["telemetry_routed_hourly"])
-        except (KeyError, TypeError):
-            telemetry_routed_hourly = False
-
-        try:
-            ollama_enabled = bool(row["ollama_enabled"])
-            ollama_base_url = row["ollama_base_url"] or "http://localhost:11434"
-            ollama_model = row["ollama_model"] or ""
-        except (KeyError, TypeError):
-            ollama_enabled = False
-            ollama_base_url = "http://localhost:11434"
-            ollama_model = ""
-
-        try:
-            raw_gap = row["send_gap_seconds"]
-            send_gap_seconds = float(raw_gap) if raw_gap is not None else DEFAULT_SEND_GAP_SECONDS
-        except (KeyError, TypeError, ValueError):
-            send_gap_seconds = DEFAULT_SEND_GAP_SECONDS
-
         return AppSettings(
             max_radio_contacts=row["max_radio_contacts"],
             auto_decrypt_dm_on_advert=bool(row["auto_decrypt_dm_on_advert"]),
-            last_message_times=last_message_times,
-            advert_interval=row["advert_interval"] or 0,
-            last_advert_time=row["last_advert_time"] or 0,
-            flood_scope=row["flood_scope"] or "",
-            known_regions=known_regions,
-            blocked_keys=blocked_keys,
-            blocked_names=blocked_names,
-            discovery_blocked_types=discovery_blocked_types,
-            tracked_telemetry_repeaters=tracked_telemetry_repeaters,
-            tracked_telemetry_contacts=tracked_telemetry_contacts,
-            auto_resend_channel=auto_resend_channel,
-            telemetry_interval_hours=telemetry_interval_hours,
-            telemetry_routed_hourly=telemetry_routed_hourly,
-            ollama_enabled=ollama_enabled,
-            ollama_base_url=ollama_base_url,
-            ollama_model=ollama_model,
-            send_gap_seconds=send_gap_seconds,
+            last_message_times=_json_column(row, "last_message_times", {}),
+            advert_interval=_column(row, "advert_interval") or 0,
+            last_advert_time=_column(row, "last_advert_time") or 0,
+            flood_scope=_column(row, "flood_scope") or "",
+            known_regions=_json_column(row, "known_regions", []),
+            blocked_keys=_json_column(row, "blocked_keys", []),
+            blocked_names=_json_column(row, "blocked_names", []),
+            discovery_blocked_types=_json_column(row, "discovery_blocked_types", []),
+            tracked_telemetry_repeaters=_json_column(row, "tracked_telemetry_repeaters", []),
+            tracked_telemetry_contacts=_json_column(row, "tracked_telemetry_contacts", []),
+            auto_resend_channel=bool(_column(row, "auto_resend_channel")),
+            telemetry_interval_hours=_number_column(
+                row, "telemetry_interval_hours", int, DEFAULT_TELEMETRY_INTERVAL_HOURS
+            ),
+            telemetry_routed_hourly=bool(_column(row, "telemetry_routed_hourly")),
+            ollama_enabled=bool(_column(row, "ollama_enabled")),
+            ollama_base_url=_column(row, "ollama_base_url") or _DEFAULT_OLLAMA_BASE_URL,
+            ollama_model=_column(row, "ollama_model") or "",
+            send_gap_seconds=_number_column(
+                row, "send_gap_seconds", float, DEFAULT_SEND_GAP_SECONDS
+            ),
         )
 
     @staticmethod
-    async def _apply_updates(
-        conn: aiosqlite.Connection,
-        *,
-        max_radio_contacts: int | None = None,
-        auto_decrypt_dm_on_advert: bool | None = None,
-        last_message_times: dict[str, int] | None = None,
-        advert_interval: int | None = None,
-        last_advert_time: int | None = None,
-        flood_scope: str | None = None,
-        known_regions: list[str] | None = None,
-        blocked_keys: list[str] | None = None,
-        blocked_names: list[str] | None = None,
-        discovery_blocked_types: list[int] | None = None,
-        tracked_telemetry_repeaters: list[str] | None = None,
-        tracked_telemetry_contacts: list[str] | None = None,
-        auto_resend_channel: bool | None = None,
-        telemetry_interval_hours: int | None = None,
-        telemetry_routed_hourly: bool | None = None,
-        ollama_enabled: bool | None = None,
-        ollama_base_url: str | None = None,
-        ollama_model: str | None = None,
-        send_gap_seconds: float | None = None,
-    ) -> None:
+    async def _apply_updates(conn: aiosqlite.Connection, fields: SettingsUpdate) -> None:
         """Apply field updates using an already-acquired connection.
 
-        Emits a single UPDATE statement inside the caller's transaction. Does
-        NOT commit — the caller's ``db.tx()`` handles that.
+        ``None`` values are skipped. Emits a single UPDATE statement inside the
+        caller's transaction. Does NOT commit — the caller's ``db.tx()`` handles that.
         """
-        updates: list[str] = []
-        params: list[Any] = []
-
-        if max_radio_contacts is not None:
-            updates.append("max_radio_contacts = ?")
-            params.append(max_radio_contacts)
-
-        if auto_decrypt_dm_on_advert is not None:
-            updates.append("auto_decrypt_dm_on_advert = ?")
-            params.append(1 if auto_decrypt_dm_on_advert else 0)
-
-        if last_message_times is not None:
-            updates.append("last_message_times = ?")
-            params.append(json.dumps(last_message_times))
-
-        if advert_interval is not None:
-            updates.append("advert_interval = ?")
-            params.append(advert_interval)
-
-        if last_advert_time is not None:
-            updates.append("last_advert_time = ?")
-            params.append(last_advert_time)
-
-        if flood_scope is not None:
-            updates.append("flood_scope = ?")
-            params.append(flood_scope)
-
-        if known_regions is not None:
-            updates.append("known_regions = ?")
-            params.append(json.dumps(known_regions))
-
-        if blocked_keys is not None:
-            updates.append("blocked_keys = ?")
-            params.append(json.dumps(blocked_keys))
-
-        if blocked_names is not None:
-            updates.append("blocked_names = ?")
-            params.append(json.dumps(blocked_names))
-
-        if discovery_blocked_types is not None:
-            updates.append("discovery_blocked_types = ?")
-            params.append(json.dumps(discovery_blocked_types))
-
-        if tracked_telemetry_repeaters is not None:
-            updates.append("tracked_telemetry_repeaters = ?")
-            params.append(json.dumps(tracked_telemetry_repeaters))
-
-        if tracked_telemetry_contacts is not None:
-            updates.append("tracked_telemetry_contacts = ?")
-            params.append(json.dumps(tracked_telemetry_contacts))
-
-        if auto_resend_channel is not None:
-            updates.append("auto_resend_channel = ?")
-            params.append(1 if auto_resend_channel else 0)
-
-        if telemetry_interval_hours is not None:
-            updates.append("telemetry_interval_hours = ?")
-            params.append(telemetry_interval_hours)
-
-        if telemetry_routed_hourly is not None:
-            updates.append("telemetry_routed_hourly = ?")
-            params.append(1 if telemetry_routed_hourly else 0)
-
-        if ollama_enabled is not None:
-            updates.append("ollama_enabled = ?")
-            params.append(1 if ollama_enabled else 0)
-
-        if ollama_base_url is not None:
-            updates.append("ollama_base_url = ?")
-            params.append(ollama_base_url)
-
-        if ollama_model is not None:
-            updates.append("ollama_model = ?")
-            params.append(ollama_model)
-
-        if send_gap_seconds is not None:
-            updates.append("send_gap_seconds = ?")
-            params.append(send_gap_seconds)
-
-        if updates:
-            query = f"UPDATE app_settings SET {', '.join(updates)} WHERE id = 1"
-            async with conn.execute(query, params):
-                pass
+        updates = {k: v for k, v in fields.items() if v is not None}
+        unknown = updates.keys() - set(_SETTINGS_COLUMNS)
+        if unknown:
+            raise TypeError(f"Unknown app setting(s): {sorted(unknown)}")
+        if not updates:
+            return
+        params = [
+            json.dumps(v) if k in _JSON_COLUMNS else int(v) if isinstance(v, bool) else v
+            for k, v in updates.items()
+        ]
+        assignments = ", ".join(f"{k} = ?" for k in updates)
+        async with conn.execute(f"UPDATE app_settings SET {assignments} WHERE id = 1", params):
+            pass
 
     @staticmethod
     async def get() -> AppSettings:
@@ -300,51 +167,10 @@ class AppSettingsRepository:
             return await AppSettingsRepository._get_in_conn(conn)
 
     @staticmethod
-    async def update(
-        max_radio_contacts: int | None = None,
-        auto_decrypt_dm_on_advert: bool | None = None,
-        last_message_times: dict[str, int] | None = None,
-        advert_interval: int | None = None,
-        last_advert_time: int | None = None,
-        flood_scope: str | None = None,
-        known_regions: list[str] | None = None,
-        blocked_keys: list[str] | None = None,
-        blocked_names: list[str] | None = None,
-        discovery_blocked_types: list[int] | None = None,
-        tracked_telemetry_repeaters: list[str] | None = None,
-        tracked_telemetry_contacts: list[str] | None = None,
-        auto_resend_channel: bool | None = None,
-        telemetry_interval_hours: int | None = None,
-        telemetry_routed_hourly: bool | None = None,
-        ollama_enabled: bool | None = None,
-        ollama_base_url: str | None = None,
-        ollama_model: str | None = None,
-        send_gap_seconds: float | None = None,
-    ) -> AppSettings:
-        """Update app settings. Only provided fields are updated."""
+    async def update(**fields: Unpack[SettingsUpdate]) -> AppSettings:
+        """Update app settings. Only provided (non-None) fields are updated."""
         async with db.tx() as conn:
-            await AppSettingsRepository._apply_updates(
-                conn,
-                max_radio_contacts=max_radio_contacts,
-                auto_decrypt_dm_on_advert=auto_decrypt_dm_on_advert,
-                last_message_times=last_message_times,
-                advert_interval=advert_interval,
-                last_advert_time=last_advert_time,
-                flood_scope=flood_scope,
-                known_regions=known_regions,
-                blocked_keys=blocked_keys,
-                blocked_names=blocked_names,
-                discovery_blocked_types=discovery_blocked_types,
-                tracked_telemetry_repeaters=tracked_telemetry_repeaters,
-                tracked_telemetry_contacts=tracked_telemetry_contacts,
-                auto_resend_channel=auto_resend_channel,
-                telemetry_interval_hours=telemetry_interval_hours,
-                telemetry_routed_hourly=telemetry_routed_hourly,
-                ollama_enabled=ollama_enabled,
-                ollama_base_url=ollama_base_url,
-                ollama_model=ollama_model,
-                send_gap_seconds=send_gap_seconds,
-            )
+            await AppSettingsRepository._apply_updates(conn, fields)
             return await AppSettingsRepository._get_in_conn(conn)
 
     @staticmethod
@@ -362,7 +188,7 @@ class AppSettingsRepository:
                 new_keys = [k for k in settings.blocked_keys if k != normalized]
             else:
                 new_keys = settings.blocked_keys + [normalized]
-            await AppSettingsRepository._apply_updates(conn, blocked_keys=new_keys)
+            await AppSettingsRepository._apply_updates(conn, {"blocked_keys": new_keys})
             return await AppSettingsRepository._get_in_conn(conn)
 
     @staticmethod
@@ -377,7 +203,7 @@ class AppSettingsRepository:
                 new_names = [n for n in settings.blocked_names if n != name]
             else:
                 new_names = settings.blocked_names + [name]
-            await AppSettingsRepository._apply_updates(conn, blocked_names=new_names)
+            await AppSettingsRepository._apply_updates(conn, {"blocked_names": new_names})
             return await AppSettingsRepository._get_in_conn(conn)
 
     @staticmethod

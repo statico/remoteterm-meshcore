@@ -712,6 +712,36 @@ class TestAppSettingsRepository:
         assert settings.telemetry_interval_hours == DEFAULT_TELEMETRY_INTERVAL_HOURS
 
 
+class TestAppSettingsRepositoryUpdate:
+    @pytest.mark.asyncio
+    async def test_update_round_trips_each_column_kind(self, test_db):
+        result = await AppSettingsRepository.update(
+            max_radio_contacts=150,
+            auto_resend_channel=True,
+            blocked_keys=["ab" * 32],
+            last_message_times={"chan:x": 5},
+            send_gap_seconds=2.5,
+            flood_scope="#west",
+            ollama_model=None,
+        )
+        assert result.max_radio_contacts == 150
+        assert result.auto_resend_channel is True
+        assert result.blocked_keys == ["ab" * 32]
+        assert result.last_message_times == {"chan:x": 5}
+        assert result.send_gap_seconds == 2.5
+        assert result.flood_scope == "#west"
+        assert result.ollama_model == ""
+
+        again = await AppSettingsRepository.update(auto_resend_channel=False)
+        assert again.auto_resend_channel is False
+        assert again.blocked_keys == ["ab" * 32]
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_unknown_column(self, test_db):
+        with pytest.raises(TypeError):
+            await AppSettingsRepository.update(**{"bogus; DROP": 1})  # type: ignore[arg-type]
+
+
 class TestMessageRepositoryGetById:
     """Test MessageRepository.get_by_id method."""
 

@@ -12,7 +12,6 @@ from app.radio import radio_manager
 from app.repository import ContactRepository
 from app.routers.contacts import request_trace
 from app.routers.repeaters import (
-    _batch_cli_fetch,
     _parse_anon_region_names,
     _parse_region_dump,
     prepare_repeater_connection,
@@ -28,7 +27,7 @@ from app.routers.repeaters import (
     repeater_status,
     send_repeater_command,
 )
-from app.routers.server_control import fetch_contact_cli_response
+from app.routers.server_control import batch_cli_fetch, fetch_contact_cli_response
 
 KEY_A = "aa" * 32
 
@@ -1849,7 +1848,7 @@ def _make_contact(
 
 
 class TestBatchCliFetch:
-    """Tests for the _batch_cli_fetch helper."""
+    """Tests for the batch_cli_fetch helper."""
 
     @pytest.mark.asyncio
     async def test_add_contact_error_raises_500(self):
@@ -1862,7 +1861,7 @@ class TestBatchCliFetch:
 
         with patch.object(radio_manager, "_meshcore", mc):
             with pytest.raises(HTTPException) as exc:
-                await _batch_cli_fetch(contact, "test_op", [("ver", "firmware_version")])
+                await batch_cli_fetch(contact, "test_op", [("ver", "firmware_version")])
 
         assert exc.value.status_code == 422
         assert "Failed to add contact to radio" in exc.value.detail
@@ -1893,7 +1892,7 @@ class TestBatchCliFetch:
             patch(_MONOTONIC, side_effect=_advancing_clock()),
             patch("app.routers.server_control.asyncio.sleep", new_callable=AsyncMock),
         ):
-            results = await _batch_cli_fetch(
+            results = await batch_cli_fetch(
                 contact, "test_op", [("bad_cmd", "field_a"), ("good_cmd", "field_b")]
             )
 
@@ -1914,7 +1913,7 @@ class TestBatchCliFetch:
             patch(_MONOTONIC, side_effect=[0.0, 5.0, 11.0]),
             patch("app.routers.server_control.asyncio.sleep", new_callable=AsyncMock),
         ):
-            results = await _batch_cli_fetch(contact, "test_op", [("clock", "clock_output")])
+            results = await batch_cli_fetch(contact, "test_op", [("clock", "clock_output")])
 
         assert results["clock_output"] is None
 

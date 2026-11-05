@@ -316,14 +316,6 @@ async def build_acl_response(acl_data: object) -> RepeaterAclResponse:
     return RepeaterAclResponse(acl=acl)
 
 
-async def _batch_cli_fetch(
-    contact: Contact,
-    operation_name: str,
-    commands: list[tuple[str, str]],
-) -> dict[str, str | None]:
-    return await batch_cli_fetch(contact, operation_name, commands)
-
-
 @router.post("/{public_key}/repeater/node-info", response_model=RepeaterNodeInfoResponse)
 async def repeater_node_info(public_key: str) -> RepeaterNodeInfoResponse:
     """Fetch repeater identity/location info via a small CLI batch."""
@@ -331,7 +323,7 @@ async def repeater_node_info(public_key: str) -> RepeaterNodeInfoResponse:
     contact = await _resolve_contact_or_404(public_key)
     _require_repeater(contact)
 
-    results = await _batch_cli_fetch(
+    results = await batch_cli_fetch(
         contact,
         "repeater_node_info",
         [
@@ -351,7 +343,7 @@ async def repeater_radio_settings(public_key: str) -> RepeaterRadioSettingsRespo
     contact = await _resolve_contact_or_404(public_key)
     _require_repeater(contact)
 
-    results = await _batch_cli_fetch(
+    results = await batch_cli_fetch(
         contact,
         "repeater_radio_settings",
         [
@@ -385,7 +377,7 @@ async def repeater_advert_intervals(public_key: str) -> RepeaterAdvertIntervalsR
     contact = await _resolve_contact_or_404(public_key)
     _require_repeater(contact)
 
-    results = await _batch_cli_fetch(
+    results = await batch_cli_fetch(
         contact,
         "repeater_advert_intervals",
         [
@@ -412,7 +404,7 @@ async def repeater_owner_info(public_key: str) -> RepeaterOwnerInfoResponse:
     owner = await fetch_repeater_owner_info_binary(contact) or {}
 
     # Guest password is admin-only; still fetched via CLI (guests get None).
-    cli = await _batch_cli_fetch(
+    cli = await batch_cli_fetch(
         contact,
         "repeater_owner_info",
         [("get guest.password", "guest_password")],
@@ -558,7 +550,7 @@ async def repeater_regions(public_key: str) -> RepeaterRegionsResponse:
     contact = await _resolve_contact_or_404(public_key)
     _require_repeater(contact)
 
-    results = await _batch_cli_fetch(contact, "repeater_regions", [("region", "regions")])
+    results = await batch_cli_fetch(contact, "repeater_regions", [("region", "regions")])
     raw = results.get("regions")
     entries, truncated = _parse_region_dump(raw or "")
     # The CLI dump always includes the wildcard root, so a non-empty result means

@@ -16,16 +16,17 @@ import app.radio_sync as radio_sync
 from app.radio import RadioManager, RadioOperationBusyError, radio_manager
 from app.radio_sync import (
     _enable_autoevict_on_radio,
+    _load_contacts_to_radio,
     _message_poll_loop,
     _periodic_advert_loop,
     _periodic_sync_loop,
     audit_channel_send_cache,
     ensure_contact_on_radio,
+    get_contacts_selected_for_radio_sync,
     is_polling_paused,
     pause_polling,
     sync_and_offload_all,
     sync_radio_time,
-    sync_recent_contacts_to_radio,
 )
 from app.repository import (
     AppSettingsRepository,
@@ -382,8 +383,13 @@ class TestSyncRadioTime:
         ]
 
 
+async def _sync_selected(mc):
+    """Load the background-sync selection onto the radio, as reconcile does."""
+    return await _load_contacts_to_radio(mc, await get_contacts_selected_for_radio_sync())
+
+
 class TestSyncRecentContactsToRadio:
-    """Test the sync_recent_contacts_to_radio function."""
+    """Fill order and add_contact payloads for the contacts loaded onto the radio."""
 
     @pytest.mark.asyncio
     async def test_loads_favorite_contacts_not_on_radio(self, test_db):
@@ -400,7 +406,7 @@ class TestSyncRecentContactsToRadio:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 2
 
@@ -431,7 +437,7 @@ class TestSyncRecentContactsToRadio:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 4
         loaded_keys = [
@@ -458,7 +464,7 @@ class TestSyncRecentContactsToRadio:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 4
         loaded_keys = [
@@ -628,7 +634,7 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 1
         payload = mock_mc.commands.add_contact.call_args.args[0]
@@ -657,7 +663,7 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 2
         loaded_keys = [
@@ -676,54 +682,11 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock()
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 0
         assert result["already_on_radio"] == 1
         mock_mc.commands.add_contact.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_throttled_when_called_quickly(self, test_db):
-        """Second call within throttle window returns throttled result."""
-        mock_mc = MagicMock()
-        mock_mc.get_contact_by_key_prefix = MagicMock(return_value=None)
-
-        radio_manager._meshcore = mock_mc
-
-        # First call succeeds
-        result1 = await sync_recent_contacts_to_radio()
-        assert "throttled" not in result1
-
-        # Second call is throttled
-        result2 = await sync_recent_contacts_to_radio()
-        assert result2["throttled"] is True
-        assert result2["loaded"] == 0
-
-    @pytest.mark.asyncio
-    async def test_force_bypasses_throttle(self, test_db):
-        """force=True bypasses the throttle window."""
-        mock_mc = MagicMock()
-
-        radio_manager._meshcore = mock_mc
-
-        # First call
-        await sync_recent_contacts_to_radio()
-
-        # Forced second call is not throttled
-        result = await sync_recent_contacts_to_radio(force=True)
-        assert "throttled" not in result
-
-    @pytest.mark.asyncio
-    async def test_not_connected_returns_error(self):
-        """Returns error when radio is not connected."""
-        with patch("app.radio_sync.radio_manager") as mock_rm:
-            mock_rm.is_connected = False
-            mock_rm.meshcore = None
-
-            result = await sync_recent_contacts_to_radio()
-
-        assert result["loaded"] == 0
-        assert "error" in result
 
     @pytest.mark.asyncio
     async def test_handles_add_failure(self, test_db):
@@ -739,7 +702,7 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 0
         assert result["failed"] == 1
@@ -764,7 +727,7 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 1
         payload = mock_mc.commands.add_contact.call_args.args[0]
@@ -793,82 +756,13 @@ class TestSyncAndOffloadAll:
         mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
 
         radio_manager._meshcore = mock_mc
-        result = await sync_recent_contacts_to_radio()
+        result = await _sync_selected(mock_mc)
 
         assert result["loaded"] == 1
         payload = mock_mc.commands.add_contact.call_args.args[0]
         assert payload["out_path"] == "3f3f69de1c7b7e7662"
         assert payload["out_path_len"] == 3
         assert payload["out_path_hash_mode"] == 2
-
-    @pytest.mark.asyncio
-    async def test_mc_param_bypasses_lock_acquisition(self, test_db):
-        """When mc is passed, the function uses it directly without acquiring radio_operation.
-
-        This tests the BUG-1 fix: sync_and_offload_all already holds the lock,
-        so it passes mc directly to avoid deadlock (asyncio.Lock is not reentrant).
-        """
-        await _insert_contact(KEY_A, "Alice", last_contacted=2000)
-        await ContactRepository.set_favorite(KEY_A, True)
-
-        mock_mc = MagicMock()
-        mock_mc.get_contact_by_key_prefix = MagicMock(return_value=None)
-        mock_result = MagicMock()
-        mock_result.type = EventType.OK
-        mock_mc.commands.add_contact = AsyncMock(return_value=mock_result)
-
-        # Make radio_operation raise if called — it should NOT be called
-        # when mc is provided
-        def radio_operation_should_not_be_called(*args, **kwargs):
-            raise AssertionError("radio_operation should not be called when mc is passed")
-
-        with patch.object(
-            radio_manager, "radio_operation", side_effect=radio_operation_should_not_be_called
-        ):
-            result = await sync_recent_contacts_to_radio(mc=mock_mc)
-
-        assert result["loaded"] == 1
-        mock_mc.commands.add_contact.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_mc_param_still_respects_throttle(self):
-        """When mc is passed but throttle is active (not forced), it should still return throttled."""
-        mock_mc = MagicMock()
-
-        # First call to set _last_contact_sync
-        radio_manager._meshcore = mock_mc
-        await sync_recent_contacts_to_radio()
-
-        # Second call with mc= but no force — should still be throttled
-        result = await sync_recent_contacts_to_radio(mc=mock_mc)
-        assert result["throttled"] is True
-        assert result["loaded"] == 0
-
-    @pytest.mark.asyncio
-    async def test_uses_post_lock_meshcore_after_swap(self, test_db):
-        """If _meshcore is swapped between pre-check and lock acquisition,
-        the function uses the new (post-lock) instance, not the stale one."""
-        await _insert_contact(KEY_A, "Alice", last_contacted=2000)
-        await ContactRepository.set_favorite(KEY_A, True)
-
-        old_mc = MagicMock(name="old_mc")
-        new_mc = MagicMock(name="new_mc")
-        new_mc.get_contact_by_key_prefix = MagicMock(return_value=None)
-        mock_result = MagicMock()
-        mock_result.type = EventType.OK
-        new_mc.commands.add_contact = AsyncMock(return_value=mock_result)
-
-        # Pre-check sees old_mc (truthy, passes is_connected guard)
-        radio_manager._meshcore = old_mc
-        # Simulate reconnect swapping _meshcore before lock acquisition
-        radio_manager._meshcore = new_mc
-
-        result = await sync_recent_contacts_to_radio()
-
-        assert result["loaded"] == 1
-        # new_mc was used, not old_mc
-        new_mc.commands.add_contact.assert_called_once()
-        old_mc.commands.add_contact.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_ensure_contact_on_radio_loads_single_contact_even_when_not_favorited(

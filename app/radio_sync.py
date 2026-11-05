@@ -1593,24 +1593,6 @@ async def get_contacts_selected_for_radio_sync() -> list[Contact]:
     return selected_contacts
 
 
-async def _sync_contacts_to_radio_inner(mc: MeshCore) -> dict:
-    """
-    Core logic for loading contacts onto the radio.
-
-    Fill order is:
-    1. Favorite contacts
-    2. Most recently DM-active non-repeaters (sent or received)
-    3. Most recently advert-heard non-repeaters
-
-    Favorite contacts are always reloaded first, up to the configured capacity.
-    Additional non-favorite fill stops at the refill target (80% of capacity).
-
-    Caller must hold the radio operation lock and pass a valid MeshCore instance.
-    """
-    selected_contacts = await get_contacts_selected_for_radio_sync()
-    return await _load_contacts_to_radio(mc, selected_contacts)
-
-
 async def ensure_contact_on_radio(
     public_key: str,
     *,
@@ -1728,59 +1710,6 @@ async def _load_contacts_to_radio(mc: MeshCore, contacts: list[Contact]) -> dict
         "already_on_radio": already_on_radio,
         "failed": failed,
     }
-
-
-async def sync_recent_contacts_to_radio(force: bool = False, mc: MeshCore | None = None) -> dict:
-    """
-    Load contacts to the radio for DM ACK support.
-
-    Fill order is favorites, then recently DM-active non-repeaters (sent or
-    received), then recently advert-heard non-repeaters. Favorites are always reloaded
-    up to the configured capacity; additional non-favorite fill stops at the
-    80% refill target.
-    Only runs at most once every CONTACT_SYNC_THROTTLE_SECONDS unless forced.
-
-    Args:
-        force: Skip the throttle check.
-        mc: Optional MeshCore instance. When provided, the caller already holds
-            the radio operation lock and the inner logic runs directly.
-            When None, this function acquires its own lock.
-
-    Returns counts of contacts loaded.
-    """
-    global _last_contact_sync
-
-    # Throttle unless forced
-    now = time.time()
-    if not force and (now - _last_contact_sync) < CONTACT_SYNC_THROTTLE_SECONDS:
-        logger.debug("Contact sync throttled (last sync %ds ago)", int(now - _last_contact_sync))
-        return {"loaded": 0, "throttled": True}
-
-    # If caller provided a MeshCore instance, use it directly (caller holds the lock)
-    if mc is not None:
-        _last_contact_sync = now
-        assert mc is not None
-        return await _sync_contacts_to_radio_inner(mc)
-
-    if not radio_manager.is_connected or radio_manager.meshcore is None:
-        logger.debug("Cannot sync contacts to radio: not connected")
-        return {"loaded": 0, "error": "Radio not connected"}
-
-    try:
-        async with radio_manager.radio_operation(
-            "sync_recent_contacts_to_radio",
-            blocking=False,
-        ) as mc:
-            _last_contact_sync = now
-            assert mc is not None
-            return await _sync_contacts_to_radio_inner(mc)
-    except RadioOperationBusyError:
-        logger.debug("Skipping contact sync to radio: radio busy")
-        return {"loaded": 0, "busy": True}
-
-    except Exception as e:
-        logger.error("Error syncing contacts to radio: %s", e, exc_info=True)
-        return {"loaded": 0, "error": str(e)}
 
 
 # ---------------------------------------------------------------------------

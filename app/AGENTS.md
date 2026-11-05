@@ -196,7 +196,7 @@ Both traffic buckets come from one 24h raw-packet scan (`_packet_shape_24h`) sha
 
 ### Contact sync throttle
 
-- `sync_recent_contacts_to_radio()` sets `_last_contact_sync = now` before the sync completes.
+- `ensure_contact_on_radio()` sets `_last_contact_sync = now` before the sync completes.
 - This is intentional: if sync fails, the next attempt is still throttled to prevent a retry-storm against a flaky radio. Contacts will resync on the next scheduled cycle or on reconnect.
 
 ### Periodic advertisement

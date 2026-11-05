@@ -14,7 +14,11 @@ from pydantic import BaseModel, Field
 
 from app.config import get_recent_log_lines, settings
 from app.models import AppSettings
-from app.radio_sync import get_contacts_selected_for_radio_sync, get_radio_channel_limit
+from app.radio_sync import (
+    _normalize_channel_secret,
+    get_contacts_selected_for_radio_sync,
+    get_radio_channel_limit,
+)
 from app.repository import AppSettingsRepository, MessageRepository, StatisticsRepository
 from app.routers.health import FanoutStatusResponse, build_health_data
 from app.services.radio_runtime import radio_runtime
@@ -185,13 +189,6 @@ def _event_type_name(event: Any) -> str:
 
 def _sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _normalize_channel_secret(payload: dict[str, Any]) -> bytes:
-    secret = payload.get("channel_secret", b"")
-    if isinstance(secret, bytes):
-        return secret
-    return bytes(secret)
 
 
 def _is_empty_channel_payload(payload: dict[str, Any]) -> bool:

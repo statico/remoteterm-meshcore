@@ -3059,3 +3059,11 @@ async def test_telemetry_cycle_retries_busy_and_failed_attempts():
     assert TELEMETRY_COLLECT_ATTEMPTS >= 3
     assert attempts == [key, key]
     assert sleep.await_count == 2
+
+
+def test_normalize_channel_secret_accepts_bytes_list_and_missing():
+    from app.radio_sync import _normalize_channel_secret
+
+    assert _normalize_channel_secret({"channel_secret": b"\x01\x02"}) == b"\x01\x02"
+    assert _normalize_channel_secret({"channel_secret": [1, 2]}) == b"\x01\x02"
+    assert _normalize_channel_secret({}) == b""

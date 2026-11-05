@@ -594,10 +594,7 @@ async def poll_for_messages(mc: MeshCore) -> int:
 
 def _normalize_channel_secret(payload: dict) -> bytes:
     """Return a normalized bytes representation of a radio channel secret."""
-    secret = payload.get("channel_secret", b"")
-    if isinstance(secret, bytes):
-        return secret
-    return bytes(secret)
+    return bytes(payload.get("channel_secret", b""))
 
 
 async def audit_channel_send_cache(mc: MeshCore) -> bool:

@@ -1,3 +1,12 @@
+## [3.26.7] - 2026-11-05
+
+* Feature: Contact info pane has a "Send direct message" button (disabled, with the reason, for channel senders whose key we haven't heard)
+* Feature: Blocking or unblocking someone updates the open chat in place and keeps your scroll position
+* Bugfix: Smooth scrolling on mobile; the message list now uses Virtua for virtualization
+* Bugfix: Messages, unread counts and contacts load much faster; reads no longer queue behind writes
+* Bugfix: An open tab no longer goes blank after the server is upgraded
+* Misc: Smaller initial download, fewer re-renders, and a large code cleanup
+
 ## [3.26.6] - 2026-11-03
 
 * Bugfix: Typing and scrolling are fast again in Safari with large contact lists; sidebar sections now show 100 rows at a time with a "Show more" button

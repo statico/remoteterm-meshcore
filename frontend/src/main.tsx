@@ -7,6 +7,9 @@ import './styles.css';
 import { getSavedTheme, applyTheme, initFollowOSListener } from './utils/theme';
 import { applyFontScale, getSavedFontScale } from './utils/fontScale';
 import { PushSubscriptionProvider } from './contexts/PushSubscriptionContext';
+import { DistanceUnitProvider } from './contexts/DistanceUnitContext';
+import { PathHopWidthProvider } from './contexts/PathHopWidthContext';
+import { RichPayloadProvider } from './contexts/RichPayloadContext';
 
 // Apply saved theme before first render
 applyTheme(getSavedTheme());
@@ -17,7 +20,13 @@ applyFontScale(getSavedFontScale());
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PushSubscriptionProvider>
-      <App />
+      <DistanceUnitProvider>
+        <RichPayloadProvider>
+          <PathHopWidthProvider>
+            <App />
+          </PathHopWidthProvider>
+        </RichPayloadProvider>
+      </DistanceUnitProvider>
     </PushSubscriptionProvider>
   </StrictMode>
 );

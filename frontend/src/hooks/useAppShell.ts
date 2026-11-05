@@ -1,9 +1,6 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
 import { getLocalLabel, type LocalLabel } from '../utils/localLabel';
-import { getSavedDistanceUnit, type DistanceUnit } from '../utils/distanceUnits';
-import { getSavedRenderRichPayloads } from '../utils/richPayloadPreference';
-import { getSavedShowPathHopWidth } from '../utils/pathHopWidthPreference';
 import type { SettingsSection } from '../components/settings/settingsConstants';
 import { parseHashSettingsSection, updateSettingsHash, pushSettingsHash } from '../utils/urlHash';
 
@@ -15,16 +12,10 @@ interface UseAppShellResult {
   showCracker: boolean;
   crackerRunning: boolean;
   localLabel: LocalLabel;
-  distanceUnit: DistanceUnit;
-  renderRichPayloads: boolean;
-  showPathHopWidth: boolean;
   setSettingsSection: (section: SettingsSection) => void;
   setSidebarOpen: (open: boolean) => void;
   setCrackerRunning: (running: boolean) => void;
   setLocalLabel: (label: LocalLabel) => void;
-  setDistanceUnit: (unit: DistanceUnit) => void;
-  setRenderRichPayloads: (enabled: boolean) => void;
-  setShowPathHopWidth: (enabled: boolean) => void;
   handleCloseSettingsView: () => void;
   handleToggleSettingsView: () => void;
   handleOpenNewMessage: () => void;
@@ -43,9 +34,6 @@ export function useAppShell(): UseAppShellResult {
   const [showCracker, setShowCracker] = useState(false);
   const [crackerRunning, setCrackerRunning] = useState(false);
   const [localLabel, setLocalLabel] = useState(getLocalLabel);
-  const [distanceUnit, setDistanceUnit] = useState(getSavedDistanceUnit);
-  const [renderRichPayloads, setRenderRichPayloads] = useState(getSavedRenderRichPayloads);
-  const [showPathHopWidth, setShowPathHopWidth] = useState(getSavedShowPathHopWidth);
   const previousHashRef = useRef('');
   const isOpeningSettingsRef = useRef(false);
   const pushedSettingsEntryRef = useRef(false);
@@ -134,16 +122,10 @@ export function useAppShell(): UseAppShellResult {
     showCracker,
     crackerRunning,
     localLabel,
-    distanceUnit,
-    renderRichPayloads,
-    showPathHopWidth,
     setSettingsSection,
     setSidebarOpen,
     setCrackerRunning,
     setLocalLabel,
-    setDistanceUnit,
-    setRenderRichPayloads,
-    setShowPathHopWidth,
     handleCloseSettingsView,
     handleToggleSettingsView,
     handleOpenNewMessage,

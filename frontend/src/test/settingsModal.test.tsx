@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +23,9 @@ import {
 } from '../utils/lastViewedConversation';
 import { api } from '../api';
 import { DISTANCE_UNIT_KEY } from '../utils/distanceUnits';
-import { SHOW_PATH_HOP_WIDTH_KEY } from '../utils/pathHopWidthPreference';
+import { DistanceUnitProvider } from '../contexts/DistanceUnitContext';
+import { PathHopWidthProvider, SHOW_PATH_HOP_WIDTH_KEY } from '../contexts/PathHopWidthContext';
+import { RichPayloadProvider, RENDER_RICH_PAYLOADS_KEY } from '../contexts/RichPayloadContext';
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_KEY,
@@ -82,6 +85,16 @@ const baseSettings: AppSettings = {
   ollama_model: '',
   send_gap_seconds: 4,
 };
+
+function PreferenceProviders({ children }: { children: ReactNode }) {
+  return (
+    <DistanceUnitProvider>
+      <RichPayloadProvider>
+        <PathHopWidthProvider>{children}</PathHopWidthProvider>
+      </RichPayloadProvider>
+    </DistanceUnitProvider>
+  );
+}
 
 function renderModal(overrides?: {
   config?: RadioConfig | null;
@@ -154,9 +167,10 @@ function renderModal(overrides?: {
           {...commonProps}
           externalSidebarNav
           desktopSection={overrides.desktopSection ?? 'radio'}
-        />
+        />,
+        { wrapper: PreferenceProviders }
       )
-    : render(<SettingsModal {...commonProps} />);
+    : render(<SettingsModal {...commonProps} />, { wrapper: PreferenceProviders });
 
   return {
     onSaveAppSettings,
@@ -685,7 +699,26 @@ describe('SettingsModal', () => {
 
     fireEvent.click(checkbox);
 
+    expect(checkbox).toBeChecked();
     expect(localStorage.getItem(SHOW_PATH_HOP_WIDTH_KEY)).toBe('true');
+
+    fireEvent.click(checkbox);
+
+    expect(checkbox).not.toBeChecked();
+    expect(localStorage.getItem(SHOW_PATH_HOP_WIDTH_KEY)).toBeNull();
+  });
+
+  it('defaults the rich-payload toggle to off and persists enabling it', () => {
+    renderModal();
+    openLocalSection();
+
+    const checkbox = screen.getByLabelText(/Render MeshCore Open GIFs/);
+    expect(checkbox).not.toBeChecked();
+
+    fireEvent.click(checkbox);
+
+    expect(checkbox).toBeChecked();
+    expect(localStorage.getItem(RENDER_RICH_PAYLOADS_KEY)).toBe('true');
   });
 
   it('defaults distance units to metric and stores local changes', () => {
@@ -697,6 +730,7 @@ describe('SettingsModal', () => {
 
     fireEvent.change(select, { target: { value: 'smoots' } });
 
+    expect(select).toHaveValue('smoots');
     expect(localStorage.getItem(DISTANCE_UNIT_KEY)).toBe('smoots');
   });
 

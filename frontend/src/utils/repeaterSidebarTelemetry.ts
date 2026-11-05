@@ -1,5 +1,6 @@
 import type { TelemetryHistoryEntry } from '../types';
 import { mvToPercent } from './batteryDisplay';
+import { getBoolPreference, setBoolPreference } from './boolPreference';
 
 export const REPEATER_SIDEBAR_TELEMETRY_CHANGE_EVENT =
   'remoteterm-repeater-sidebar-telemetry-change';
@@ -33,25 +34,9 @@ export function setRepeaterPowerMode(mode: RepeaterPowerMode): void {
   }
 }
 
-export function getShowRepeaterTemperature(): boolean {
-  try {
-    return localStorage.getItem(TEMPERATURE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setShowRepeaterTemperature(enabled: boolean): void {
-  try {
-    if (enabled) {
-      localStorage.setItem(TEMPERATURE_KEY, 'true');
-    } else {
-      localStorage.removeItem(TEMPERATURE_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
-}
+export const getShowRepeaterTemperature = () => getBoolPreference(TEMPERATURE_KEY);
+export const setShowRepeaterTemperature = (enabled: boolean) =>
+  setBoolPreference(TEMPERATURE_KEY, enabled);
 
 export function formatRepeaterPower(
   volts: number | undefined,

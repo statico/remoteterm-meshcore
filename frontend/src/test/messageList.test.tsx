@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isPrependOf, MessageList } from '../components/MessageList';
-import { PathHopWidthProvider } from '../contexts/PathHopWidthContext';
+import { PathHopWidthProvider, SHOW_PATH_HOP_WIDTH_KEY } from '../contexts/PathHopWidthContext';
 import { CONTACT_TYPE_ROOM, type Contact, type Message } from '../types';
 
 const scrollIntoViewMock = vi.fn();
@@ -143,6 +143,7 @@ function createMessage(overrides: Partial<Message> = {}): Message {
 
 describe('MessageList channel sender rendering', () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.stubGlobal('ResizeObserver', FakeLayoutResizeObserver);
     scroller = null;
     scrollIntoViewMock.mockReset();
@@ -203,8 +204,9 @@ describe('MessageList channel sender rendering', () => {
   });
 
   it('shows per-hop byte width in the path badge when the toggle is on', async () => {
+    localStorage.setItem(SHOW_PATH_HOP_WIDTH_KEY, 'true');
     await renderList(
-      <PathHopWidthProvider showPathHopWidth setShowPathHopWidth={() => {}}>
+      <PathHopWidthProvider>
         <MessageList
           messages={[
             createMessage({
@@ -243,8 +245,9 @@ describe('MessageList channel sender rendering', () => {
   });
 
   it('omits the width for direct (0-hop) paths even when the toggle is on', async () => {
+    localStorage.setItem(SHOW_PATH_HOP_WIDTH_KEY, 'true');
     await renderList(
-      <PathHopWidthProvider showPathHopWidth setShowPathHopWidth={() => {}}>
+      <PathHopWidthProvider>
         <MessageList
           messages={[
             createMessage({

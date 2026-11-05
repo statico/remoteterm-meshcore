@@ -1,3 +1,5 @@
+import { getBoolPreference, setBoolPreference } from './boolPreference';
+
 export const BATTERY_DISPLAY_CHANGE_EVENT = 'remoteterm-battery-display-change';
 
 // Meshtastic default OCV table (meshtastic/firmware src/power.h)
@@ -42,42 +44,8 @@ export function formatBatteryLabel(
 const PERCENT_KEY = 'remoteterm-show-battery-percent';
 const VOLTAGE_KEY = 'remoteterm-show-battery-voltage';
 
-export function getShowBatteryPercent(): boolean {
-  try {
-    return localStorage.getItem(PERCENT_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
+export const getShowBatteryPercent = () => getBoolPreference(PERCENT_KEY);
+export const setShowBatteryPercent = (enabled: boolean) => setBoolPreference(PERCENT_KEY, enabled);
 
-export function setShowBatteryPercent(enabled: boolean): void {
-  try {
-    if (enabled) {
-      localStorage.setItem(PERCENT_KEY, 'true');
-    } else {
-      localStorage.removeItem(PERCENT_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
-}
-
-export function getShowBatteryVoltage(): boolean {
-  try {
-    return localStorage.getItem(VOLTAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setShowBatteryVoltage(enabled: boolean): void {
-  try {
-    if (enabled) {
-      localStorage.setItem(VOLTAGE_KEY, 'true');
-    } else {
-      localStorage.removeItem(VOLTAGE_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
-}
+export const getShowBatteryVoltage = () => getBoolPreference(VOLTAGE_KEY);
+export const setShowBatteryVoltage = (enabled: boolean) => setBoolPreference(VOLTAGE_KEY, enabled);

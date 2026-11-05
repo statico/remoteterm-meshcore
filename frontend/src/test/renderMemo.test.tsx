@@ -106,9 +106,9 @@ describe('render memoization', () => {
       const [, setTick] = useState(0);
       bump = () => setTick((t) => t + 1);
       return (
-        <DistanceUnitProvider distanceUnit="metric" setDistanceUnit={noop}>
-          <RichPayloadProvider renderRichPayloads={false} setRenderRichPayloads={noop}>
-            <PathHopWidthProvider showPathHopWidth={false} setShowPathHopWidth={noop}>
+        <DistanceUnitProvider>
+          <RichPayloadProvider>
+            <PathHopWidthProvider>
               <Consumer />
             </PathHopWidthProvider>
           </RichPayloadProvider>
@@ -120,5 +120,43 @@ describe('render memoization', () => {
     expect(consumerRenders.count).toBe(1);
     act(() => bump());
     expect(consumerRenders.count).toBe(1);
+  });
+
+  it('preference setters re-render consumers and persist the choice', () => {
+    localStorage.clear();
+    let prefs: {
+      distance: ReturnType<typeof useDistanceUnit>;
+      hop: ReturnType<typeof usePathHopWidth>;
+      rich: ReturnType<typeof useRichPayloads>;
+    } | null = null;
+    function Consumer() {
+      prefs = { distance: useDistanceUnit(), hop: usePathHopWidth(), rich: useRichPayloads() };
+      return null;
+    }
+    render(
+      <DistanceUnitProvider>
+        <RichPayloadProvider>
+          <PathHopWidthProvider>
+            <Consumer />
+          </PathHopWidthProvider>
+        </RichPayloadProvider>
+      </DistanceUnitProvider>
+    );
+    expect(prefs!.distance.distanceUnit).toBe('metric');
+    expect(prefs!.hop.showPathHopWidth).toBe(false);
+    expect(prefs!.rich.renderRichPayloads).toBe(false);
+
+    act(() => {
+      prefs!.distance.setDistanceUnit('imperial');
+      prefs!.hop.setShowPathHopWidth(true);
+      prefs!.rich.setRenderRichPayloads(true);
+    });
+
+    expect(prefs!.distance.distanceUnit).toBe('imperial');
+    expect(prefs!.hop.showPathHopWidth).toBe(true);
+    expect(prefs!.rich.renderRichPayloads).toBe(true);
+    expect(localStorage.getItem('remoteterm-distance-unit')).toBe('imperial');
+    expect(localStorage.getItem('remoteterm-show-path-hop-width')).toBe('true');
+    expect(localStorage.getItem('remoteterm-render-rich-payloads')).toBe('true');
   });
 });

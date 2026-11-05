@@ -89,8 +89,7 @@ frontend/src/
 │   ├── regionScope.ts          # Regional flood-scope label/normalization helpers
 │   ├── meshcoreOpenPayloads.ts # Rich MeshCore Open payload detection/rendering helpers
 │   ├── textReplace.ts          # Shared message text substitution helpers
-│   ├── pathHopWidthPreference.ts # LocalStorage persistence for hop-width display toggle
-│   ├── richPayloadPreference.ts  # LocalStorage persistence for rich payload rendering toggle
+│   ├── boolPreference.ts       # Shared get/set for on/off localStorage preferences
 │   ├── visualizerUtils.ts      # 3D visualizer node types, colors, particles
 │   ├── visualizerSettings.ts   # LocalStorage persistence for visualizer options
 │   ├── a11y.ts                 # Keyboard accessibility helper

@@ -1,3 +1,5 @@
+import { getBoolPreference, setBoolPreference } from './boolPreference';
+
 export const STATUS_DOT_PULSE_CHANGE_EVENT = 'remoteterm-status-dot-pulse-change';
 export const STATUS_DOT_PULSE_PACKET_EVENT = 'remoteterm-status-dot-pulse-packet';
 
@@ -5,25 +7,9 @@ const STORAGE_KEY = 'remoteterm-status-dot-pulse';
 
 export type StatusDotPulseKind = 'channel' | 'dm' | 'advert' | 'other';
 
-export function getStatusDotPulseEnabled(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setStatusDotPulseEnabled(enabled: boolean): void {
-  try {
-    if (enabled) {
-      localStorage.setItem(STORAGE_KEY, 'true');
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
-}
+export const getStatusDotPulseEnabled = () => getBoolPreference(STORAGE_KEY);
+export const setStatusDotPulseEnabled = (enabled: boolean) =>
+  setBoolPreference(STORAGE_KEY, enabled);
 
 function payloadTypeToPulseKind(payloadType: string | null | undefined): StatusDotPulseKind {
   switch (payloadType) {

@@ -1,3 +1,5 @@
+import { getBoolPreference, setBoolPreference } from './boolPreference';
+
 const ENABLED_KEY = 'remoteterm-text-replace-enabled';
 const MAP_KEY = 'remoteterm-text-replace-map';
 
@@ -28,25 +30,8 @@ const DEFAULT_MAP: Record<string, string> = {
 
 export const DEFAULT_MAP_JSON = JSON.stringify(DEFAULT_MAP, null, 2);
 
-export function getTextReplaceEnabled(): boolean {
-  try {
-    return localStorage.getItem(ENABLED_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setTextReplaceEnabled(enabled: boolean): void {
-  try {
-    if (enabled) {
-      localStorage.setItem(ENABLED_KEY, 'true');
-    } else {
-      localStorage.removeItem(ENABLED_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
-}
+export const getTextReplaceEnabled = () => getBoolPreference(ENABLED_KEY);
+export const setTextReplaceEnabled = (enabled: boolean) => setBoolPreference(ENABLED_KEY, enabled);
 
 export function getTextReplaceMapJson(): string {
   try {

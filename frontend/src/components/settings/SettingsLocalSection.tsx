@@ -18,16 +18,10 @@ import {
 } from '../../utils/lastViewedConversation';
 import { ThemeSelector } from './ThemeSelector';
 import { getLocalLabel, setLocalLabel, type LocalLabel } from '../../utils/localLabel';
-import {
-  DISTANCE_UNIT_LABELS,
-  DISTANCE_UNITS,
-  setSavedDistanceUnit,
-} from '../../utils/distanceUnits';
+import { DISTANCE_UNIT_LABELS, DISTANCE_UNITS } from '../../utils/distanceUnits';
 import { useDistanceUnit } from '../../contexts/DistanceUnitContext';
 import { useRichPayloads } from '../../contexts/RichPayloadContext';
-import { setSavedRenderRichPayloads } from '../../utils/richPayloadPreference';
 import { usePathHopWidth } from '../../contexts/PathHopWidthContext';
-import { setSavedShowPathHopWidth } from '../../utils/pathHopWidthPreference';
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_SLIDER_STEP,
@@ -350,11 +344,9 @@ export function SettingsLocalSection({
         <select
           id="distance-units"
           value={distanceUnit}
-          onChange={(event) => {
-            const nextUnit = event.target.value as (typeof DISTANCE_UNITS)[number];
-            setSavedDistanceUnit(nextUnit);
-            setDistanceUnit(nextUnit);
-          }}
+          onChange={(event) =>
+            setDistanceUnit(event.target.value as (typeof DISTANCE_UNITS)[number])
+          }
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           {DISTANCE_UNITS.map((unit) => (
@@ -523,11 +515,7 @@ export function SettingsLocalSection({
             <Checkbox
               id="render-rich-payloads"
               checked={renderRichPayloads}
-              onCheckedChange={(checked) => {
-                const v = checked === true;
-                setRenderRichPayloads(v);
-                setSavedRenderRichPayloads(v);
-              }}
+              onCheckedChange={(checked) => setRenderRichPayloads(checked === true)}
               className="mt-0.5"
             />
             <div className="space-y-1">
@@ -550,11 +538,7 @@ export function SettingsLocalSection({
             <Checkbox
               id="show-path-hop-width"
               checked={showPathHopWidth}
-              onCheckedChange={(checked) => {
-                const v = checked === true;
-                setShowPathHopWidth(v);
-                setSavedShowPathHopWidth(v);
-              }}
+              onCheckedChange={(checked) => setShowPathHopWidth(checked === true)}
               className="mt-0.5"
             />
             <div className="space-y-1">

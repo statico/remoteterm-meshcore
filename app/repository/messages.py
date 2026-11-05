@@ -471,11 +471,10 @@ class MessageRepository:
         # after a plain received_at cursor.
         if after is not None or after_id is not None:
             if after is not None and after_id is not None:
-                query += (
-                    " AND (messages.received_at > ?"
-                    " OR (messages.received_at = ? AND messages.id > ?))"
-                )
-                params.extend([after, after, after_id])
+                # Row-value form, not "a > ? OR (a = ? AND id > ?)": with bound
+                # params SQLite only turns the row value into an index range.
+                query += " AND (messages.received_at, messages.id) > (?, ?)"
+                params.extend([after, after_id])
                 query += " ORDER BY messages.received_at ASC, messages.id ASC LIMIT ?"
             elif after_id is not None:
                 query += " AND messages.id > ? ORDER BY messages.id ASC LIMIT ?"
@@ -487,11 +486,8 @@ class MessageRepository:
             params.append(limit)
         else:
             if before is not None and before_id is not None:
-                query += (
-                    " AND (messages.received_at < ?"
-                    " OR (messages.received_at = ? AND messages.id < ?))"
-                )
-                params.extend([before, before, before_id])
+                query += " AND (messages.received_at, messages.id) < (?, ?)"
+                params.extend([before, before_id])
 
             query += " ORDER BY messages.received_at DESC, messages.id DESC LIMIT ?"
             params.append(limit)
@@ -554,12 +550,11 @@ class MessageRepository:
             # 2. Get context_size+1 messages before target (DESC)
             before_query = f"""
                 SELECT {MessageRepository._message_select("messages")} FROM messages WHERE {where_sql}
-                AND (received_at < ? OR (received_at = ? AND id < ?))
+                AND (received_at, id) < (?, ?)
                 ORDER BY received_at DESC, id DESC LIMIT ?
             """
             before_params = [
                 *base_params,
-                target.received_at,
                 target.received_at,
                 target.id,
                 context_size + 1,
@@ -575,12 +570,11 @@ class MessageRepository:
             # 3. Get context_size+1 messages after target (ASC)
             after_query = f"""
                 SELECT {MessageRepository._message_select("messages")} FROM messages WHERE {where_sql}
-                AND (received_at > ? OR (received_at = ? AND id > ?))
+                AND (received_at, id) > (?, ?)
                 ORDER BY received_at ASC, id ASC LIMIT ?
             """
             after_params = [
                 *base_params,
-                target.received_at,
                 target.received_at,
                 target.id,
                 context_size + 1,

@@ -204,3 +204,91 @@ async def test_full_walk_collects_all_messages(test_db):
 
     assert len(collected_ids) == total
     assert len(set(collected_ids)) == total  # no duplicates
+
+
+async def seed_same_second_ties() -> tuple[list[tuple[int, int]], set[int]]:
+    """Five messages per second over four seconds; every third is from a blocked name.
+
+    Returns ((received_at, id) per message in insert order, blocked ids).
+    """
+    rows: list[tuple[int, int]] = []
+    blocked: set[int] = set()
+    for i in range(20):
+        name = "spammer" if i % 3 == 0 else "friend"
+        received_at = 1000 + i // 5
+        msg_id = await MessageRepository.create(
+            msg_type="CHAN",
+            text=f"{name}: tie {i}",
+            conversation_key=CHAN_KEY,
+            sender_timestamp=1000 + i,
+            received_at=received_at,
+            sender_name=name,
+        )
+        assert msg_id is not None
+        rows.append((received_at, msg_id))
+        if name == "spammer":
+            blocked.add(msg_id)
+    return rows, blocked
+
+
+@pytest.mark.asyncio
+async def test_backward_walk_across_same_second_cursors_with_blocking(test_db):
+    rows, blocked = await seed_same_second_ties()
+    collected: list[tuple[int, int]] = []
+    cursor: dict = {}
+    for _ in range(20):
+        page = await MessageRepository.get_all(
+            msg_type="CHAN",
+            conversation_key=CHAN_KEY,
+            limit=3,
+            blocked_names=["spammer"],
+            **cursor,
+        )
+        if not page:
+            break
+        collected.extend((m.received_at, m.id) for m in page)
+        cursor = {"before": page[-1].received_at, "before_id": page[-1].id}
+
+    assert collected == sorted((r for r in rows if r[1] not in blocked), reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_forward_walk_across_same_second_cursors_with_blocking(test_db):
+    rows, blocked = await seed_same_second_ties()
+    start = rows[1]  # received_at 1000, not blocked
+    collected: list[tuple[int, int]] = []
+    cursor = start
+    for _ in range(20):
+        page = await MessageRepository.get_all(
+            msg_type="CHAN",
+            conversation_key=CHAN_KEY,
+            limit=3,
+            after=cursor[0],
+            after_id=cursor[1],
+            blocked_names=["spammer"],
+        )
+        if not page:
+            break
+        collected.extend((m.received_at, m.id) for m in page)
+        cursor = (page[-1].received_at, page[-1].id)
+
+    assert collected == sorted(r for r in rows if r[1] not in blocked and r > start)
+
+
+@pytest.mark.asyncio
+async def test_get_around_splits_same_second_ties_by_id(test_db):
+    rows, blocked = await seed_same_second_ties()
+    visible = [msg_id for _, msg_id in rows if msg_id not in blocked]
+    target = rows[7][1]  # middle of the received_at=1001 second, not blocked
+    pos = visible.index(target)
+
+    messages, has_older, has_newer = await MessageRepository.get_around(
+        target,
+        msg_type="CHAN",
+        conversation_key=CHAN_KEY,
+        context_size=2,
+        blocked_names=["spammer"],
+    )
+
+    assert [m.id for m in messages] == visible[pos - 2 : pos + 3]
+    assert has_older and has_newer

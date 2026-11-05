@@ -863,8 +863,30 @@ class MessageRepository:
             # idx_messages_pagination; a GROUP BY MAX() over the whole table has
             # to read every row once a blocked list is set, since the blocked
             # columns are not in the index.
+            #
+            # The conversations themselves come from a recursive skip scan
+            # (next type, then next key within it, one MIN() seek each).
+            # SELECT DISTINCT reads every message's index entry: 23 ms vs 1 ms
+            # for 114 conversations over 232k messages.
             async with conn.execute(
                 f"""
+                WITH RECURSIVE
+                  t(type) AS (
+                    SELECT MIN(type) FROM messages
+                    UNION ALL
+                    SELECT (SELECT MIN(type) FROM messages WHERE type > t.type)
+                    FROM t WHERE t.type IS NOT NULL
+                  ),
+                  d(type, conversation_key) AS (
+                    SELECT type, (SELECT MIN(conversation_key) FROM messages
+                                  WHERE type = t.type)
+                    FROM t WHERE type IS NOT NULL
+                    UNION ALL
+                    SELECT type, (SELECT MIN(n.conversation_key) FROM messages n
+                                  WHERE n.type = d.type
+                                    AND n.conversation_key > d.conversation_key)
+                    FROM d WHERE conversation_key IS NOT NULL
+                  )
                 SELECT type, conversation_key, last_message_time FROM (
                     SELECT d.type, d.conversation_key, (
                         SELECT m.received_at FROM messages m
@@ -872,7 +894,7 @@ class MessageRepository:
                           {blocked_sql}
                         ORDER BY m.received_at DESC, m.id DESC LIMIT 1
                     ) AS last_message_time
-                    FROM (SELECT DISTINCT type, conversation_key FROM messages) d
+                    FROM d WHERE d.conversation_key IS NOT NULL
                 )
                 WHERE last_message_time IS NOT NULL
                 """,

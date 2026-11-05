@@ -119,6 +119,34 @@ async def test_unread_counts_seek_per_conversation(test_db):
     assert (
         "SEARCH m USING INDEX idx_messages_pagination (type=? AND conversation_key=?)" in last_times
     )
+    # Conversations are found by a skip scan, never by reading every message.
+    assert "SCAN messages" not in last_times
+    assert "(type=? AND conversation_key>?)" in last_times
+
+
+@pytest.mark.asyncio
+async def test_unread_last_message_times_cover_every_conversation(test_db):
+    """The skip scan must visit every (type, conversation_key), including keys
+    that sort between others and types with one conversation."""
+    rows = [
+        ("CHAN", "AA" * 16, 100),
+        ("CHAN", "AA" * 16, 300),
+        ("CHAN", "CC" * 16, 200),
+        ("CHAN", "BB" * 16, 150),
+        ("PRIV", "dd" * 32, 50),
+    ]
+    for i, (msg_type, key, ts) in enumerate(rows):
+        await MessageRepository.create(
+            msg_type=msg_type, text=f"m{i}", conversation_key=key, received_at=ts
+        )
+
+    times = (await MessageRepository.get_unread_counts())["last_message_times"]
+    assert times == {
+        f"channel-{'AA' * 16}": 300,
+        f"channel-{'BB' * 16}": 150,
+        f"channel-{'CC' * 16}": 200,
+        f"contact-{'dd' * 32}": 50,
+    }
 
 
 @pytest.mark.asyncio

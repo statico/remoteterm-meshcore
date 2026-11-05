@@ -1,11 +1,19 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { isPrependOf, MessageList } from '../components/MessageList';
 import { PathHopWidthProvider, SHOW_PATH_HOP_WIDTH_KEY } from '../contexts/PathHopWidthContext';
 import { CONTACT_TYPE_ROOM, type Contact, type Message } from '../types';
+
+// Passthrough spy: each call is one MessageRow render, which the render-count test counts.
+const formatTimeSpy = vi.hoisted(() => ({ fn: null as null | Mock<(ts: number) => string> }));
+vi.mock('../utils/messageParser', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/messageParser')>();
+  formatTimeSpy.fn = vi.fn(actual.formatTime);
+  return { ...actual, formatTime: (ts: number) => formatTimeSpy.fn!(ts) };
+});
 
 const scrollIntoViewMock = vi.fn();
 const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
@@ -157,6 +165,30 @@ describe('MessageList channel sender rendering', () => {
       value: originalGetBoundingClientRect,
       writable: true,
     });
+  });
+
+  it('does not re-render rows when an unrelated contact changes', async () => {
+    const alice: Contact = {
+      public_key: 'aa'.repeat(32),
+      name: 'Alice',
+    } as Contact;
+    const messages = [1, 2, 3].map((id) => createMessage({ id, received_at: 1700000000 + id }));
+    const props = {
+      messages,
+      loading: false,
+      onSenderClick: () => {},
+      onOpenContactInfo: () => {},
+    };
+    const { rerender } = await renderList(<MessageList {...props} contacts={[alice]} />);
+    expect(screen.getAllByText('hello world')).toHaveLength(3);
+    const before = formatTimeSpy.fn!.mock.calls.length;
+
+    // An advert from someone else: a new contacts array, Alice unchanged.
+    const bob = { public_key: 'bb'.repeat(32), name: 'Bob' } as Contact;
+    rerender(<MessageList {...props} contacts={[alice, bob]} />);
+    await settle();
+
+    expect(formatTimeSpy.fn!.mock.calls.length).toBe(before);
   });
 
   it('renders explicit corrupt placeholder and warning avatar for unnamed corrupt channel packets', async () => {

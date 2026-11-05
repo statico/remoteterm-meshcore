@@ -574,6 +574,23 @@ function getSenderInfo(
   return unknownSenderInfo(parsedSender || 'Unknown', msg.conversation_key || '');
 }
 
+/**
+ * The contact facts a row shows, as primitives: an advert replaces the contacts
+ * array, and a row should only re-render if its own sender changed.
+ */
+function rowContactProps(msg: Message, lookup: ContactLookup) {
+  const dm = getDmContact(msg, lookup);
+  const channelSender =
+    msg.type === 'CHAN' && !msg.sender_key
+      ? msg.sender_name || parseSenderFromText(msg.text).sender
+      : null;
+  return {
+    dmContactName: dm?.name ?? null,
+    isRoomServer: dm?.type === CONTACT_TYPE_ROOM,
+    channelSenderKey: (channelSender && lookup.byName.get(channelSender)?.public_key) || null,
+  };
+}
+
 interface SelectedPath {
   paths: MessagePath[];
   senderInfo: SenderInfo;
@@ -588,7 +605,10 @@ interface MessageRowProps {
   isFirstInGroup: boolean;
   showUnreadMarker: boolean;
   isHighlighted: boolean;
-  lookup: ContactLookup;
+  dmContactName: string | null;
+  isRoomServer: boolean;
+  channelSenderKey: string | null;
+  resolveSenderInfo: (msg: Message, parsedSender: string | null) => SenderInfo;
   radioName?: string;
   renderRichPayloads: boolean;
   selfSenderInfo: SenderInfo;
@@ -613,7 +633,10 @@ const MessageRow = memo(function MessageRow({
   isFirstInGroup,
   showUnreadMarker,
   isHighlighted,
-  lookup,
+  dmContactName,
+  isRoomServer,
+  channelSenderKey,
+  resolveSenderInfo,
   radioName,
   renderRichPayloads,
   selfSenderInfo,
@@ -626,10 +649,6 @@ const MessageRow = memo(function MessageRow({
   onDismissUnreadMarker,
   setUnreadMarkerElement,
 }: MessageRowProps) {
-  // For DMs, look up contact; for channel messages, use parsed sender
-  const contact = getDmContact(msg, lookup);
-  const isRoomServer = contact?.type === CONTACT_TYPE_ROOM;
-
   // Only parse "sender: text" prefix for channel messages — DMs never carry
   // an in-text sender prefix, so parsing them would incorrectly strip
   // user text that happens to contain a colon (e.g. "TEST1: TEST2").
@@ -637,14 +656,12 @@ const MessageRow = memo(function MessageRow({
     msg.type === 'PRIV' ? { sender: null, content: msg.text } : parseSenderFromText(msg.text);
   const directSenderName = msg.type === 'PRIV' && isRoomServer ? msg.sender_name || null : null;
   const channelSenderName = msg.type === 'CHAN' ? msg.sender_name || sender : null;
-  const channelSenderContact =
-    msg.type === 'CHAN' && channelSenderName ? lookup.byName.get(channelSenderName) : undefined;
   const isCorruptChannelMessage = isCorruptUnnamedChannelMessage(msg, sender);
   const displaySender = msg.outgoing
     ? 'You'
     : directSenderName ||
       (isRoomServer && msg.sender_key ? msg.sender_key.slice(0, 8) : null) ||
-      contact?.name ||
+      dmContactName ||
       channelSenderName ||
       (isCorruptChannelMessage
         ? CORRUPT_SENDER_LABEL
@@ -668,7 +685,7 @@ const MessageRow = memo(function MessageRow({
         avatarName = directSenderName;
         avatarKey = msg.sender_key || (avatarName ? `name:${avatarName}` : msg.conversation_key);
       } else {
-        avatarName = contact?.name || null;
+        avatarName = dmContactName;
         avatarKey = msg.conversation_key;
       }
     } else if (isCorruptChannelMessage) {
@@ -680,7 +697,7 @@ const MessageRow = memo(function MessageRow({
       avatarName = channelSenderName || (displaySender !== 'Unknown' ? displaySender : null);
       avatarKey =
         msg.sender_key ||
-        channelSenderContact?.public_key ||
+        channelSenderKey ||
         (avatarName ? `name:${avatarName}` : `message:${msg.id}`);
     }
   }
@@ -692,7 +709,7 @@ const MessageRow = memo(function MessageRow({
   const openIncomingPath = () =>
     onSelectPath({
       paths: msg.paths!,
-      senderInfo: getSenderInfo(msg, contact, directSenderName || sender, lookup),
+      senderInfo: resolveSenderInfo(msg, directSenderName || sender),
       messageId: msg.id,
       packetId: msg.packet_id,
     });
@@ -1029,6 +1046,13 @@ export const MessageList = memo(function MessageList({
   sortedMessagesRef.current = sortedMessages;
 
   const contactLookup = useMemo(() => buildContactLookup(contacts), [contacts]);
+  const contactLookupRef = useRef(contactLookup);
+  contactLookupRef.current = contactLookup;
+  // Stable and read on click, so rows don't depend on the whole contact list.
+  const resolveSenderInfo = useCallback((msg: Message, parsedSender: string | null) => {
+    const lookup = contactLookupRef.current;
+    return getSenderInfo(msg, getDmContact(msg, lookup), parsedSender, lookup);
+  }, []);
 
   // One pass per list change, not one per row per render: each row needs to know
   // whether it starts a sender group, which depends on the row before it.
@@ -1376,7 +1400,8 @@ export const MessageList = memo(function MessageList({
               isFirstInGroup={groupStarts[index]}
               showUnreadMarker={unreadMarkerIndex === index}
               isHighlighted={highlightedMessageId === msg.id}
-              lookup={contactLookup}
+              {...rowContactProps(msg, contactLookup)}
+              resolveSenderInfo={resolveSenderInfo}
               radioName={radioName}
               renderRichPayloads={renderRichPayloads}
               selfSenderInfo={selfSenderInfo}

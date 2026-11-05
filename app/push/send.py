@@ -86,26 +86,12 @@ class IPv4HTTPConnection(urllib3.connection.HTTPConnection):
             raise NewConnectionError(self, f"Failed to establish a new connection: {exc}") from exc
 
 
-class IPv4HTTPSConnection(urllib3.connection.HTTPSConnection):
-    """urllib3 HTTPS connection that resolves and connects via IPv4 only."""
+class IPv4HTTPSConnection(IPv4HTTPConnection, urllib3.connection.HTTPSConnection):
+    """urllib3 HTTPS connection that resolves and connects via IPv4 only.
 
-    def _new_conn(self) -> socket.socket:
-        try:
-            return _create_ipv4_connection(
-                (self._dns_host, self.port),
-                self.timeout,
-                source_address=self.source_address,
-                socket_options=self.socket_options,
-            )
-        except socket.gaierror as exc:
-            raise NameResolutionError(self.host, self, exc) from exc
-        except TimeoutError as exc:
-            raise ConnectTimeoutError(
-                self,
-                f"Connection to {self.host} timed out. (connect timeout={self.timeout})",
-            ) from exc
-        except OSError as exc:
-            raise NewConnectionError(self, f"Failed to establish a new connection: {exc}") from exc
+    Inherits ``_new_conn`` from ``IPv4HTTPConnection``; TLS comes from
+    ``HTTPSConnection`` via the MRO.
+    """
 
 
 class IPv4HTTPConnectionPool(urllib3.connectionpool.HTTPConnectionPool):
@@ -133,10 +119,6 @@ class IPv4HTTPAdapter(HTTPAdapter):
         manager = super().proxy_manager_for(*args, **kwargs)
         _configure_pool_manager_for_ipv4(manager)
         return manager
-
-
-def _build_default_requests_session() -> requests.Session:
-    return requests.Session()
 
 
 def _build_ipv4_requests_session() -> requests.Session:
@@ -176,7 +158,7 @@ def _send_push_with_fallback(
     vapid_claims: dict,
 ) -> int:
     """Send using normal dual-stack resolution, then retry with IPv4-only on connect failures."""
-    session = _build_default_requests_session()
+    session = requests.Session()
     try:
         return _send_push_with_session(
             subscription_info=subscription_info,

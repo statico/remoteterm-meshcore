@@ -86,3 +86,14 @@ def test_get_vapid_claims_honors_configured_subject(monkeypatch):
     """MESHCORE_VAPID_SUBJECT overrides the outgoing subject (required for APNs/iOS)."""
     monkeypatch.setattr("app.config.settings.vapid_subject", "mailto:ops@example.net")
     assert get_vapid_claims() == {"sub": "mailto:ops@example.net"}
+
+
+def test_ipv4_https_connection_keeps_tls_and_ipv4_connect():
+    import urllib3
+
+    from app.push.send import IPv4HTTPConnection, IPv4HTTPSConnection
+
+    conn = IPv4HTTPSConnection("push.example.test", 443)
+    assert isinstance(conn, urllib3.connection.HTTPSConnection)
+    assert conn.default_port == 443
+    assert IPv4HTTPSConnection._new_conn is IPv4HTTPConnection._new_conn

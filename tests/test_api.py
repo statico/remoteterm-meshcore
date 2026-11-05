@@ -284,6 +284,28 @@ class TestDebugEndpoint:
         }
 
     @pytest.mark.asyncio
+    async def test_support_snapshot_runs_git_probe_off_event_loop(self, test_db, client):
+        """git subprocess calls must not block the event loop thread."""
+        import threading
+
+        from app.routers import debug as debug_router
+
+        loop_thread = threading.get_ident()
+        seen_threads: list[int] = []
+        real_build = debug_router._build_application_info
+
+        def _record():
+            seen_threads.append(threading.get_ident())
+            return real_build()
+
+        radio_manager._meshcore = None
+        with patch("app.routers.debug._build_application_info", side_effect=_record):
+            response = await client.get("/api/debug")
+
+        assert response.status_code == 200
+        assert seen_threads and seen_threads[0] != loop_thread
+
+    @pytest.mark.asyncio
     async def test_support_snapshot_returns_runtime_when_disconnected(self, test_db, client):
         """Debug snapshot should still return logs and runtime state when radio is disconnected."""
         from app.config import clear_recent_log_lines

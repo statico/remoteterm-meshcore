@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import os
@@ -424,7 +425,7 @@ async def debug_support_snapshot() -> DebugSnapshotResponse:
     return DebugSnapshotResponse(
         captured_at=datetime.now(UTC).isoformat(),
         system=_build_system_info(),
-        application=_build_application_info(),
+        application=await asyncio.to_thread(_build_application_info),
         environment=_build_environment(),
         health=_build_debug_health_summary(health_data, radio_state=radio_state),
         settings=_build_debug_app_settings(app_settings),

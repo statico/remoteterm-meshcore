@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RawPacketFeedView } from '../components/RawPacketFeedView';
@@ -134,6 +134,18 @@ describe('RawPacketFeedView', () => {
     expect(screen.getByText('Packet Types')).toBeInTheDocument();
     expect(screen.getByText('Hop Byte Width')).toBeInTheDocument();
     expect(screen.getByText('Most-Heard Neighbors')).toBeInTheDocument();
+    expect(screen.getByText('Traffic Timeline')).toBeInTheDocument();
+  });
+
+  it('loads the recharts bodies lazily once the stats drawer opens', async () => {
+    const { container } = renderView();
+    expect(container.querySelector('.recharts-responsive-container')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /show stats/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector('.recharts-responsive-container')).not.toBeNull();
+    });
     expect(screen.getByText('Traffic Timeline')).toBeInTheDocument();
   });
 

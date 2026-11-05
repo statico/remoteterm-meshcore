@@ -1,15 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
 
 import { MeshCoreDecoder, Utils } from '@michaelhart/meshcore-decoder';
 
@@ -31,6 +21,13 @@ import { createDecoderOptions } from '../utils/rawPacketInspector';
 import { useRawPacketStatsSession, useRawPackets } from '../stores/rawPacketStore';
 import { getContactDisplayName } from '../utils/pubkey';
 import { cn } from '@/lib/utils';
+
+const RankedBarChart = lazy(() =>
+  import('./RawPacketFeedCharts').then((m) => ({ default: m.RankedBarChart }))
+);
+const TimelineBarChart = lazy(() =>
+  import('./RawPacketFeedCharts').then((m) => ({ default: m.TimelineBarChart }))
+);
 
 const TIMELINE_FILL_COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
 
@@ -201,18 +198,6 @@ interface RawPacketFeedViewProps {
   contacts: Contact[];
   channels: Channel[];
 }
-
-const TOOLTIP_STYLE = {
-  contentStyle: {
-    backgroundColor: 'hsl(var(--popover))',
-    border: '1px solid hsl(var(--border))',
-    borderRadius: '6px',
-    fontSize: '11px',
-    color: 'hsl(var(--popover-foreground))',
-  },
-  itemStyle: { color: 'hsl(var(--popover-foreground))' },
-  labelStyle: { color: 'hsl(var(--muted-foreground))' },
-} as const;
 
 const WINDOW_LABELS: Record<RawPacketStatsWindow, string> = {
   '1m': '1 min',
@@ -399,9 +384,10 @@ function RankedBars({
   formatter?: (item: RankedPacketStat) => string;
   colorMap?: Map<string, string>;
 }) {
-  const data = items.map((item) => ({
+  const data = items.map((item, i) => ({
     name: item.label,
     value: item.count,
+    fill: colorForIndex(i, colorMap, item.label),
     detail: formatter
       ? formatter(item)
       : `${item.count.toLocaleString()} · ${formatPercent(item.share)}`,
@@ -414,35 +400,9 @@ function RankedBars({
         <p className="mt-3 text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
         <div className="mt-2">
-          <ResponsiveContainer width="100%" height={items.length * 28 + 8}>
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 0, right: 4, bottom: 0, left: 0 }}
-              barCategoryGap="20%"
-            >
-              <XAxis type="number" hide />
-              <YAxis
-                type="category"
-                dataKey="name"
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                tickLine={false}
-                axisLine={false}
-                width={80}
-              />
-              <RechartsTooltip
-                {...TOOLTIP_STYLE}
-                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(_v: any, _n: any, props: any) => [props.payload.detail, null]}
-              />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={16}>
-                {data.map((entry, i) => (
-                  <Cell key={i} fill={colorForIndex(i, colorMap, entry.name)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<div style={{ height: data.length * 28 + 8 }} />}>
+            <RankedBarChart data={data} />
+          </Suspense>
         </div>
       )}
     </section>
@@ -552,36 +512,15 @@ function TimelineChart({
         </div>
       </div>
       <div className="mt-2">
-        <ResponsiveContainer width="100%" height={110}>
-          <BarChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: -24 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
-            />
-            <RechartsTooltip
-              {...TOOLTIP_STYLE}
-              cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
-            />
-            {typeOrder.map((type, i) => (
-              <Bar
-                key={type}
-                dataKey={type}
-                stackId="packets"
-                fill={colorMap.get(type) ?? TIMELINE_FILL_COLORS[0]}
-                radius={i === typeOrder.length - 1 ? [2, 2, 0, 0] : undefined}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+        <Suspense fallback={<div style={{ height: 110 }} />}>
+          <TimelineBarChart
+            data={data}
+            series={typeOrder.map((type) => ({
+              type,
+              fill: colorMap.get(type) ?? TIMELINE_FILL_COLORS[0],
+            }))}
+          />
+        </Suspense>
       </div>
     </section>
   );

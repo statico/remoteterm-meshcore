@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import ssl
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -35,6 +36,17 @@ def _format_error_detail(exc: Exception) -> str:
 
 
 _broadcast_health = _broadcast_fanout_health
+
+
+def build_tls_context(use_tls: bool, verify: bool) -> ssl.SSLContext | None:
+    """Default TLS context (optionally unverified), or None when TLS is off."""
+    if not use_tls:
+        return None
+    ctx = ssl.create_default_context()
+    if not verify:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 class BaseMqttPublisher(ABC):

@@ -6,7 +6,7 @@ import logging
 import ssl
 from typing import Any, Protocol
 
-from app.fanout.mqtt_base import BaseMqttPublisher
+from app.fanout.mqtt_base import BaseMqttPublisher, build_tls_context
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +57,7 @@ class MqttPublisher(BaseMqttPublisher):
     @staticmethod
     def _build_tls_context(settings: PrivateMqttSettings) -> ssl.SSLContext | None:
         """Build TLS context from settings, or None if TLS is disabled."""
-        if not settings.mqtt_use_tls:
-            return None
-        ctx = ssl.create_default_context()
-        if settings.mqtt_tls_insecure:
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-        return ctx
+        return build_tls_context(settings.mqtt_use_tls, not settings.mqtt_tls_insecure)
 
 
 def _build_message_topic(prefix: str, data: dict[str, Any]) -> str:

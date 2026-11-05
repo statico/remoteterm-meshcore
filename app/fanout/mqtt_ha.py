@@ -15,12 +15,11 @@ Entity types created:
 from __future__ import annotations
 
 import logging
-import ssl
 from types import SimpleNamespace
 from typing import Any
 
 from app.fanout.base import FanoutModule, get_fanout_message_text
-from app.fanout.mqtt_base import BaseMqttPublisher
+from app.fanout.mqtt_base import BaseMqttPublisher, build_tls_context
 
 logger = logging.getLogger(__name__)
 
@@ -422,11 +421,7 @@ class _HaMqttPublisher(BaseMqttPublisher):
             "password": s.password or None,
         }
         if s.use_tls:
-            ctx = ssl.create_default_context()
-            if s.tls_insecure:
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-            kw["tls_context"] = ctx
+            kw["tls_context"] = build_tls_context(True, not s.tls_insecure)
         return kw
 
     def _on_connected(self, settings: object) -> tuple[str, str]:

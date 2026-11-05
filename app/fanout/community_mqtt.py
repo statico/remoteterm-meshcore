@@ -13,14 +13,13 @@ import asyncio
 import base64
 import json
 import logging
-import ssl
 import time
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import aiomqtt
 
-from app.fanout.mqtt_base import BaseMqttPublisher
+from app.fanout.mqtt_base import BaseMqttPublisher, build_tls_context
 from app.keystore import ed25519_sign_expanded
 from app.path_utils import calculate_packet_hash, parse_packet_envelope, split_path_hex
 from app.version_info import get_app_build_info
@@ -307,12 +306,7 @@ class CommunityMqttPublisher(BaseMqttPublisher):
         auth_mode = s.community_mqtt_auth_mode or "token"
         secure_connection = use_tls and tls_verify
 
-        tls_context: ssl.SSLContext | None = None
-        if use_tls:
-            tls_context = ssl.create_default_context()
-            if not tls_verify:
-                tls_context.check_hostname = False
-                tls_context.verify_mode = ssl.CERT_NONE
+        tls_context = build_tls_context(use_tls, tls_verify)
 
         device_name = ""
         if radio_manager.meshcore and radio_manager.meshcore.self_info:

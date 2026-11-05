@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.fanout.base import FanoutModule, get_fanout_message_text
@@ -125,15 +126,12 @@ def _build_template_vars(data: dict) -> dict[str, str]:
     }
 
 
+_TEMPLATE_VAR_RE = re.compile(r"\{(\w+)\}")
+
+
 def _apply_format(fmt: str, variables: dict[str, str]) -> str:
     """Apply template variables in a single pass to avoid re-expanding substituted values."""
-    import re
-
-    def _replacer(m: re.Match[str]) -> str:
-        key = m.group(1)
-        return variables.get(key, m.group(0))
-
-    return re.sub(r"\{(\w+)\}", _replacer, fmt)
+    return _TEMPLATE_VAR_RE.sub(lambda m: variables.get(m.group(1), m.group(0)), fmt)
 
 
 def _format_body(

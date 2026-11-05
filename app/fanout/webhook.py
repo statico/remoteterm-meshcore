@@ -44,7 +44,7 @@ class WebhookModule(FanoutModule):
         method = self.config.get("method", "POST").upper()
         extra_headers = self.config.get("headers", {})
         hmac_secret = self.config.get("hmac_secret", "")
-        hmac_header = self.config.get("hmac_header", "X-Webhook-Signature")
+        hmac_header = self.config.get("hmac_header") or "X-Webhook-Signature"
 
         headers = {
             "Content-Type": "application/json",
@@ -56,7 +56,7 @@ class WebhookModule(FanoutModule):
 
         if hmac_secret:
             sig = hmac.new(hmac_secret.encode(), body_bytes, hashlib.sha256).hexdigest()
-            headers[hmac_header or "X-Webhook-Signature"] = f"sha256={sig}"
+            headers[hmac_header] = f"sha256={sig}"
 
         try:
             resp = await self._client.request(method, url, content=body_bytes, headers=headers)

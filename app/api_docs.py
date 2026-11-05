@@ -148,7 +148,6 @@ def _add_common_error_responses(openapi_schema: dict[str, Any]) -> None:
 
 def install_custom_openapi(app: FastAPI) -> None:
     """Install OpenAPI metadata polishing used by the custom docs page."""
-    original_openapi = app.openapi
 
     def custom_openapi() -> dict[str, Any]:
         if app.openapi_schema:
@@ -167,8 +166,6 @@ def install_custom_openapi(app: FastAPI) -> None:
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 
-    # Keep a reference for debuggability and for tests that may introspect it.
-    app.state.default_openapi = original_openapi
     app.openapi = custom_openapi  # type: ignore[method-assign]
 
 

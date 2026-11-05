@@ -1617,6 +1617,9 @@ class TestRepeaterOwnerInfo:
         assert mc.commands.send_binary_req.await_count == 1
         req_type_arg = mc.commands.send_binary_req.await_args.args[1]
         assert req_type_arg.value == 0x07
+        assert mc.commands.send_binary_req.await_args.kwargs["timeout"] == 10.0
+        assert mc.commands.send_binary_req.await_args.kwargs["min_timeout"] == 5.0
+        assert mc.wait_for_event.await_args.kwargs["timeout"] == 10.0
         # Only the admin-only guest.password goes over CLI — never 'get owner.info'.
         cli_cmds = [call.args[1] for call in mc.commands.send_cmd.await_args_list]
         assert "get guest.password" in cli_cmds

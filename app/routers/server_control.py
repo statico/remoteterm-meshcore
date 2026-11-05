@@ -496,13 +496,10 @@ def _parse_owner_info_payload(data_hex: str) -> dict[str, str | None] | None:
     }
 
 
-async def fetch_repeater_owner_info_binary(
-    contact: Contact,
-    *,
-    operation_name: str = "repeater_owner_info_binary",
-    timeout: float = 10.0,
-    min_timeout: float = 5.0,
-) -> dict[str, str | None] | None:
+_OWNER_INFO_TIMEOUT_S = 10.0
+
+
+async def fetch_repeater_owner_info_binary(contact: Contact) -> dict[str, str | None] | None:
     """Fetch firmware/name/owner via the guest-accessible binary request (0x07).
 
     This is the path Liam and other apps use to show owner info + firmware for a
@@ -512,7 +509,7 @@ async def fetch_repeater_owner_info_binary(
     back or leave the fields blank. See issue #306.
     """
     async with radio_manager.radio_operation(
-        operation_name, pause_polling=True, suspend_auto_fetch=True
+        "repeater_owner_info_binary", pause_polling=True, suspend_auto_fetch=True
     ) as mc:
         # Ensure contact is on radio for reply routing.
         await _ensure_on_radio(mc, contact)
@@ -521,8 +518,8 @@ async def fetch_repeater_owner_info_binary(
         send_result = await mc.commands.send_binary_req(
             contact.public_key,
             _RepeaterBinaryReqType.OWNER_INFO,
-            timeout=timeout,
-            min_timeout=min_timeout,
+            timeout=_OWNER_INFO_TIMEOUT_S,
+            min_timeout=5.0,
         )
         if send_result.type == EventType.ERROR:
             logger.debug("owner-info binary req send error: %s", send_result.payload)
@@ -534,10 +531,7 @@ async def fetch_repeater_owner_info_binary(
             return None
         exp_tag = expected_ack.hex()
 
-        wait_timeout = (
-            timeout if timeout > 0 else send_result.payload.get("suggested_timeout", 4000) / 800
-        )
-        wait_timeout = max(wait_timeout, min_timeout)
+        wait_timeout = _OWNER_INFO_TIMEOUT_S
 
         response = await mc.wait_for_event(
             EventType.BINARY_RESPONSE,

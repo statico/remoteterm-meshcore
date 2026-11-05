@@ -588,7 +588,7 @@ function FieldSection({
   );
 }
 
-export function RawPacketInspectionPanel({
+function RawPacketInspectionPanel({
   packet,
   channels,
   signalOverride,

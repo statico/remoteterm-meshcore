@@ -500,7 +500,7 @@ function resolveNode(
   return nodeId;
 }
 
-export function buildCanonicalPathForPacket(
+function buildCanonicalPathForPacket(
   state: PacketNetworkState,
   context: PacketNetworkContext,
   parsed: ParsedPacket,
@@ -637,7 +637,7 @@ export function ingestPacketIntoPacketNetwork(
   return { parsed, label, canonicalPath, activityAtMs };
 }
 
-export function isPacketNetworkNodeVisible(
+function isPacketNetworkNodeVisible(
   node: PacketNetworkNode | undefined,
   visibility: PacketNetworkVisibilityOptions
 ): boolean {

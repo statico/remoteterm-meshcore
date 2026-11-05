@@ -32,7 +32,7 @@ export interface NodeMeshData {
   labelDiv: HTMLDivElement;
 }
 
-export const NODE_COLORS = {
+const NODE_COLORS = {
   self: 0x22c55e,
   repeater: 0x3b82f6,
   client: 0xffffff,

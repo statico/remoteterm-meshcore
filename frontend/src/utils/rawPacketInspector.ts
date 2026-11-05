@@ -248,10 +248,6 @@ export function decodePacketSummary(
   }
 }
 
-export function inspectRawPacket(packet: RawPacket): RawPacketInspection {
-  return inspectRawPacketWithOptions(packet);
-}
-
 export function inspectRawPacketWithOptions(
   packet: RawPacket,
   decoderOptions?: DecryptionOptions

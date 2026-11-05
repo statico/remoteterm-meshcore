@@ -1,7 +1,6 @@
 export { useUnreadCounts } from './useUnreadCounts';
 export { useConversationMessages } from './useConversationMessages';
 export { useRadioControl } from './useRadioControl';
-export { useRepeaterDashboard } from './useRepeaterDashboard';
 export { useAppShell } from './useAppShell';
 export { useAppSettings } from './useAppSettings';
 export { useConversationRouter } from './useConversationRouter';

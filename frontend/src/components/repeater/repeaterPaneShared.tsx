@@ -207,7 +207,7 @@ export function KvRow({ label, value }: { label: string; value: ReactNode }) {
 
 // --- LPP Utilities ---
 
-export const LPP_UNIT_MAP: Record<string, string> = {
+const LPP_UNIT_MAP: Record<string, string> = {
   temperature: '°C',
   humidity: '%',
   barometer: 'hPa',

@@ -24,7 +24,7 @@ function SkeletonStatus({
   );
 }
 
-export function MessageSkeletonRows({ count }: { count: number }) {
+function MessageSkeletonRows({ count }: { count: number }) {
   return (
     <>
       {Array.from({ length: count }, (_, i) => (

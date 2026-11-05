@@ -25,7 +25,7 @@ export function setStatusDotPulseEnabled(enabled: boolean): void {
   }
 }
 
-export function payloadTypeToPulseKind(payloadType: string | null | undefined): StatusDotPulseKind {
+function payloadTypeToPulseKind(payloadType: string | null | undefined): StatusDotPulseKind {
   switch (payloadType) {
     case 'GROUP_TEXT':
       return 'channel';

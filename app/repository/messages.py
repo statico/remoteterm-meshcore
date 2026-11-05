@@ -1008,11 +1008,15 @@ class MessageRepository:
             # parse. Parsing can iterate thousands of rows and previously held
             # the DB lock for the whole traversal — blocking every other repo
             # caller on a Pi. Keep the lock only for the fetch.
+            # CROSS JOIN drives from the last day of raw packets (timestamp
+            # index) and looks each message up by id. The planner otherwise
+            # walks the channel's entire history, which only ever grows.
             async with conn.execute(
                 """
                 SELECT rp.data FROM raw_packets rp
-                JOIN messages m ON rp.message_id = m.id
-                WHERE m.type = 'CHAN' AND m.conversation_key = ?
+                CROSS JOIN messages m
+                WHERE rp.message_id = m.id
+                  AND m.type = 'CHAN' AND m.conversation_key = ?
                   AND rp.timestamp >= ?
                 """,
                 (conversation_key, t_24h),

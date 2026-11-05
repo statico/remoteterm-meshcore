@@ -120,3 +120,46 @@ async def test_unread_counts_seek_per_conversation(test_db):
         "SEARCH m USING INDEX idx_messages_pagination (type=? AND conversation_key=?)"
         in last_times
     )
+
+
+@pytest.mark.asyncio
+async def test_channel_stats_hash_widths_drive_from_recent_raw_packets(test_db):
+    """Only this channel's raw packets from the last 24h count, and the join
+    starts from the raw_packets timestamp index rather than the channel's
+    whole message history."""
+    import time
+
+    other_key = "EE" * 16
+    now = int(time.time())
+    conn = test_db.conn
+    packets = [
+        # (conversation, packet timestamp, data): one 1-byte and one 2-byte hop
+        # in window for this channel; an old one and another channel's excluded.
+        (CHAN_KEY, now, bytes.fromhex("0100AA")),
+        (
+            CHAN_KEY,
+            now - 60,
+            bytes.fromhex("1540cab3b15626481a5ba64247ab25766e410b026e0678a32da9f0c3946fae5b714cab170f"),
+        ),
+        (CHAN_KEY, now - 90000, bytes.fromhex("0140AA")),
+        (other_key, now, bytes.fromhex("0101BB")),
+    ]
+    for i, (key, ts, data) in enumerate(packets):
+        msg_id = await MessageRepository.create(
+            msg_type="CHAN", text=f"m{i}", conversation_key=key, received_at=ts
+        )
+        await conn.execute(
+            "INSERT INTO raw_packets (timestamp, data, message_id, payload_hash)"
+            " VALUES (?, ?, ?, ?)",
+            (ts, data, msg_id, bytes([i]) * 32),
+        )
+    await conn.commit()
+
+    stats = await MessageRepository.get_channel_stats(CHAN_KEY)
+    widths = stats["path_hash_width_24h"]
+    assert (widths["total_packets"], widths["single_byte"], widths["double_byte"]) == (2, 1, 1)
+
+    plans = await plans_for(test_db, lambda: MessageRepository.get_channel_stats(CHAN_KEY))
+    raw = plans[-1]
+    assert "SEARCH rp USING INDEX idx_raw_packets_timestamp (timestamp>?)" in raw
+    assert "SEARCH m USING INTEGER PRIMARY KEY (rowid=?)" in raw

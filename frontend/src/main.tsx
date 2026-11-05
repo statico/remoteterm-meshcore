@@ -17,6 +17,17 @@ applyTheme(getSavedTheme());
 initFollowOSListener();
 applyFontScale(getSavedFontScale());
 
+// A tab opened before a redeploy asks for lazy chunks whose hashed names no
+// longer exist. Reload to pick up the new build instead of blanking the app;
+// the timestamp guard stops a reload loop if the chunk is truly missing.
+window.addEventListener('vite:preloadError', (event) => {
+  const last = Number(sessionStorage.getItem('chunkReloadAt') || 0);
+  if (Date.now() - last < 10_000) return;
+  event.preventDefault();
+  sessionStorage.setItem('chunkReloadAt', String(Date.now()));
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PushSubscriptionProvider>

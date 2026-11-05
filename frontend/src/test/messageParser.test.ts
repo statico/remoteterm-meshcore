@@ -5,7 +5,7 @@
  * channel messages in "sender: message" format.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   findLinkedChannelReferences,
   formatShortAgo,
@@ -99,6 +99,18 @@ describe('formatTime', () => {
     // Should contain month, day, and time
     expect(result).toMatch(/\w+ \d{1,2}/); // e.g., "Nov 14"
     expect(result).toMatch(/\d{1,2}:\d{2}/); // time portion
+  });
+
+  it('reuses cached formatters instead of building one per call', () => {
+    const timeSpy = vi.spyOn(Date.prototype, 'toLocaleTimeString');
+    const dateSpy = vi.spyOn(Date.prototype, 'toLocaleDateString');
+    formatTime(1700000000);
+    formatTime(Math.floor(Date.now() / 1000));
+    formatShortAgo(1700000000);
+    expect(timeSpy).not.toHaveBeenCalled();
+    expect(dateSpy).not.toHaveBeenCalled();
+    timeSpy.mockRestore();
+    dateSpy.mockRestore();
   });
 });
 

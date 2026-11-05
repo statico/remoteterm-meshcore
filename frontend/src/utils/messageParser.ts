@@ -49,20 +49,23 @@ export function findLinkedChannelReferences(text: string): HashtagChannelReferen
  * Format a Unix timestamp to a time string.
  * Shows date for messages not from today.
  */
+// Built once: toLocale*String with options builds a new formatter per call,
+// which was most of a message row's render cost.
+const TIME_FORMAT = new Intl.DateTimeFormat([], {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+const SHORT_DATE_FORMAT = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' });
+
 export function formatTime(timestamp: number): string {
   const date = new Date(timestamp * 1000);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  if (isToday) {
+  const time = TIME_FORMAT.format(date);
+  if (date.toDateString() === new Date().toDateString()) {
     return time;
   }
-
   // Show short date for older messages
-  const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  return `${dateStr} ${time}`;
+  return `${SHORT_DATE_FORMAT.format(date)} ${time}`;
 }
 
 /** Twitter-style age of a Unix timestamp: "now", "5m", "3h", "2d", then "Mar 4". */
@@ -72,7 +75,7 @@ export function formatShortAgo(timestamp: number, nowMs: number = Date.now()): s
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   if (seconds < 7 * 86400) return `${Math.floor(seconds / 86400)}d`;
-  return new Date(timestamp * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return SHORT_DATE_FORMAT.format(new Date(timestamp * 1000));
 }
 
 /** Check if a message text contains a mention of the given name in @[name] format. */

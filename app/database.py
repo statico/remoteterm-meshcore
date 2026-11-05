@@ -174,6 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_raw_packets_message_id_ts ON raw_packets(message_
 CREATE INDEX IF NOT EXISTS idx_raw_packets_timestamp ON raw_packets(timestamp);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_packets_payload_hash ON raw_packets(payload_hash);
 CREATE INDEX IF NOT EXISTS idx_contacts_type_last_seen ON contacts(type, last_seen);
+CREATE INDEX IF NOT EXISTS idx_contacts_name_sort ON contacts(COALESCE(name, public_key));
 CREATE INDEX IF NOT EXISTS idx_messages_type_received_conversation
     ON messages(type, received_at, conversation_key);
 CREATE INDEX IF NOT EXISTS idx_contact_advert_paths_recent

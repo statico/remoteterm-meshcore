@@ -164,3 +164,20 @@ async def test_channel_stats_hash_widths_drive_from_recent_raw_packets(test_db):
     raw = plans[-1]
     assert "SEARCH rp USING INDEX idx_raw_packets_timestamp (timestamp>?)" in raw
     assert "SEARCH m USING INTEGER PRIMARY KEY (rowid=?)" in raw
+
+
+@pytest.mark.asyncio
+async def test_contact_pages_walk_the_name_sort_index(test_db):
+    """GET /contacts pages must not sort the whole table per page."""
+    from app.repository import ContactRepository
+
+    for i in range(3):
+        await ContactRepository.upsert({"public_key": f"{i:02x}" * 32, "name": f"n{i}"})
+    await ContactRepository.upsert({"public_key": "ff" * 32})  # unnamed: sorts by key
+
+    contacts = await ContactRepository.get_all(limit=10)
+    assert [c.name for c in contacts] == [None, "n0", "n1", "n2"]  # "ff..." < "n..."
+
+    (plan,) = await plans_for(test_db, lambda: ContactRepository.get_all(limit=2, offset=1))
+    assert "SCAN contacts USING INDEX idx_contacts_name_sort" in plan
+    assert "TEMP B-TREE" not in plan

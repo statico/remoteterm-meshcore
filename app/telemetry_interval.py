@@ -13,7 +13,7 @@ The stored preference is *not* mutated on clamp — users get their pick back
 if they later drop repeaters.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 # Daily check budget: total number of repeater status checks we allow
 # across all tracked repeaters per 24-hour window.
@@ -79,9 +79,6 @@ def next_run_timestamp_utc(effective_hours: int, now: datetime | None = None) ->
     # Round up to the next top-of-hour, then skip forward until the modulo matches.
     candidate = now.replace(minute=0, second=0, microsecond=0)
     # Always move at least one hour forward so "now" never matches.
-    candidate = candidate.replace(hour=candidate.hour)
-    from datetime import timedelta
-
     candidate = candidate + timedelta(hours=1)
     while candidate.hour % effective_hours != 0:
         candidate = candidate + timedelta(hours=1)

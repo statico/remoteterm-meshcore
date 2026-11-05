@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
-from app.fanout.base import FanoutModule
+from app.fanout.base import FanoutModule, _broadcast_fanout_health
 
 logger = logging.getLogger(__name__)
 _DISPATCH_TIMEOUT_SECONDS = 30.0
@@ -102,21 +102,15 @@ class FanoutManager:
         self._bots_disabled_until_restart = False
         self._module_errors: dict[str, str] = {}
 
-    def _broadcast_health_update(self) -> None:
-        from app.services.radio_runtime import radio_runtime as radio_manager
-        from app.websocket import broadcast_health
-
-        broadcast_health(radio_manager.is_connected, radio_manager.connection_info)
-
     def _set_module_error(self, config_id: str, error: str) -> None:
         if self._module_errors.get(config_id) == error:
             return
         self._module_errors[config_id] = error
-        self._broadcast_health_update()
+        _broadcast_fanout_health()
 
     def _clear_module_error(self, config_id: str) -> None:
         if self._module_errors.pop(config_id, None) is not None:
-            self._broadcast_health_update()
+            _broadcast_fanout_health()
 
     def get_bots_disabled_source(self) -> str | None:
         """Return why bot modules are unavailable, if at all."""

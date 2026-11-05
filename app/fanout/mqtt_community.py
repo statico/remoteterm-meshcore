@@ -25,24 +25,20 @@ def _normalize_topic_template(topic_template: str) -> str:
     """Normalize packet topic template fields to canonical uppercase placeholders."""
     template = topic_template.strip() or _DEFAULT_PACKET_TOPIC_TEMPLATE
     parts: list[str] = []
-    try:
-        parsed = string.Formatter().parse(template)
-        for literal_text, field_name, format_spec, conversion in parsed:
-            parts.append(literal_text)
-            if field_name is None:
-                continue
-            normalized_field = _TOPIC_TEMPLATE_FIELD_CANONICAL.get(field_name.lower())
-            if normalized_field is None:
-                raise ValueError(f"Unsupported topic template field(s): {field_name}")
-            replacement = ["{", normalized_field]
-            if conversion:
-                replacement.extend(["!", conversion])
-            if format_spec:
-                replacement.extend([":", format_spec])
-            replacement.append("}")
-            parts.append("".join(replacement))
-    except ValueError:
-        raise
+    for literal_text, field_name, format_spec, conversion in string.Formatter().parse(template):
+        parts.append(literal_text)
+        if field_name is None:
+            continue
+        normalized_field = _TOPIC_TEMPLATE_FIELD_CANONICAL.get(field_name.lower())
+        if normalized_field is None:
+            raise ValueError(f"Unsupported topic template field(s): {field_name}")
+        replacement = ["{", normalized_field]
+        if conversion:
+            replacement.extend(["!", conversion])
+        if format_spec:
+            replacement.extend([":", format_spec])
+        replacement.append("}")
+        parts.append("".join(replacement))
 
     return "".join(parts)
 
@@ -86,10 +82,6 @@ class MqttCommunityModule(FanoutModule):
 
     async def stop(self) -> None:
         await self._publisher.stop()
-
-    async def on_message(self, data: dict) -> None:
-        # Community MQTT only publishes raw packets, not decoded messages.
-        pass
 
     async def on_raw(self, data: dict) -> None:
         if not self._publisher.connected or self._publisher._settings is None:

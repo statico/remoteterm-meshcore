@@ -30,7 +30,6 @@ class ParsedPacketEnvelope:
     path_byte_len: int
     path: bytes
     payload: bytes
-    payload_offset: int
     transport_codes: tuple[int, int] | None = None
     """Region transport codes (code_1, code_2) for TRANSPORT_* routes, else None.
 
@@ -133,7 +132,6 @@ def parse_packet_envelope(raw_packet: bytes) -> ParsedPacketEnvelope | None:
             path_byte_len=path_byte_len,
             path=path,
             payload=raw_packet[offset:],
-            payload_offset=offset,
             transport_codes=transport_codes,
         )
     except (IndexError, ValueError):
@@ -227,12 +225,7 @@ def normalize_route_override(
     if path_len is None:
         return None, None, None
 
-    normalized_path, normalized_len, normalized_mode = normalize_contact_route(
-        path_hex,
-        path_len,
-        path_hash_mode,
-    )
-    return normalized_path, normalized_len, normalized_mode
+    return normalize_contact_route(path_hex, path_len, path_hash_mode)
 
 
 def parse_explicit_hop_route(route_text: str) -> tuple[str, int, int]:

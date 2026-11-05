@@ -355,18 +355,11 @@ def parse_advertisement(
     # Parse name if present (remaining bytes)
     if has_name and len(payload) > offset:
         name_bytes = payload[offset:]
-        try:
-            # Decode name, strip null bytes and control characters
-            name = name_bytes.decode("utf-8", errors="ignore")
-            # Remove null terminator and anything after
-            null_idx = name.find("\x00")
-            if null_idx >= 0:
-                name = name[:null_idx]
-            # Strip control characters and whitespace
-            name = "".join(c for c in name if c >= " " or c in "\t").strip()
-            if not name or not any(c.isalnum() for c in name):
-                name = None
-        except Exception:
+        # Decode name, drop the null terminator and anything after it,
+        # then strip control characters and whitespace.
+        name = name_bytes.decode("utf-8", errors="ignore").split("\x00", 1)[0]
+        name = "".join(c for c in name if c >= " " or c in "\t").strip()
+        if not name or not any(c.isalnum() for c in name):
             name = None
 
     return ParsedAdvertisement(

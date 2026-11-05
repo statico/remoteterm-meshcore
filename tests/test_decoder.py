@@ -1063,3 +1063,12 @@ class TestRealWorldDMPacket:
         assert result.message == "Hello there, Mr. Face!"
         assert result.dest_hash == "fa"  # First byte of derived face12 pubkey (0xFA)
         assert result.src_hash == "a1"  # First byte of a1b2c3 pubkey
+
+
+def test_parse_advertisement_name_null_terminator_and_controls():
+    from app.decoder import parse_advertisement
+
+    base = bytes(32) + bytes(4) + bytes(64) + bytes([0x81])
+    assert parse_advertisement(base + b"Alice\x01\x00junk").name == "Alice"  # type: ignore[union-attr]
+    assert parse_advertisement(base + b" \x00Bob").name is None  # type: ignore[union-attr]
+    assert parse_advertisement(base + b"\xffBo b ").name == "Bo b"  # type: ignore[union-attr]

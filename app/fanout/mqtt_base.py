@@ -19,6 +19,8 @@ from typing import Any
 
 import aiomqtt
 
+from app.fanout.base import _broadcast_fanout_health
+
 logger = logging.getLogger(__name__)
 
 _BACKOFF_MIN = 5
@@ -32,12 +34,7 @@ def _format_error_detail(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def _broadcast_health() -> None:
-    """Push updated health (including MQTT status) to all WS clients."""
-    from app.services.radio_runtime import radio_runtime as radio_manager
-    from app.websocket import broadcast_health
-
-    broadcast_health(radio_manager.is_connected, radio_manager.connection_info)
+_broadcast_health = _broadcast_fanout_health
 
 
 class BaseMqttPublisher(ABC):
@@ -112,11 +109,6 @@ class BaseMqttPublisher(ABC):
         self._last_error = None
         self._error_notified = False
         self._suppress_next_connect_toast = False
-
-    async def restart(self, settings: object) -> None:
-        """Called when settings change — stop + start."""
-        await self.stop()
-        await self.start(settings)
 
     async def publish(self, topic: str, payload: dict[str, Any], *, retain: bool = False) -> None:
         """Publish a JSON payload. Drops silently if not connected."""

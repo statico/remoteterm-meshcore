@@ -168,7 +168,9 @@ app = FastAPI(
 
 register_api_docs_routes(app)
 add_optional_basic_auth_middleware(app, server_settings)
-app.add_middleware(GZipMiddleware, minimum_size=500)
+# Level 5, not Starlette's default 9: on a 550 KB contacts page, level 9 costs
+# 13 ms of event-loop CPU for a body only 5% smaller than level 5's 4 ms.
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

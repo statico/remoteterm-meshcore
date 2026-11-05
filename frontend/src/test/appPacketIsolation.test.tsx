@@ -132,7 +132,9 @@ import {
   resetRawPacketStore,
   useRawPackets,
 } from '../stores/rawPacketStore';
-import type { RawPacket } from '../types';
+import { getHealth, setHealth } from '../stores/healthStore';
+import { useWebSocket } from '../useWebSocket';
+import type { HealthStatus, RawPacket } from '../types';
 
 function createPacket(overrides: Partial<RawPacket> = {}): RawPacket {
   return {
@@ -233,6 +235,65 @@ describe('overheard packets and the chat render path', () => {
         recordRawPacket(createPacket({ id: i, observation_id: i }));
       }
     });
+
+    expect(mocks.messageList.mock.calls.length).toBeGreaterThan(rendersBefore);
+  });
+});
+
+describe('health pulses and the chat render path', () => {
+  const pulse = (overrides: Partial<HealthStatus> = {}): HealthStatus => ({
+    status: 'ok',
+    radio_connected: true,
+    radio_initializing: false,
+    connection_info: 'Serial: /dev/ttyUSB0',
+    database_size_mb: 1,
+    oldest_undecrypted_timestamp: null,
+    fanout_statuses: {},
+    bots_disabled: false,
+    ...overrides,
+  });
+
+  async function mountApp() {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByTestId('message-list')).toBeInTheDocument();
+    });
+    const calls = vi.mocked(useWebSocket).mock.calls;
+    const handlers = calls[calls.length - 1][0];
+    act(() => handlers.onHealth!(pulse()));
+    return handlers;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setHealth(null);
+    mocks.api.getRadioConfig.mockResolvedValue(null);
+    mocks.api.getSettings.mockResolvedValue(null);
+    mocks.api.getUndecryptedPacketCount.mockResolvedValue({ count: 0 });
+    mocks.api.getChannels.mockResolvedValue([publicChannel]);
+    mocks.api.getContacts.mockResolvedValue([]);
+  });
+
+  it('does not re-render the message list on a routine pulse', async () => {
+    const handlers = await mountApp();
+    const rendersBefore = mocks.messageList.mock.calls.length;
+
+    act(() => {
+      for (let i = 0; i < 10; i++) handlers.onHealth!(pulse({ database_size_mb: 2 + i }));
+    });
+
+    // The pulses really landed in the store App's WS handlers write to
+    expect(getHealth()?.database_size_mb).toBe(11);
+    expect(mocks.messageList.mock.calls.length).toBe(rendersBefore);
+  });
+
+  it('still re-renders when the radio connection flips', async () => {
+    // Control: the chat pane gates its send box on radio_connected, so that change
+    // alone must still reach it.
+    const handlers = await mountApp();
+    const rendersBefore = mocks.messageList.mock.calls.length;
+
+    act(() => handlers.onHealth!(pulse({ radio_connected: false })));
 
     expect(mocks.messageList.mock.calls.length).toBeGreaterThan(rendersBefore);
   });

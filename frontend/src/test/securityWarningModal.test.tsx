@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +21,7 @@ vi.mock('../components/ui/sonner', () => ({
 }));
 
 import { SecurityWarningModal } from '../components/SecurityWarningModal';
+import { setHealth } from '../stores/healthStore';
 import type { HealthStatus } from '../types';
 
 const baseHealth: HealthStatus = {
@@ -47,7 +48,8 @@ describe('SecurityWarningModal', () => {
   });
 
   it('shows the warning when bots are enabled and basic auth is off', () => {
-    render(<SecurityWarningModal health={baseHealth} />);
+    setHealth(baseHealth);
+    render(<SecurityWarningModal />);
 
     expect(screen.getByText('Unprotected bot execution is enabled')).toBeInTheDocument();
     expect(
@@ -56,13 +58,15 @@ describe('SecurityWarningModal', () => {
   });
 
   it('does not show when bots are disabled', () => {
-    render(<SecurityWarningModal health={{ ...baseHealth, bots_disabled: true }} />);
+    setHealth({ ...baseHealth, bots_disabled: true });
+    render(<SecurityWarningModal />);
 
     expect(screen.queryByText('Unprotected bot execution is enabled')).not.toBeInTheDocument();
   });
 
   it('does not show when basic auth is enabled', () => {
-    render(<SecurityWarningModal health={{ ...baseHealth, basic_auth_enabled: true }} />);
+    setHealth({ ...baseHealth, basic_auth_enabled: true });
+    render(<SecurityWarningModal />);
 
     expect(screen.queryByText('Unprotected bot execution is enabled')).not.toBeInTheDocument();
   });
@@ -70,7 +74,8 @@ describe('SecurityWarningModal', () => {
   it('persists dismissal only after the checkbox is acknowledged', async () => {
     const user = userEvent.setup();
 
-    render(<SecurityWarningModal health={baseHealth} />);
+    setHealth(baseHealth);
+    render(<SecurityWarningModal />);
 
     const dismissButton = screen.getByRole('button', {
       name: 'Do Not Warn Me On This Device Again',
@@ -87,7 +92,8 @@ describe('SecurityWarningModal', () => {
   it('disables bots until restart from the warning modal', async () => {
     const user = userEvent.setup();
 
-    render(<SecurityWarningModal health={baseHealth} />);
+    setHealth(baseHealth);
+    render(<SecurityWarningModal />);
 
     await user.click(screen.getByRole('button', { name: 'Disable Bots Until Server Restart' }));
 
@@ -98,19 +104,18 @@ describe('SecurityWarningModal', () => {
 
   it('shows the warning again after temporary bot disable disappears on a later health update', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<SecurityWarningModal health={baseHealth} />);
+    setHealth(baseHealth);
+    render(<SecurityWarningModal />);
 
     await user.click(screen.getByRole('button', { name: 'Disable Bots Until Server Restart' }));
     expect(screen.queryByText('Unprotected bot execution is enabled')).not.toBeInTheDocument();
 
-    rerender(
-      <SecurityWarningModal
-        health={{ ...baseHealth, bots_disabled: true, bots_disabled_source: 'until_restart' }}
-      />
+    act(() =>
+      setHealth({ ...baseHealth, bots_disabled: true, bots_disabled_source: 'until_restart' })
     );
     expect(screen.queryByText('Unprotected bot execution is enabled')).not.toBeInTheDocument();
 
-    rerender(<SecurityWarningModal health={baseHealth} />);
+    act(() => setHealth(baseHealth));
 
     await waitFor(() => {
       expect(screen.getByText('Unprotected bot execution is enabled')).toBeInTheDocument();

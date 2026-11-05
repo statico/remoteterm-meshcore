@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 import { api } from '../api';
-import type { HealthStatus } from '../types';
+import { useHealth } from '../stores/healthStore';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -32,11 +32,8 @@ function writeAcknowledgedState(): void {
   }
 }
 
-interface SecurityWarningModalProps {
-  health: HealthStatus | null;
-}
-
-export function SecurityWarningModal({ health }: SecurityWarningModalProps) {
+export function SecurityWarningModal() {
+  const health = useHealth();
   const [acknowledged, setAcknowledged] = useState(readAcknowledgedState);
   const [confirmedRisk, setConfirmedRisk] = useState(false);
   const [disablingBots, setDisablingBots] = useState(false);

@@ -26,6 +26,7 @@ import { DISTANCE_UNIT_KEY } from '../utils/distanceUnits';
 import { DistanceUnitProvider } from '../contexts/DistanceUnitContext';
 import { PathHopWidthProvider, SHOW_PATH_HOP_WIDTH_KEY } from '../contexts/PathHopWidthContext';
 import { RichPayloadProvider, RENDER_RICH_PAYLOADS_KEY } from '../contexts/RichPayloadContext';
+import { setHealth } from '../stores/healthStore';
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_KEY,
@@ -122,6 +123,7 @@ function renderModal(overrides?: {
   mobile?: boolean;
 }) {
   setMatchMedia(overrides?.mobile ?? false);
+  setHealth(overrides?.health ?? baseHealth);
 
   const onSaveAppSettings = overrides?.onSaveAppSettings ?? vi.fn(async () => {});
   const onRefreshAppSettings = overrides?.onRefreshAppSettings ?? vi.fn(async () => {});
@@ -139,7 +141,6 @@ function renderModal(overrides?: {
     open: overrides?.open ?? true,
     pageMode: overrides?.pageMode,
     config: overrides?.config === undefined ? baseConfig : overrides.config,
-    health: overrides?.health ?? baseHealth,
     appSettings: overrides?.appSettings ?? baseSettings,
     onClose,
     onSave,

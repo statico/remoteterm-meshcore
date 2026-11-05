@@ -49,6 +49,7 @@ frontend/src/
 ├── networkGraph/
 │   └── packetNetworkGraph.ts # Packet→network graph construction shared by visualizer surfaces
 ├── stores/
+│   ├── healthStore.ts      # Radio health (WS pulses), outside React
 │   └── rawPacketStore.ts   # Overheard packet stream + session stats, outside React
 ├── hooks/
 │   ├── useConversationActions.ts   # Send/resend/trace/block conversation actions
@@ -247,7 +248,7 @@ frontend/src/
 
 High-level state is delegated to hooks:
 - `useAppShell`: app-shell view state (settings section, sidebar, cracker, new-message modal)
-- `useRadioControl`: radio health/config state, reconnect/reboot polling
+- `useRadioControl`: radio config state, reconnect/reboot polling; writes health to `stores/healthStore.ts`
 - `useAppSettings`: settings CRUD, favorites, preferences migration
 - `useContactsAndChannels`: contact/channel lists, creation, deletion
 - `useConversationRouter`: URL hash → active conversation routing
@@ -263,6 +264,8 @@ High-level state is delegated to hooks:
 **The overheard packet stream is the one piece of app state that deliberately does not live in React.** It is held in `stores/rawPacketStore.ts` and read through `useSyncExternalStore`, because it updates several times a second with every packet the node hears — far more often than anything else — and only four surfaces consume it (`MapView`, `VisualizerView`, `RawPacketFeedView`, `CrackerPanel`). Held in `App` state it re-rendered the entire tree, including `MessageList`, which is neither memoized nor cheap on a long history.
 
 That gives the store a load-bearing invariant: **no ancestor of `MessageList` may call `useRawPackets()` / `useRawPacketStatsSession()`.** Nothing about the prop signatures enforces it — an innocuous-looking subscription added to `App`, `AppShell`, or `ConversationPane` silently restores the original slowdown. `src/test/appPacketIsolation.test.tsx` pins it by mounting the real ancestor chain and asserting `MessageList` does not re-render when packets arrive; it carries a negative control so the assertion cannot pass vacuously. Reach for packets in a new view by subscribing in that view, never by lifting them up.
+
+Radio health follows the same rule. `stores/healthStore.ts` holds it, and `StatusBar`, `SettingsModal` and `SecurityWarningModal` subscribe with `useHealth()`. `App` subscribes only to `useRadioConnected()`, so a routine pulse does not re-render the chat path. `appPacketIsolation.test.tsx` pins this, with a connection-flip control.
 
 `ConversationPane.tsx` owns the main active-conversation surface branching:
 - empty state

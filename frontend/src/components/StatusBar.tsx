@@ -9,7 +9,7 @@ import {
   Moon,
   Sun,
 } from 'lucide-react';
-import type { HealthStatus, RadioConfig } from '../types';
+import type { RadioConfig } from '../types';
 import { api } from '../api';
 import { toast } from './ui/sonner';
 import { handleKeyboardActivate } from '../utils/a11y';
@@ -28,10 +28,10 @@ import {
   pulseColorFor,
   type StatusDotPulseKind,
 } from '../utils/statusDotPulse';
+import { useHealth } from '../stores/healthStore';
 import { cn } from '@/lib/utils';
 
 interface StatusBarProps {
-  health: HealthStatus | null;
   config: RadioConfig | null;
   settingsMode?: boolean;
   onSettingsClick: () => void;
@@ -39,12 +39,12 @@ interface StatusBarProps {
 }
 
 export function StatusBar({
-  health,
   config,
   settingsMode = false,
   onSettingsClick,
   onMenuClick,
 }: StatusBarProps) {
+  const health = useHealth();
   const [showBatteryPercent, setShowBatteryPercent] = useState(getShowBatteryPercent);
   const [showBatteryVoltage, setShowBatteryVoltage] = useState(getShowBatteryVoltage);
 

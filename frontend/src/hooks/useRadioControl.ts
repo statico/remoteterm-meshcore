@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { takePrefetchOrFetch } from '../prefetch';
 import { toast } from '../components/ui/sonner';
+import { setHealth } from '../stores/healthStore';
 import type {
   HealthStatus,
   RadioAdvertMode,
@@ -13,7 +14,6 @@ import type {
 } from '../types';
 
 export function useRadioControl() {
-  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [config, setConfig] = useState<RadioConfig | null>(null);
   const [meshDiscovery, setMeshDiscovery] = useState<RadioDiscoveryResponse | null>(null);
   const [meshDiscoveryLoadingTarget, setMeshDiscoveryLoadingTarget] =
@@ -166,7 +166,6 @@ export function useRadioControl() {
   }, []);
 
   return {
-    health,
     setHealth,
     config,
     setConfig,

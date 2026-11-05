@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { StatusBar } from '../components/StatusBar';
+import { setHealth } from '../stores/healthStore';
 import type { HealthStatus } from '../types';
 
 const baseHealth: HealthStatus = {
@@ -17,45 +18,31 @@ const baseHealth: HealthStatus = {
 
 describe('StatusBar', () => {
   it('shows Radio Initializing while setup is still running', () => {
-    render(
-      <StatusBar
-        health={{ ...baseHealth, radio_connected: true, radio_initializing: true }}
-        config={null}
-        onSettingsClick={vi.fn()}
-      />
-    );
+    setHealth({ ...baseHealth, radio_connected: true, radio_initializing: true });
+    render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
     expect(screen.getByRole('status', { name: 'Radio Initializing' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reconnect' })).not.toBeInTheDocument();
   });
 
   it('shows Radio OK when the radio is connected and ready', () => {
-    render(
-      <StatusBar
-        health={{ ...baseHealth, status: 'ok', radio_connected: true }}
-        config={null}
-        onSettingsClick={vi.fn()}
-      />
-    );
+    setHealth({ ...baseHealth, status: 'ok', radio_connected: true });
+    render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
     expect(screen.getByRole('status', { name: 'Radio OK' })).toBeInTheDocument();
   });
 
   it('shows Radio Disconnected when the radio is unavailable', () => {
-    render(<StatusBar health={baseHealth} config={null} onSettingsClick={vi.fn()} />);
+    setHealth(baseHealth);
+    render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
     expect(screen.getByRole('status', { name: 'Radio Disconnected' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
   });
 
   it('shows Radio Paused and a Connect action when reconnect attempts are paused', () => {
-    render(
-      <StatusBar
-        health={{ ...baseHealth, radio_state: 'paused' }}
-        config={null}
-        onSettingsClick={vi.fn()}
-      />
-    );
+    setHealth({ ...baseHealth, radio_state: 'paused' });
+    render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
     expect(screen.getByRole('status', { name: 'Radio Paused' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
@@ -64,7 +51,8 @@ describe('StatusBar', () => {
   it('toggles between classic and light themes from the shortcut button', () => {
     localStorage.setItem('remoteterm-theme', 'cyberpunk');
 
-    render(<StatusBar health={baseHealth} config={null} onSettingsClick={vi.fn()} />);
+    setHealth(baseHealth);
+    render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
     const themeToggle = screen.getByRole('button', { name: 'Switch to light theme' });
     fireEvent.click(themeToggle);
@@ -106,7 +94,8 @@ describe('StatusBar', () => {
       setPrefersLight(false);
       localStorage.setItem('remoteterm-theme', 'follow-os');
 
-      render(<StatusBar health={baseHealth} config={null} onSettingsClick={vi.fn()} />);
+      setHealth(baseHealth);
+      render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
       // OS is dark → effective is original → toggle offers "Switch to light theme"
       const toggle = screen.getByRole('button', { name: 'Switch to light theme' });
@@ -120,7 +109,8 @@ describe('StatusBar', () => {
       setPrefersLight(true);
       localStorage.setItem('remoteterm-theme', 'follow-os');
 
-      render(<StatusBar health={baseHealth} config={null} onSettingsClick={vi.fn()} />);
+      setHealth(baseHealth);
+      render(<StatusBar config={null} onSettingsClick={vi.fn()} />);
 
       // OS is light → effective is light → toggle offers "Switch to classic theme"
       const toggle = screen.getByRole('button', { name: 'Switch to classic theme' });

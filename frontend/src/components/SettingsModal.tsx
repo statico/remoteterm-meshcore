@@ -4,7 +4,6 @@ import type {
   AppSettingsUpdate,
   Channel,
   Contact,
-  HealthStatus,
   RadioAdvertMode,
   RadioConfig,
   RadioConfigUpdate,
@@ -27,12 +26,12 @@ import { SettingsDatabaseSection } from './settings/SettingsDatabaseSection';
 import { SettingsStatisticsSection } from './settings/SettingsStatisticsSection';
 import { SettingsAboutSection } from './settings/SettingsAboutSection';
 import { FormSkeleton } from './LoadingSkeletons';
+import { useHealth } from '../stores/healthStore';
 
 interface SettingsModalBaseProps {
   open: boolean;
   pageMode?: boolean;
   config: RadioConfig | null;
-  health: HealthStatus | null;
   appSettings: AppSettings | null;
   onClose: () => void;
   onSave: (update: RadioConfigUpdate) => Promise<void>;
@@ -71,11 +70,11 @@ export type SettingsModalProps = SettingsModalBaseProps &
   );
 
 export function SettingsModal(props: SettingsModalProps) {
+  const health = useHealth();
   const {
     open,
     pageMode = false,
     config,
-    health,
     appSettings,
     onClose,
     onSave,

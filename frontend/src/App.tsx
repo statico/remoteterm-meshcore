@@ -16,6 +16,7 @@ import { useBrowserNotifications } from './hooks/useBrowserNotifications';
 import { useFaviconBadge, useUnreadTitle } from './hooks/useFaviconBadge';
 import { toast } from './components/ui/sonner';
 import { AppShell } from './components/AppShell';
+import { getHealth, useRadioConnected } from './stores/healthStore';
 import { StatusBar } from './components/StatusBar';
 import { Sidebar } from './components/Sidebar';
 import { ConversationPane } from './components/ConversationPane';
@@ -156,8 +157,9 @@ export function App() {
 
   // --- Extracted hooks ---
 
+  const radioConnected = useRadioConnected();
+
   const {
-    health,
     setHealth,
     config,
     prevHealthRef,
@@ -639,7 +641,6 @@ export function App() {
       onCloseSettingsView={handleCloseSettingsView}
       statusBar={
         <StatusBar
-          health={health}
           config={config}
           settingsMode={showSettings}
           onSettingsClick={handleToggleSettingsView}
@@ -674,7 +675,8 @@ export function App() {
           contactsLoaded={contactsLoaded}
           dataLoaded={contactsLoaded && channelsLoaded}
           config={config}
-          health={health}
+          // Reads only radio_connected; App re-renders on that flip alone.
+          health={radioConnected ? getHealth() : null}
           messages={
             activePendingMessages.length
               ? [...sortedMessages, ...activePendingMessages]
@@ -799,7 +801,6 @@ export function App() {
       settingsView={
         <SettingsModal
           config={config}
-          health={health}
           appSettings={appSettings}
           onSave={handleSaveConfig}
           onSaveAppSettings={handleSaveAppSettings}
@@ -901,7 +902,7 @@ export function App() {
         onOpenSettings={handleOpenSettings}
         onRepeaterAutoLogin={handleRepeaterAutoLogin}
       />
-      <SecurityWarningModal health={health} />
+      <SecurityWarningModal />
     </AppShell>
   );
 }

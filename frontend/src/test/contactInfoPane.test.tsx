@@ -262,4 +262,39 @@ describe('ContactInfoPane', () => {
 
     expect(baseProps.onSearchMessagesByKey).toHaveBeenCalledWith(contact.public_key);
   });
+
+  it('opens a DM with the contact from the pane', async () => {
+    const contact = createContact();
+    getContactAnalytics.mockResolvedValue(createAnalytics(contact));
+    const onOpenConversation = vi.fn();
+
+    render(
+      <ContactInfoPane
+        {...baseProps}
+        contactKey={contact.public_key}
+        onOpenConversation={onOpenConversation}
+      />
+    );
+
+    (await screen.findByRole('button', { name: 'Send direct message' })).click();
+    expect(onOpenConversation).toHaveBeenCalledWith(contact);
+  });
+
+  it('labels the button for repeaters, and hides it without a handler', async () => {
+    const repeater = createContact({ type: 2 });
+    getContactAnalytics.mockResolvedValue(createAnalytics(repeater));
+
+    const { rerender } = render(
+      <ContactInfoPane
+        {...baseProps}
+        contactKey={repeater.public_key}
+        onOpenConversation={vi.fn()}
+      />
+    );
+    expect(await screen.findByRole('button', { name: 'Open repeater' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send direct message' })).toBeNull();
+
+    rerender(<ContactInfoPane {...baseProps} contactKey={repeater.public_key} />);
+    expect(screen.queryByRole('button', { name: 'Open repeater' })).toBeNull();
+  });
 });

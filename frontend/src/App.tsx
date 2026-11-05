@@ -33,11 +33,13 @@ import type {
   AppSettings,
   BulkCreateHashtagChannelsResult,
   Channel,
+  Contact,
   Conversation,
   Message,
 } from './types';
 import { CONTACT_TYPE_REPEATER, CONTACT_TYPE_ROOM } from './types';
 import { shouldAutoFocusInput } from './utils/autoFocusInput';
+import { getContactDisplayName } from './utils/pubkey';
 
 const SettingsModal = lazy(() =>
   import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal }))
@@ -855,6 +857,14 @@ export function App() {
           contacts={contacts}
           config={config}
           onToggleFavorite={handleToggleFavorite}
+          onOpenConversation={(contact: Contact) => {
+            handleCloseContactInfo();
+            handleSelectConversationWithTargetReset({
+              type: 'contact',
+              id: contact.public_key,
+              name: getContactDisplayName(contact.name, contact.public_key, contact.last_advert),
+            });
+          }}
           onNavigateToChannel={handleNavigateToChannel}
           onSearchMessagesByKey={(publicKey: string) => {
             handleOpenSearchWithQuery(`user:${publicKey}`);

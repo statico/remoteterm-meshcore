@@ -172,14 +172,29 @@ vi.mock('../components/RawPacketList', () => ({
 
 vi.mock('../components/ContactInfoPane', () => ({
   ContactInfoPane: ({
+    contactKey,
     onSearchMessagesByKey,
+    onOpenConversation,
   }: {
+    contactKey: string | null;
     onSearchMessagesByKey?: (publicKey: string) => void;
-  }) => (
-    <button type="button" onClick={() => onSearchMessagesByKey?.('aa'.repeat(32))}>
-      Search Contact By Key
-    </button>
-  ),
+    onOpenConversation?: (contact: { public_key: string; name: string; last_advert: null }) => void;
+  }) =>
+    contactKey ? (
+      <div>
+        <button type="button" onClick={() => onSearchMessagesByKey?.('aa'.repeat(32))}>
+          Search Contact By Key
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onOpenConversation?.({ public_key: 'bb'.repeat(32), name: 'Bob', last_advert: null })
+          }
+        >
+          Send DM From Pane
+        </button>
+      </div>
+    ) : null,
 }));
 
 vi.mock('../components/ChannelInfoPane', () => ({
@@ -299,6 +314,28 @@ describe('App search jump target handling', () => {
           .getAllByTestId('active-conversation')
           .some((node) => node.textContent === 'search:search')
       ).toBe(true);
+    });
+  });
+
+  it('opens the DM and closes the pane from the contact pane button', async () => {
+    // The previous test leaves the URL on the search view, which has no chat header.
+    window.history.replaceState(null, '', '/');
+    await act(async () => {
+      render(<App />);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Open Contact Info')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Open Contact Info'));
+    fireEvent.click(await screen.findByText('Send DM From Pane'));
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByTestId('active-conversation')
+          .some((node) => node.textContent === `contact:${'bb'.repeat(32)}`)
+      ).toBe(true);
+      expect(screen.queryByText('Send DM From Pane')).not.toBeInTheDocument();
     });
   });
 });

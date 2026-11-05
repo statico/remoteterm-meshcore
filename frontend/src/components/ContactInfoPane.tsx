@@ -1,5 +1,13 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Ban, ChevronDown, ChevronRight, Search, Star } from 'lucide-react';
+import {
+  Activity,
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
+  Search,
+  Star,
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -35,6 +43,7 @@ import { isPublicChannelKey } from '../utils/publicChannel';
 import { getMapFocusHash } from '../utils/urlHash';
 import { handleKeyboardActivate } from '../utils/a11y';
 import { ContactAvatar } from './ContactAvatar';
+import { Button } from './ui/button';
 import { LppSensorRow, formatLppLabel } from './repeater/repeaterPaneShared';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import { toast } from './ui/sonner';
@@ -76,6 +85,8 @@ interface ContactInfoPaneProps {
   contacts: Contact[];
   config: RadioConfig | null;
   onToggleFavorite: (type: 'channel' | 'contact', id: string) => void;
+  /** Opens this contact's conversation (DM, or the repeater dashboard). */
+  onOpenConversation?: (contact: Contact) => void;
   onNavigateToChannel?: (channelKey: string) => void;
   onSearchMessagesByKey?: (publicKey: string) => void;
   onSearchMessagesByName?: (name: string) => void;
@@ -94,6 +105,7 @@ export function ContactInfoPane({
   contacts,
   config,
   onToggleFavorite,
+  onOpenConversation,
   onNavigateToChannel,
   onSearchMessagesByKey,
   onSearchMessagesByName,
@@ -347,6 +359,12 @@ export function ContactInfoPane({
                   </div>
                 </div>
               </div>
+              {onOpenConversation && (
+                <Button className="mt-4 w-full" onClick={() => onOpenConversation(contact)}>
+                  <MessageSquare className="h-4 w-4 mr-2" aria-hidden="true" />
+                  {isRepeater ? 'Open repeater' : 'Send direct message'}
+                </Button>
+              )}
             </div>
 
             {isPrefixOnlyResolvedContact && (

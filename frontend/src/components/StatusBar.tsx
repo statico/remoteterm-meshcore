@@ -18,6 +18,7 @@ import {
   BATTERY_DISPLAY_CHANGE_EVENT,
   getShowBatteryPercent,
   getShowBatteryVoltage,
+  formatBatteryLabel,
   mvToPercent,
 } from '../utils/batteryDisplay';
 import {
@@ -65,12 +66,7 @@ export function StatusBar({
       pct >= 80 ? BatteryFull : pct >= 40 ? BatteryMedium : pct >= 15 ? BatteryLow : BatteryWarning;
     const color =
       pct >= 40 ? 'text-status-connected' : pct >= 15 ? 'text-warning' : 'text-destructive';
-    const label =
-      showBatteryPercent && showBatteryVoltage
-        ? `${pct}% (${batteryMv}mV)`
-        : showBatteryPercent
-          ? `${pct}%`
-          : `${batteryMv}mV`;
+    const label = formatBatteryLabel(batteryMv, showBatteryPercent, showBatteryVoltage);
     return { pct, Icon, color, label, mv: batteryMv };
   }, [batteryMv, showBatteryPercent, showBatteryVoltage]);
 

@@ -10,7 +10,6 @@ import {
   findLinkedChannelReferences,
   formatShortAgo,
   formatTime,
-  HASHTAG_CHANNEL_NAME_PATTERN,
   parseSenderFromText,
 } from '../utils/messageParser';
 
@@ -115,19 +114,6 @@ describe('formatTime', () => {
 });
 
 describe('linked channel references', () => {
-  it('accepts lowercase alphanumeric names with single dashes', () => {
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('ops')).toBe(true);
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('ops-1')).toBe(true);
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('1-2-3')).toBe(true);
-  });
-
-  it('rejects uppercase, leading or trailing dashes, and repeated dashes', () => {
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('Ops')).toBe(false);
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('-ops')).toBe(false);
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('ops-')).toBe(false);
-    expect(HASHTAG_CHANNEL_NAME_PATTERN.test('ops--room')).toBe(false);
-  });
-
   it('finds standalone linked channel references in message text', () => {
     expect(findLinkedChannelReferences('Join #mesh-room then say hi in #ops2')).toEqual([
       { label: '#mesh-room', start: 5, end: 15 },

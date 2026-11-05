@@ -34,10 +34,6 @@ function getUnreadFavoriteChannelCount(
   );
 }
 
-export function getTotalUnreadCount(unreadCounts: Record<string, number>): number {
-  return Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
-}
-
 export function getFavoriteUnreadCount(
   unreadCounts: Record<string, number>,
   contacts: Contact[],

@@ -6,7 +6,6 @@ import {
   deriveFaviconBadgeState,
   getFavoriteUnreadCount,
   getUnreadTitle,
-  getTotalUnreadCount,
   useFaviconBadge,
   useUnreadTitle,
 } from '../hooks/useFaviconBadge';
@@ -147,8 +146,6 @@ describe('useFaviconBadge', () => {
   });
 
   it('derives the unread count and page title', () => {
-    expect(getTotalUnreadCount({})).toBe(0);
-    expect(getTotalUnreadCount({ a: 2, b: 5 })).toBe(7);
     expect(getFavoriteUnreadCount({}, [], [])).toBe(0);
     expect(
       getFavoriteUnreadCount(

@@ -70,7 +70,6 @@ async def temporary_flood_scope(
     radio_manager,
     action_label: str,
     error_broadcast_fn=None,
-    app_settings_repository=None,
 ):
     """Apply a tri-state flood-scope override for the duration of the block.
 
@@ -79,16 +78,13 @@ async def temporary_flood_scope(
     region name scopes the send. The radio's standing scope is always restored on
     the way out, with up to 3 attempts, mirroring the channel send path.
     """
-    if app_settings_repository is None:
-        from app.repository import AppSettingsRepository
-
-        app_settings_repository = AppSettingsRepository
-
     desired_scope, scope_explicit = resolve_override_scope(override)
 
     baseline_scope = ""
     if desired_scope or scope_explicit:
-        settings = await app_settings_repository.get()
+        from app.repository import AppSettingsRepository
+
+        settings = await AppSettingsRepository.get()
         baseline_scope = normalize_region_scope(settings.flood_scope)
 
     apply_scope = desired_scope != baseline_scope and (bool(desired_scope) or scope_explicit)

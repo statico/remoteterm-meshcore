@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import type { DistanceUnit } from '../utils/distanceUnits';
 
@@ -19,11 +19,8 @@ export function DistanceUnitProvider({
   setDistanceUnit,
   children,
 }: DistanceUnitContextValue & { children: ReactNode }) {
-  return (
-    <DistanceUnitContext.Provider value={{ distanceUnit, setDistanceUnit }}>
-      {children}
-    </DistanceUnitContext.Provider>
-  );
+  const value = useMemo(() => ({ distanceUnit, setDistanceUnit }), [distanceUnit, setDistanceUnit]);
+  return <DistanceUnitContext.Provider value={value}>{children}</DistanceUnitContext.Provider>;
 }
 
 export function useDistanceUnit() {

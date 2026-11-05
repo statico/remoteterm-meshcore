@@ -558,9 +558,7 @@ export function App() {
     showCracker,
     crackerRunning,
     onToggleCracker: handleToggleCracker,
-    onMarkAllRead: () => {
-      void markAllRead();
-    },
+    onMarkAllRead: markAllRead,
     isConversationNotificationsEnabled,
     blockedKeys: appSettings?.blocked_keys ?? [],
     blockedNames: appSettings?.blocked_names ?? [],

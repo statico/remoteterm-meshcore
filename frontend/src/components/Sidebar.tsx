@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AtSign,
   Bell,
@@ -193,7 +193,9 @@ function loadInitialSectionSortOrders(): SidebarSectionSortOrders {
 
 const SECTION_ROW_PAGE_SIZE = 100;
 
-export function Sidebar({
+// Memoized: App re-renders on every message/ack/health update; the sidebar only
+// needs to when its own props change.
+export const Sidebar = memo(function Sidebar({
   contacts,
   channels,
   loaded = true,
@@ -1186,4 +1188,4 @@ export function Sidebar({
       </div>
     </nav>
   );
-}
+});

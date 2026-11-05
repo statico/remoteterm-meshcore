@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 interface PathHopWidthContextValue {
   showPathHopWidth: boolean;
@@ -17,11 +17,11 @@ export function PathHopWidthProvider({
   setShowPathHopWidth,
   children,
 }: PathHopWidthContextValue & { children: ReactNode }) {
-  return (
-    <PathHopWidthContext.Provider value={{ showPathHopWidth, setShowPathHopWidth }}>
-      {children}
-    </PathHopWidthContext.Provider>
+  const value = useMemo(
+    () => ({ showPathHopWidth, setShowPathHopWidth }),
+    [showPathHopWidth, setShowPathHopWidth]
   );
+  return <PathHopWidthContext.Provider value={value}>{children}</PathHopWidthContext.Provider>;
 }
 
 export function usePathHopWidth() {

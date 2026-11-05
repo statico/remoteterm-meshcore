@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 interface RichPayloadContextValue {
   renderRichPayloads: boolean;
@@ -17,11 +17,11 @@ export function RichPayloadProvider({
   setRenderRichPayloads,
   children,
 }: RichPayloadContextValue & { children: ReactNode }) {
-  return (
-    <RichPayloadContext.Provider value={{ renderRichPayloads, setRenderRichPayloads }}>
-      {children}
-    </RichPayloadContext.Provider>
+  const value = useMemo(
+    () => ({ renderRichPayloads, setRenderRichPayloads }),
+    [renderRichPayloads, setRenderRichPayloads]
   );
+  return <RichPayloadContext.Provider value={value}>{children}</RichPayloadContext.Provider>;
 }
 
 export function useRichPayloads() {

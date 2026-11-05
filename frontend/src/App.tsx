@@ -589,11 +589,22 @@ export function App() {
     },
     [setSettingsSection, showSettings, handleToggleSettingsView]
   );
-  const activePendingMessages = pendingMessages.filter(
-    (m) =>
-      m.conversation_key === activeConversation?.id &&
-      m.type === (activeConversation?.type === 'channel' ? 'CHAN' : 'PRIV')
+  const activeId = activeConversation?.id;
+  const activeType = activeConversation?.type === 'channel' ? 'CHAN' : 'PRIV';
+  // Memoized so the open MessageList (memo) sees the same array across App
+  // re-renders that don't touch this conversation, e.g. unread bumps elsewhere.
+  const paneMessages = useMemo(() => {
+    const pending = pendingMessages.filter(
+      (m) => m.conversation_key === activeId && m.type === activeType
+    );
+    return pending.length ? [...sortedMessages, ...pending] : sortedMessages;
+  }, [pendingMessages, activeId, activeType, sortedMessages]);
+  const handleNavigateToUnread = useCallback(
+    (messageId: number) => setTargetMessageId(messageId),
+    [setTargetMessageId]
   );
+  const handleTargetReached = useCallback(() => setTargetMessageId(null), [setTargetMessageId]);
+  const handleDismissUnreadMarker = useCallback(() => setChannelUnreadMarker(null), []);
 
   // Connect to WebSocket
   useWebSocket(wsHandlers);
@@ -679,11 +690,7 @@ export function App() {
           config={config}
           // Reads only radio_connected; App re-renders on that flip alone.
           health={radioConnected ? getHealth() : null}
-          messages={
-            activePendingMessages.length
-              ? [...sortedMessages, ...activePendingMessages]
-              : sortedMessages
-          }
+          messages={paneMessages}
           preSorted={activeContactIsRoom}
           messagesLoading={messagesLoading}
           loadingOlder={loadingOlder}
@@ -705,7 +712,7 @@ export function App() {
               ? channelUnreadMarker.summarizeAfter
               : null
           }
-          onNavigateToUnread={(messageId: number) => setTargetMessageId(messageId)}
+          onNavigateToUnread={handleNavigateToUnread}
           targetMessageId={targetMessageId}
           hasNewerMessages={hasNewerMessages}
           loadingNewer={loadingNewer}
@@ -727,7 +734,7 @@ export function App() {
           onChannelReferenceClick={handleChannelReferenceClick}
           onLoadOlder={fetchOlderMessages}
           onResendChannelMessage={handleResendChannelMessage}
-          onTargetReached={() => setTargetMessageId(null)}
+          onTargetReached={handleTargetReached}
           mentionsViewProps={{
             myName: config?.name ?? null,
             mentions,
@@ -738,7 +745,7 @@ export function App() {
           onLoadNewer={fetchNewerMessages}
           onJumpToBottom={jumpToBottom}
           onSendMessage={handleSendMessage}
-          onDismissUnreadMarker={() => setChannelUnreadMarker(null)}
+          onDismissUnreadMarker={handleDismissUnreadMarker}
           notificationsSupported={notificationsSupported}
           notificationsPermission={notificationsPermission}
           notificationsEnabled={

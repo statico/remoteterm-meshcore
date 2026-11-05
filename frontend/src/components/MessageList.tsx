@@ -910,7 +910,8 @@ export function isPrependOf(prev: readonly Message[], next: readonly Message[]):
   );
 }
 
-export function MessageList({
+/** Memoized: App re-renders on every unread bump elsewhere; this list must not. */
+export const MessageList = memo(function MessageList({
   messages,
   contacts,
   channels = [],
@@ -1511,4 +1512,4 @@ export function MessageList({
       )}
     </div>
   );
-}
+});

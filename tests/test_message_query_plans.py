@@ -117,8 +117,7 @@ async def test_unread_counts_seek_per_conversation(test_db):
     assert "TEMP B-TREE" not in first_unread
 
     assert (
-        "SEARCH m USING INDEX idx_messages_pagination (type=? AND conversation_key=?)"
-        in last_times
+        "SEARCH m USING INDEX idx_messages_pagination (type=? AND conversation_key=?)" in last_times
     )
 
 
@@ -139,7 +138,9 @@ async def test_channel_stats_hash_widths_drive_from_recent_raw_packets(test_db):
         (
             CHAN_KEY,
             now - 60,
-            bytes.fromhex("1540cab3b15626481a5ba64247ab25766e410b026e0678a32da9f0c3946fae5b714cab170f"),
+            bytes.fromhex(
+                "1540cab3b15626481a5ba64247ab25766e410b026e0678a32da9f0c3946fae5b714cab170f"
+            ),
         ),
         (CHAN_KEY, now - 90000, bytes.fromhex("0140AA")),
         (other_key, now, bytes.fromhex("0101BB")),

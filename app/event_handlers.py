@@ -92,8 +92,6 @@ async def on_contact_message(event: "Event") -> None:
     ):
         sender_name, sender_key = await resolve_direct_message_sender_metadata(
             sender_public_key=signature,
-            received_at=received_at,
-            broadcast_fn=broadcast_event,
             contact_repository=ContactRepository,
             log=logger,
         )

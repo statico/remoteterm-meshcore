@@ -107,8 +107,6 @@ async def resolve_fallback_direct_message_context(
 async def resolve_direct_message_sender_metadata(
     *,
     sender_public_key: str,
-    received_at: int,
-    broadcast_fn: BroadcastFn,
     contact_repository=ContactRepository,
     log: logging.Logger | None = None,
 ) -> tuple[str | None, str | None]:
@@ -320,8 +318,6 @@ async def ingest_decrypted_direct_message(
             if contact.type == CONTACT_TYPE_ROOM and decrypted.signed_sender_prefix:
                 sender_name, sender_key = await resolve_direct_message_sender_metadata(
                     sender_public_key=decrypted.signed_sender_prefix,
-                    received_at=received_at or int(time.time()),
-                    broadcast_fn=broadcast_fn,
                     contact_repository=contact_repository,
                     log=logger,
                 )

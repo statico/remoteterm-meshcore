@@ -296,13 +296,21 @@ class TestAdvertisementPipeline:
 
         broadcasts, mock_broadcast = captured_broadcasts
 
-        with patch("app.packet_processor.broadcast_event", mock_broadcast):
-            with patch(
+        real_get = AppSettingsRepository.get
+        with (
+            patch("app.packet_processor.broadcast_event", mock_broadcast),
+            patch(
                 "app.packet_processor.start_historical_dm_decryption", new=AsyncMock()
-            ) as mock_start:
-                await process_raw_packet(packet_bytes, timestamp=1700000000)
+            ) as mock_start,
+            patch(
+                "app.packet_processor.AppSettingsRepository.get", side_effect=real_get
+            ) as mock_get,
+        ):
+            await process_raw_packet(packet_bytes, timestamp=1700000000)
 
         mock_start.assert_awaited_once_with(None, expected["public_key"], expected["name"])
+        # One settings read covers both the discovery-block and auto-decrypt checks.
+        assert mock_get.await_count == 1
 
     @pytest.mark.asyncio
     async def test_advertisement_skips_historical_decrypt_for_existing_contact(

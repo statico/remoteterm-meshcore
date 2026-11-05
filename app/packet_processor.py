@@ -585,17 +585,20 @@ async def _process_advertisement(
 
     # Check discovery_blocked_types: skip new contacts whose type is blocked.
     # Existing contacts are always updated (location, name, last_seen, etc.).
-    if existing is None and contact_type > 0:
-        from app.repository import AppSettingsRepository
-
-        settings = await AppSettingsRepository.get()
-        if contact_type in settings.discovery_blocked_types:
-            logger.debug(
-                "Skipping new contact %s: type %d is in discovery_blocked_types",
-                advert.public_key[:12],
-                contact_type,
-            )
-            return
+    # New contacts read settings once here; the same snapshot drives the
+    # historical-decrypt decision below.
+    new_contact_settings = await AppSettingsRepository.get() if existing is None else None
+    if (
+        new_contact_settings is not None
+        and contact_type > 0
+        and contact_type in new_contact_settings.discovery_blocked_types
+    ):
+        logger.debug(
+            "Skipping new contact %s: type %d is in discovery_blocked_types",
+            advert.public_key[:12],
+            contact_type,
+        )
+        return
 
     contact_upsert = ContactUpsert(
         public_key=advert.public_key.lower(),
@@ -652,12 +655,8 @@ async def _process_advertisement(
 
     # For new contacts, optionally attempt to decrypt any historical DMs we may have stored
     # This is controlled by the auto_decrypt_dm_on_advert setting
-    if existing is None:
-        from app.repository import AppSettingsRepository
-
-        settings = await AppSettingsRepository.get()
-        if settings.auto_decrypt_dm_on_advert:
-            await start_historical_dm_decryption(None, advert.public_key.lower(), advert.name)
+    if new_contact_settings is not None and new_contact_settings.auto_decrypt_dm_on_advert:
+        await start_historical_dm_decryption(None, advert.public_key.lower(), advert.name)
 
 
 async def _process_direct_message(

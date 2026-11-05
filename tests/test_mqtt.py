@@ -18,9 +18,6 @@ def _make_settings(**overrides) -> SimpleNamespace:
         "mqtt_password": "",
         "mqtt_use_tls": False,
         "mqtt_tls_insecure": False,
-        "mqtt_topic_prefix": "meshcore",
-        "mqtt_publish_messages": True,
-        "mqtt_publish_raw_packets": True,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)

@@ -20,8 +20,6 @@ class PrivateMqttSettings(Protocol):
     mqtt_password: str
     mqtt_use_tls: bool
     mqtt_tls_insecure: bool
-    mqtt_publish_messages: bool
-    mqtt_publish_raw_packets: bool
 
 
 class MqttPublisher(BaseMqttPublisher):
@@ -31,11 +29,9 @@ class MqttPublisher(BaseMqttPublisher):
     _log_prefix = "MQTT"
 
     def _is_configured(self) -> bool:
-        """Check if MQTT is configured and has something to publish."""
+        """Check if MQTT has a broker configured."""
         s: PrivateMqttSettings | None = self._settings
-        return bool(
-            s and s.mqtt_broker_host and (s.mqtt_publish_messages or s.mqtt_publish_raw_packets)
-        )
+        return bool(s and s.mqtt_broker_host)
 
     def _build_client_kwargs(self, settings: object) -> dict[str, Any]:
         s: PrivateMqttSettings = settings  # type: ignore[assignment]

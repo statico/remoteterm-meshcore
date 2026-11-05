@@ -20,9 +20,6 @@ def _config_to_settings(config: dict) -> SimpleNamespace:
         mqtt_password=config.get("password", ""),
         mqtt_use_tls=config.get("use_tls", False),
         mqtt_tls_insecure=config.get("tls_insecure", False),
-        mqtt_topic_prefix=config.get("topic_prefix", "meshcore"),
-        mqtt_publish_messages=True,
-        mqtt_publish_raw_packets=True,
     )
 
 

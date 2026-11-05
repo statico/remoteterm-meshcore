@@ -414,6 +414,15 @@ async def toggle_blocked_name(request: BlockNameRequest) -> AppSettings:
     return await AppSettingsRepository.toggle_blocked_name(request.name)
 
 
+async def _resolve_names(keys: list[str]) -> dict[str, str]:
+    """Display names for tracked keys, falling back to the 12-char key prefix."""
+    names: dict[str, str] = {}
+    for k in keys:
+        contact = await ContactRepository.get_by_key(k)
+        names[k] = contact.name if contact and contact.name else k[:12]
+    return names
+
+
 @router.post("/tracked-telemetry/toggle", response_model=TrackedTelemetryResponse)
 async def toggle_tracked_telemetry(request: TrackedTelemetryRequest) -> TrackedTelemetryResponse:
     """Toggle periodic telemetry collection for a repeater.
@@ -424,13 +433,6 @@ async def toggle_tracked_telemetry(request: TrackedTelemetryRequest) -> TrackedT
     key = request.public_key.lower()
     settings = await AppSettingsRepository.get()
     current = settings.tracked_telemetry_repeaters
-
-    async def _resolve_names(keys: list[str]) -> dict[str, str]:
-        names: dict[str, str] = {}
-        for k in keys:
-            contact = await ContactRepository.get_by_key(k)
-            names[k] = contact.name if contact and contact.name else k[:12]
-        return names
 
     if key in current:
         # Remove
@@ -538,13 +540,6 @@ async def toggle_tracked_telemetry_contact(
     key = request.public_key.lower()
     settings = await AppSettingsRepository.get()
     current = settings.tracked_telemetry_contacts
-
-    async def _resolve_names(keys: list[str]) -> dict[str, str]:
-        names: dict[str, str] = {}
-        for k in keys:
-            contact = await ContactRepository.get_by_key(k)
-            names[k] = contact.name if contact and contact.name else k[:12]
-        return names
 
     if key in current:
         # Remove

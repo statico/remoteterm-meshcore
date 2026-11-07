@@ -452,6 +452,9 @@ function hasUnexpectedControlChars(text: string): boolean {
  * every row under the reader each time pagination started or stopped.
  */
 const TOP_SLOT_HEIGHT = 40;
+// Footer padding below the rows. Scrolling to the last row's 'end' stops short
+// of it, so bottom scrolls add it as an offset to reach the true bottom.
+const BOTTOM_PADDING = 16;
 
 /** Distance in px from an edge that counts as "at" it (stick-to-bottom, paging). */
 const EDGE_THRESHOLD = 100;
@@ -1084,6 +1087,10 @@ export const MessageList = memo(function MessageList({
     },
     []
   );
+  const scrollToEnd = useCallback(
+    (last: number) => scrollToIndex(last, 'end', BOTTOM_PADDING),
+    [scrollToIndex]
+  );
 
   const hasNewerMessagesRef = useRef(hasNewerMessages);
   hasNewerMessagesRef.current = hasNewerMessages;
@@ -1110,7 +1117,7 @@ export const MessageList = memo(function MessageList({
       // First rows of this conversation: open at the newest message.
       if (!targetPending) {
         atBottomRef.current = true;
-        scrollToIndex(last, 'end');
+        scrollToEnd(last);
       }
       return;
     }
@@ -1120,7 +1127,7 @@ export const MessageList = memo(function MessageList({
       // Follow new messages (including sent ones). Skipped while browsing
       // mid-history, where forward pagination must append in place.
       if (sortedMessages[last].id !== prev[prev.length - 1].id || last !== prev.length - 1) {
-        scrollToIndex(last, 'end');
+        scrollToEnd(last);
       }
       return;
     }
@@ -1136,7 +1143,7 @@ export const MessageList = memo(function MessageList({
     if (prev.findIndex((msg) => msg.id === anchor.id) !== nextIndex) {
       scrollToIndex(nextIndex, 'start', anchor.delta);
     }
-  }, [sortedMessages, scrollToIndex]);
+  }, [sortedMessages, scrollToIndex, scrollToEnd]);
 
   // Scroll to target message and highlight it
   useLayoutEffect(() => {
@@ -1341,8 +1348,8 @@ export const MessageList = memo(function MessageList({
       return;
     }
     atBottomRef.current = true;
-    scrollToIndex(sortedMessages.length - 1, 'end');
-  }, [hasNewerMessages, onJumpToBottom, scrollToIndex, sortedMessages.length]);
+    scrollToEnd(sortedMessages.length - 1);
+  }, [hasNewerMessages, onJumpToBottom, scrollToEnd, sortedMessages.length]);
 
   // Sender info for outgoing messages (used by path modal on own messages)
   const selfSenderInfo = useMemo<SenderInfo>(
@@ -1416,7 +1423,7 @@ export const MessageList = memo(function MessageList({
             />
           )}
         </Virtualizer>
-        <div className="pb-4">
+        <div style={{ paddingBottom: BOTTOM_PADDING }}>
           {loadingNewer && (
             <LoadingIndicator label="Loading newer messages..." className="py-2 text-sm" />
           )}

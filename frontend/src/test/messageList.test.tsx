@@ -29,6 +29,7 @@ const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRec
 const VIEWPORT = 400;
 const ROW = 40; // Virtua's default estimate for an unmeasured row
 const TOP_SLOT = 40; // MessageList's fixed banner slot above the rows
+const BOTTOM_PAD = 16; // MessageList's footer padding below the rows
 
 let scroller: HTMLElement | null = null;
 
@@ -36,7 +37,7 @@ function installFakeLayout(el: HTMLElement) {
   let top = 0;
   const contentHeight = () => {
     const spacer = el.querySelector<HTMLElement>('[style*="contain"]');
-    return TOP_SLOT + (spacer ? parseFloat(spacer.style.height) || 0 : 0);
+    return TOP_SLOT + (spacer ? parseFloat(spacer.style.height) || 0 : 0) + BOTTOM_PAD;
   };
   Object.defineProperties(el, {
     clientHeight: { configurable: true, get: () => VIEWPORT },

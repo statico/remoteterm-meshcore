@@ -1,3 +1,7 @@
+## [3.26.8] - 2026-11-06
+
+* Bugfix: Opening a conversation scrolls all the way to the bottom instead of stopping a few pixels short
+
 ## [3.26.7] - 2026-11-05
 
 * Feature: Contact info pane has a "Send direct message" button (disabled, with the reason, for channel senders whose key we haven't heard)

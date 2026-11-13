@@ -1,3 +1,7 @@
+## [3.26.9] - 2026-11-12
+
+* Bugfix: No empty band at the top on iPhone when RemoteTerm is shown in a frame, such as Home Assistant ingress (#9)
+
 ## [3.26.8] - 2026-11-06
 
 * Bugfix: Opening a conversation scrolls all the way to the bottom instead of stopping a few pixels short

@@ -15,6 +15,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./site.webmanifest" crossorigin="use-credentials" />
     <script>
+      // When framed (e.g. Home Assistant ingress), the host page owns the device
+      // safe areas, but iOS still reports the full insets to the frame. Zero them;
+      // inline styles on <html> override the :root rules in styles.css.
+      if (window.self !== window.top) {
+        ['top', 'right', 'bottom', 'left', 'bottom-capped'].forEach(function (side) {
+          document.documentElement.style.setProperty('--safe-area-' + side, '0px');
+        });
+      }
+
       // Service worker registration moved to main.tsx (requires isSecureContext
       // for Web Push). Do not duplicate here.
 
